@@ -143,11 +143,12 @@ final class Coywolf_SEO_Compat {
 		// filters.
 		$this->remove_seo_title_filters();
 
-		// Some SEO plugins remove core's robots output to print their own.
-		// Theirs is gone now, so make sure core's (which this plugin
-		// filters) is back.
-		if ( false === has_action( 'wp_head', 'wp_robots' ) ) {
-			add_action( 'wp_head', 'wp_robots', 1 );
+		// Some SEO plugins remove the robots output to print their own.
+		// Theirs is gone now, so make sure this plugin's renderer is in
+		// place (it replaces core's wp_robots with double-quoted markup).
+		$head = Coywolf_SEO::instance()->head();
+		if ( false === has_action( 'wp_head', array( $head, 'output_robots' ) ) ) {
+			add_action( 'wp_head', array( $head, 'output_robots' ), 1 );
 		}
 		// Same for core's canonical: this plugin removes and replaces it
 		// itself in Coywolf_SEO_Head, so nothing to restore here.

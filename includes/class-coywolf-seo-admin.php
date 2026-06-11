@@ -404,6 +404,10 @@ final class Coywolf_SEO_Admin {
 			// First run: seed the typical Organization defaults.
 			$rows = array(
 				array(
+					'prop'  => '@id',
+					'value' => home_url( '/' ) . '#organization',
+				),
+				array(
 					'prop'  => 'name',
 					'value' => get_bloginfo( 'name' ),
 				),
@@ -420,6 +424,25 @@ final class Coywolf_SEO_Admin {
 					'value' => '',
 				),
 			);
+		} else {
+			// Always show the @id used in the output so it can be edited
+			// (or removed, which falls back to the default anchor).
+			$has_id = false;
+			foreach ( $rows as $row ) {
+				if ( isset( $row['prop'] ) && '@id' === $row['prop'] ) {
+					$has_id = true;
+					break;
+				}
+			}
+			if ( ! $has_id ) {
+				array_unshift(
+					$rows,
+					array(
+						'prop'  => '@id',
+						'value' => home_url( '/' ) . '#organization',
+					)
+				);
+			}
 		}
 
 		$og_image_url = $o['og_image_id'] ? wp_get_attachment_image_url( (int) $o['og_image_id'], 'medium' ) : '';
@@ -507,8 +530,13 @@ final class Coywolf_SEO_Admin {
 									<?php self::render_property_rows( 'org_rows', $rows, $org_props ); ?>
 								</tbody>
 							</table>
-							<button type="button" class="button coywolf-seo-add-row" data-target="coywolf-seo-org-props"><?php esc_html_e( 'Add property', 'coywolf-seo' ); ?></button>
-							<p class="description"><?php esc_html_e( 'Schema.org Organization properties — each value input matches the property type. Add a property more than once (sameAs, for example) to output multiple values. Empty rows are not saved.', 'coywolf-seo' ); ?></p>
+							<select class="coywolf-seo-add-select" data-target="coywolf-seo-org-props" aria-label="<?php esc_attr_e( 'Add a property', 'coywolf-seo' ); ?>">
+								<option value=""><?php esc_html_e( '— select property —', 'coywolf-seo' ); ?></option>
+								<?php foreach ( $org_props as $prop => $label ) : ?>
+									<option value="<?php echo esc_attr( $prop ); ?>"><?php echo esc_html( $label ); ?></option>
+								<?php endforeach; ?>
+							</select>
+							<p class="description"><?php esc_html_e( 'Schema.org Organization properties — selecting a property adds it, and each value input matches the property type. Add a property more than once (sameAs, for example) to output multiple values. Empty rows are not saved; removing @id falls back to the default.', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
 				</table>

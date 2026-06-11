@@ -219,6 +219,7 @@ final class Coywolf_SEO_Options {
 	 */
 	public static function property_inputs() {
 		return array(
+			'@id'               => array( 'input' => 'url' ),
 			'url'               => array( 'input' => 'url' ),
 			'sameAs'            => array( 'input' => 'url' ),
 			'logo'              => array( 'input' => 'image' ),
@@ -404,6 +405,7 @@ final class Coywolf_SEO_Options {
 	 */
 	public static function organization_properties() {
 		return array(
+			'@id'                => '@id',
 			'name'               => 'name',
 			'alternateName'      => 'alternateName',
 			'legalName'          => 'legalName',
@@ -457,6 +459,7 @@ final class Coywolf_SEO_Options {
 	 */
 	public static function person_properties() {
 		return array(
+			'@id'                       => '@id',
 			'name'                      => 'name',
 			'additionalName'            => 'additionalName',
 			'alternateName'             => 'alternateName',

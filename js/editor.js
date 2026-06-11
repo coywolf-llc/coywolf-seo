@@ -99,7 +99,10 @@
 				onChange: function ( v ) {
 					update( 'canonical', v );
 				}
-			} )
+			} ),
+			config.entityStatus
+				? el( 'p', { className: 'coywolf-seo-entity-status', style: { color: '#50575e', marginBottom: 0 } }, config.entityStatus )
+				: null
 		);
 	}
 

@@ -221,6 +221,15 @@ final class Coywolf_SEO {
 	}
 
 	/**
+	 * AI module accessor (the editor panel shows the analysis status).
+	 *
+	 * @return Coywolf_SEO_AI
+	 */
+	public function ai() {
+		return $this->ai;
+	}
+
+	/**
 	 * Activation hook: grant the admin capability per the saved setting,
 	 * regenerate rewrite rules (category prefix removal adds its own), and
 	 * purge known page caches so the new head output is served immediately

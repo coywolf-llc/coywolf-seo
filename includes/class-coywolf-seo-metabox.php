@@ -163,12 +163,16 @@ final class Coywolf_SEO_Metabox {
 			);
 		}
 
+		global $post;
+		$entity_status = ( $post instanceof WP_Post ) ? Coywolf_SEO::instance()->ai()->status_text( $post->ID ) : '';
+
 		wp_localize_script(
 			'coywolf-seo-editor',
 			'CoywolfSEOEditor',
 			array(
 				'pageTypeOptions'    => $page_options,
 				'articleTypeOptions' => $article_options,
+				'entityStatus'       => $entity_status,
 				'i18n'               => array(
 					'panelTitle'  => __( 'SEO', 'coywolf-seo' ),
 					'pageType'    => __( 'Schema page type', 'coywolf-seo' ),

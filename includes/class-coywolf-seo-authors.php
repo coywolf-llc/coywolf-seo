@@ -42,6 +42,10 @@ final class Coywolf_SEO_Authors {
 		$url  = $user->user_url ? $user->user_url : get_author_posts_url( $user->ID );
 		$rows = array(
 			array(
+				'prop'  => '@id',
+				'value' => get_author_posts_url( $user->ID ) . '#person',
+			),
+			array(
 				'prop'  => 'name',
 				'value' => $user->display_name,
 			),
@@ -148,6 +152,25 @@ final class Coywolf_SEO_Authors {
 				$rows = Coywolf_SEO_Options::author_rows( $user->ID );
 				if ( null === $rows || empty( $rows ) ) {
 					$rows = $this->imported_rows( $user );
+				} else {
+					// Always show the @id used in the output so it can be
+					// edited (removing it falls back to the default anchor).
+					$has_id = false;
+					foreach ( $rows as $row ) {
+						if ( isset( $row['prop'] ) && '@id' === $row['prop'] ) {
+							$has_id = true;
+							break;
+						}
+					}
+					if ( ! $has_id ) {
+						array_unshift(
+							$rows,
+							array(
+								'prop'  => '@id',
+								'value' => get_author_posts_url( $user->ID ) . '#person',
+							)
+						);
+					}
 				}
 				?>
 				<h2><?php echo esc_html( $user->display_name ); ?></h2>
@@ -161,8 +184,13 @@ final class Coywolf_SEO_Authors {
 							<?php Coywolf_SEO_Admin::render_property_rows( 'author_rows', $rows, $person_props ); ?>
 						</tbody>
 					</table>
-					<button type="button" class="button coywolf-seo-add-row" data-target="coywolf-seo-author-props"><?php esc_html_e( 'Add property', 'coywolf-seo' ); ?></button>
-					<p class="description"><?php esc_html_e( 'Schema.org Person properties — each value input matches the property type. Add a property more than once (sameAs, for example) to output multiple values. Empty rows are not saved.', 'coywolf-seo' ); ?></p>
+					<select class="coywolf-seo-add-select" data-target="coywolf-seo-author-props" aria-label="<?php esc_attr_e( 'Add a property', 'coywolf-seo' ); ?>">
+						<option value=""><?php esc_html_e( '— select property —', 'coywolf-seo' ); ?></option>
+						<?php foreach ( $person_props as $prop => $label ) : ?>
+							<option value="<?php echo esc_attr( $prop ); ?>"><?php echo esc_html( $label ); ?></option>
+						<?php endforeach; ?>
+					</select>
+					<p class="description"><?php esc_html_e( 'Schema.org Person properties — selecting a property adds it, and each value input matches the property type. Add a property more than once (sameAs, for example) to output multiple values. Empty rows are not saved; removing @id falls back to the default.', 'coywolf-seo' ); ?></p>
 
 					<?php submit_button( __( 'Save Author', 'coywolf-seo' ) ); ?>
 				</form>
