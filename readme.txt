@@ -4,7 +4,7 @@ Tags: seo
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.2
+Stable tag: 1.0.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -43,6 +43,9 @@ Updates are delivered straight from the project's GitHub releases via the bundle
 Privacy-first: this plugin includes no analytics, no tracking, and no data gathering — nothing about you, your site, or your visitors is ever collected.
 
 == Changelog ==
+
+= 1.0.3 =
+* Suppress other SEO plugins' output and add category prefix removal (#4).
 
 = 1.0.2 =
 * Add schema markup, Open Graph metadata, and the Authors page (#3).
