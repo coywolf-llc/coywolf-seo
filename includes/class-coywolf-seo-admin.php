@@ -183,13 +183,18 @@ final class Coywolf_SEO_Admin {
 
 		// Checkboxes are absent when unchecked: force their presence so
 		// sanitize() records the off state instead of skipping the key.
-		foreach ( array( 'post_append_site_name', 'page_append_site_name', 'cat_append_site_name', 'tag_append_site_name' ) as $key ) {
+		foreach ( array( 'post_append_site_name', 'page_append_site_name', 'cat_append_site_name', 'cat_hide_prefix', 'tag_append_site_name' ) as $key ) {
 			$raw[ $key ] = ! empty( $raw[ $key ] );
 		}
 		// Rebuild the property repeater from its parallel arrays.
 		$raw['org_properties'] = $this->zip_properties( $raw );
 
+		$prefix_before = (bool) Coywolf_SEO_Options::get( 'cat_hide_prefix' );
 		Coywolf_SEO_Options::update( Coywolf_SEO_Options::sanitize( $raw ) );
+		if ( (bool) Coywolf_SEO_Options::get( 'cat_hide_prefix' ) !== $prefix_before ) {
+			// Category URLs just changed shape; regenerate the rewrite rules.
+			flush_rewrite_rules();
+		}
 		$this->redirect_back( self::SLUG_SITE, 'site' );
 	}
 
@@ -476,6 +481,16 @@ final class Coywolf_SEO_Admin {
 								<input type="checkbox" name="coywolf_seo[cat_append_site_name]" value="1" <?php checked( $o['cat_append_site_name'] ); ?> />
 								<?php esc_html_e( 'Append the site name to category titles, separated with an em dash', 'coywolf-seo' ); ?>
 							</label>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Hide category prefix in slug', 'coywolf-seo' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="coywolf_seo[cat_hide_prefix]" value="1" <?php checked( $o['cat_hide_prefix'] ); ?> />
+								<?php esc_html_e( 'Remove the category prefix (usually /category/) from category URLs', 'coywolf-seo' ); ?>
+							</label>
+							<p class="description"><?php esc_html_e( 'Old prefixed URLs are 301 redirected to the clean ones. Requires pretty permalinks. A category sharing a slug with a page will take precedence over that page.', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
 				</table>

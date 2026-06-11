@@ -81,6 +81,20 @@ final class Coywolf_SEO {
 	private $authors;
 
 	/**
+	 * Other-SEO-plugin suppression module.
+	 *
+	 * @var Coywolf_SEO_Compat
+	 */
+	private $compat;
+
+	/**
+	 * Category prefix removal module.
+	 *
+	 * @var Coywolf_SEO_Category_Base
+	 */
+	private $category_base;
+
+	/**
 	 * Create (once) and return the plugin instance.
 	 *
 	 * @return Coywolf_SEO
@@ -110,6 +124,12 @@ final class Coywolf_SEO {
 
 		$this->authors = new Coywolf_SEO_Authors();
 		$this->authors->init();
+
+		$this->compat = new Coywolf_SEO_Compat();
+		$this->compat->init();
+
+		$this->category_base = new Coywolf_SEO_Category_Base();
+		$this->category_base->init();
 
 		if ( is_admin() ) {
 			$this->admin = new Coywolf_SEO_Admin();
@@ -148,18 +168,21 @@ final class Coywolf_SEO {
 	}
 
 	/**
-	 * Activation hook: grant the admin capability per the saved setting.
+	 * Activation hook: grant the admin capability per the saved setting and
+	 * regenerate rewrite rules (category prefix removal adds its own).
 	 */
 	public static function on_activate() {
 		Coywolf_SEO_Admin::sync_capability( (string) Coywolf_SEO_Options::get( 'access_role' ) );
+		flush_rewrite_rules();
 	}
 
 	/**
-	 * Deactivation hook.
+	 * Deactivation hook: drop this plugin's rewrite rules.
 	 *
 	 * Capabilities are left in place on deactivate; they are removed on
 	 * uninstall.
 	 */
 	public static function on_deactivate() {
+		flush_rewrite_rules();
 	}
 }

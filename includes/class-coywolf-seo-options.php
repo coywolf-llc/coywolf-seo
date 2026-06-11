@@ -51,6 +51,7 @@ final class Coywolf_SEO_Options {
 			'page_page_type'        => 'WebPage',
 			'page_article_type'     => 'none',
 			'cat_append_site_name'  => false,
+			'cat_hide_prefix'       => false,
 			'tag_append_site_name'  => false,
 			// Settings.
 			'access_role'           => 'administrator', // administrator | editor.
@@ -116,6 +117,7 @@ final class Coywolf_SEO_Options {
 			'post_append_site_name',
 			'page_append_site_name',
 			'cat_append_site_name',
+			'cat_hide_prefix',
 			'tag_append_site_name',
 			'force_rewrite_titles',
 			'exclude_meta_desc',
