@@ -38,6 +38,11 @@ final class Coywolf_SEO_OpenGraph {
 		if ( '' === $title ) {
 			return;
 		}
+		// The Open Graph title follows the document title: when "Append
+		// site name" is on, shares carry it too (never on the homepage).
+		if ( $titles->appends_site_name() ) {
+			$title .= ' ' . Coywolf_SEO_Options::separator() . ' ' . get_bloginfo( 'name' );
+		}
 
 		$singular = is_singular( array( 'post', 'page' ) ) && ! is_front_page();
 
