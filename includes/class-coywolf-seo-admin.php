@@ -35,6 +35,7 @@ final class Coywolf_SEO_Admin {
 		add_action( 'admin_post_coywolf_seo_save_site', array( $this, 'save_site_details' ) );
 		add_action( 'admin_post_coywolf_seo_save_settings', array( $this, 'save_settings' ) );
 		add_action( 'admin_post_coywolf_seo_remove_ai_key', array( $this, 'remove_ai_key' ) );
+		add_action( 'admin_post_coywolf_seo_remove_kg_key', array( $this, 'remove_kg_key' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_notices', array( $this, 'maybe_show_saved_notice' ) );
 		add_action( 'admin_notices', array( $this, 'maybe_show_activation_notice' ) );
@@ -133,6 +134,18 @@ final class Coywolf_SEO_Admin {
 		}
 		check_admin_referer( 'coywolf_seo_remove_ai_key' );
 		Coywolf_SEO_Options::update( array( 'ai_api_key' => '' ) );
+		$this->redirect_back( self::SLUG_SETTINGS, 'ai-key-removed' );
+	}
+
+	/**
+	 * Remove the saved Google Knowledge Graph API key immediately.
+	 */
+	public function remove_kg_key() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You are not allowed to manage Coywolf SEO settings.', 'coywolf-seo' ) );
+		}
+		check_admin_referer( 'coywolf_seo_remove_kg_key' );
+		Coywolf_SEO_Options::update( array( 'kg_api_key' => '' ) );
 		$this->redirect_back( self::SLUG_SETTINGS, 'ai-key-removed' );
 	}
 
@@ -286,10 +299,12 @@ final class Coywolf_SEO_Admin {
 			$raw['news_cats'] = array();
 		}
 
-		// The API key field is write-only: an empty submission keeps the
-		// stored key (removal happens through its own Remove link).
-		if ( isset( $raw['ai_api_key'] ) && '' === trim( (string) $raw['ai_api_key'] ) ) {
-			unset( $raw['ai_api_key'] );
+		// The API key fields are write-only: an empty submission keeps the
+		// stored key (removal happens through their own Remove links).
+		foreach ( array( 'ai_api_key', 'kg_api_key' ) as $key_field ) {
+			if ( isset( $raw[ $key_field ] ) && '' === trim( (string) $raw[ $key_field ] ) ) {
+				unset( $raw[ $key_field ] );
+			}
 		}
 
 		$news_before = (bool) Coywolf_SEO_Options::get( 'news_enabled' );
@@ -718,6 +733,24 @@ final class Coywolf_SEO_Admin {
 									esc_html__( 'Your own Anthropic API key, created at %1$s. Stored server-side and never shown again. Remove deletes the saved key immediately. You can define %2$s in wp-config.php instead.', 'coywolf-seo' ),
 									'<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>',
 									'<code>ANTHROPIC_API_KEY</code>'
+								);
+								?>
+							</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="coywolf-seo-kg-key"><?php esc_html_e( 'Google Knowledge Graph API key', 'coywolf-seo' ); ?></label></th>
+						<td>
+							<input type="password" class="regular-text" id="coywolf-seo-kg-key" name="coywolf_seo[kg_api_key]" value="" autocomplete="off" placeholder="<?php echo esc_attr( '' !== (string) $o['kg_api_key'] ? __( 'Saved — enter a new key to replace it', 'coywolf-seo' ) : __( 'Optional', 'coywolf-seo' ) ); ?>" />
+							<?php if ( '' !== (string) $o['kg_api_key'] ) : ?>
+								<a class="button-link button-link-delete" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=coywolf_seo_remove_kg_key' ), 'coywolf_seo_remove_kg_key' ) ); ?>"><?php esc_html_e( 'Remove', 'coywolf-seo' ); ?></a>
+							<?php endif; ?>
+							<p class="description">
+								<?php
+								printf(
+									/* translators: %s: Google Knowledge Graph API docs URL. */
+									esc_html__( 'Optional. With a key from %s, detected entities also get Google\'s description, image, and official website, plus a Knowledge Graph sameAs link.', 'coywolf-seo' ),
+									'<a href="https://developers.google.com/knowledge-graph" target="_blank" rel="noopener noreferrer">developers.google.com/knowledge-graph</a>'
 								);
 								?>
 							</p>

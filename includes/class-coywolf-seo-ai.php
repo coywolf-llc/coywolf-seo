@@ -217,6 +217,8 @@ final class Coywolf_SEO_AI {
 			return;
 		}
 
+		$previous = ( is_array( $saved ) && isset( $saved['entities'] ) && is_array( $saved['entities'] ) ) ? $saved['entities'] : array();
+
 		update_post_meta(
 			$post_id,
 			self::META_KEY,
@@ -228,6 +230,46 @@ final class Coywolf_SEO_AI {
 				'entities' => $entities,
 			)
 		);
+
+		// The page was (re)cached before this background run finished:
+		// when the schema changed, purge it so the entities are served.
+		if ( wp_json_encode( $entities ) !== wp_json_encode( $previous ) ) {
+			$this->purge_post_cache( $post_id );
+		}
+	}
+
+	/**
+	 * Purge a single post's page caches after its schema changed —
+	 * including the Rocket.net edge cache via the host's mu-plugin, the
+	 * common cache plugins, and an action for anything else.
+	 *
+	 * @param int $post_id Post ID.
+	 */
+	private function purge_post_cache( $post_id ) {
+		clean_post_cache( $post_id );
+		if ( class_exists( 'CDN_Clear_Cache_Hooks' ) && method_exists( 'CDN_Clear_Cache_Hooks', 'get_instance' ) ) {
+			// Rocket.net edge cache; force past its per-request counter.
+			CDN_Clear_Cache_Hooks::get_instance()->purge_cache_queue( $post_id, true );
+		}
+		if ( function_exists( 'rocket_clean_post' ) ) {
+			rocket_clean_post( $post_id ); // WP Rocket.
+		}
+		if ( function_exists( 'w3tc_flush_post' ) ) {
+			w3tc_flush_post( $post_id ); // W3 Total Cache.
+		}
+		if ( function_exists( 'wp_cache_post_change' ) ) {
+			wp_cache_post_change( $post_id ); // WP Super Cache.
+		}
+		do_action( 'litespeed_purge_post', $post_id ); // LiteSpeed (no-op without it).
+
+		/**
+		 * Fires after AI-detected entities changed a post's schema, so any
+		 * other cache layer can purge the page.
+		 *
+		 * @param int    $post_id Post ID.
+		 * @param string $url     The post's permalink.
+		 */
+		do_action( 'coywolf_seo_entities_updated', $post_id, (string) get_permalink( $post_id ) );
 	}
 
 	/**
@@ -283,13 +325,28 @@ final class Coywolf_SEO_AI {
 			if ( ! is_array( $entity ) || empty( $entity['name'] ) || empty( $entity['qid'] ) ) {
 				continue;
 			}
+			$same_as = array( 'https://www.wikidata.org/wiki/' . $entity['qid'] );
+			if ( ! empty( $entity['wikipedia'] ) ) {
+				$same_as[] = (string) $entity['wikipedia'];
+			}
+			if ( ! empty( $entity['kg_mid'] ) ) {
+				$same_as[] = 'https://g.co/kg' . $entity['kg_mid'];
+			}
 			$node = array(
 				'@type'  => isset( $entity['type'] ) && in_array( $entity['type'], array( 'Person', 'Organization', 'Place' ), true ) ? $entity['type'] : 'Thing',
 				'name'   => (string) $entity['name'],
-				'sameAs' => 'https://www.wikidata.org/wiki/' . $entity['qid'],
+				'sameAs' => count( $same_as ) > 1 ? $same_as : $same_as[0],
 			);
-			if ( ! empty( $entity['description'] ) ) {
+			if ( ! empty( $entity['kg_description'] ) ) {
+				$node['description'] = (string) $entity['kg_description'];
+			} elseif ( ! empty( $entity['description'] ) ) {
 				$node['description'] = (string) $entity['description'];
+			}
+			if ( ! empty( $entity['kg_url'] ) ) {
+				$node['url'] = (string) $entity['kg_url'];
+			}
+			if ( ! empty( $entity['kg_image'] ) ) {
+				$node['image'] = (string) $entity['kg_image'];
 			}
 			if ( ! empty( $entity['primary'] ) ) {
 				$out['about'][] = $node;
@@ -420,11 +477,16 @@ final class Coywolf_SEO_AI {
 			return array();
 		}
 
-		// Stage 4: rough P31 (instance of) type verification.
-		$claims = $this->wikidata_instance_of( wp_list_pluck( $resolved, 'qid' ) );
-		$final  = array();
+		// Stage 4: rough P31 (instance of) type verification, plus the
+		// Wikipedia sitelink that rides along in the same call.
+		$details = $this->wikidata_details( wp_list_pluck( $resolved, 'qid' ) );
+		$final   = array();
 		foreach ( $resolved as $mention ) {
-			$p31 = isset( $claims[ $mention['qid'] ] ) ? $claims[ $mention['qid'] ] : array();
+			$info = isset( $details[ $mention['qid'] ] ) ? $details[ $mention['qid'] ] : array(
+				'p31'       => array(),
+				'wikipedia' => '',
+			);
+			$p31  = $info['p31'];
 			if ( in_array( 'Q4167410', $p31, true ) ) {
 				continue; // Wikimedia disambiguation page — never a real entity.
 			}
@@ -440,10 +502,86 @@ final class Coywolf_SEO_AI {
 				'type'        => $mention['type'],
 				'description' => $mention['description'],
 				'qid'         => $mention['qid'],
+				'wikipedia'   => $info['wikipedia'],
 				'primary'     => $mention['primary'],
 			);
 		}
-		return $final;
+
+		// Stage 5 (optional): enrich from the Google Knowledge Graph
+		// Search API when a key is configured.
+		return $this->kg_enrich( $final );
+	}
+
+	/**
+	 * Enrich grounded entities with Google Knowledge Graph details:
+	 * the KG id (as a g.co/kg sameAs), Google's entity description, the
+	 * official website, and an image. Lookup is by name with a type
+	 * filter, and a result is only trusted when its name matches the
+	 * entity — identifiers are still never invented.
+	 *
+	 * @param array $entities Grounded entities.
+	 * @return array
+	 */
+	private function kg_enrich( array $entities ) {
+		$key = (string) Coywolf_SEO_Options::get( 'kg_api_key' );
+		if ( '' === $key || empty( $entities ) ) {
+			return $entities;
+		}
+		$language = substr( (string) get_locale(), 0, 2 );
+
+		foreach ( $entities as $i => $entity ) {
+			$query_args = array(
+				'query'     => rawurlencode( $entity['name'] ),
+				'key'       => rawurlencode( $key ),
+				'limit'     => 3,
+				'languages' => $language ? $language : 'en',
+			);
+			if ( in_array( $entity['type'], array( 'Person', 'Organization', 'Place' ), true ) ) {
+				$query_args['types'] = $entity['type'];
+			}
+			$response = wp_remote_get(
+				add_query_arg( $query_args, 'https://kgsearch.googleapis.com/v1/entities:search' ),
+				array(
+					'timeout'    => 10,
+					'user-agent' => $this->user_agent(),
+				)
+			);
+			if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+				continue;
+			}
+			$body = json_decode( wp_remote_retrieve_body( $response ), true );
+			if ( ! is_array( $body ) || empty( $body['itemListElement'] ) || ! is_array( $body['itemListElement'] ) ) {
+				continue;
+			}
+
+			foreach ( $body['itemListElement'] as $item ) {
+				$result = isset( $item['result'] ) && is_array( $item['result'] ) ? $item['result'] : array();
+				$name   = isset( $result['name'] ) ? (string) $result['name'] : '';
+				// Trust only a clear name match — no fuzzy adoption.
+				if ( '' === $name || ( 0 !== strcasecmp( $name, $entity['name'] ) && false === stripos( $name, $entity['name'] ) && false === stripos( $entity['name'], $name ) ) ) {
+					continue;
+				}
+				if ( isset( $result['@id'] ) && 0 === strpos( (string) $result['@id'], 'kg:' ) ) {
+					$entities[ $i ]['kg_mid'] = substr( (string) $result['@id'], 3 );
+				}
+				if ( isset( $result['detailedDescription']['articleBody'] ) ) {
+					$entities[ $i ]['kg_description'] = sanitize_text_field( (string) $result['detailedDescription']['articleBody'] );
+				}
+				if ( isset( $result['url'] ) ) {
+					$entities[ $i ]['kg_url'] = esc_url_raw( (string) $result['url'] );
+				}
+				if ( isset( $result['image']['contentUrl'] ) ) {
+					$entities[ $i ]['kg_image'] = esc_url_raw( (string) $result['image']['contentUrl'] );
+				}
+				// A Wikipedia detailedDescription source fills the gap when
+				// Wikidata had no sitelink.
+				if ( empty( $entities[ $i ]['wikipedia'] ) && isset( $result['detailedDescription']['url'] ) && false !== strpos( (string) $result['detailedDescription']['url'], 'wikipedia.org' ) ) {
+					$entities[ $i ]['wikipedia'] = esc_url_raw( (string) $result['detailedDescription']['url'] );
+				}
+				break;
+			}
+		}
+		return $entities;
 	}
 
 	/**
@@ -656,22 +794,29 @@ final class Coywolf_SEO_AI {
 	}
 
 	/**
-	 * Batched P31 (instance of) claims for a set of items.
+	 * Batched details for a set of Wikidata items: P31 (instance of)
+	 * claims for type verification, and the Wikipedia sitelink for the
+	 * site's language.
 	 *
 	 * @param string[] $qids Item IDs.
-	 * @return array Map of QID => array of P31 value QIDs.
+	 * @return array Map of QID => array( p31: string[], wikipedia: string ).
 	 */
-	private function wikidata_instance_of( array $qids ) {
+	private function wikidata_details( array $qids ) {
 		$qids = array_values( array_unique( array_filter( $qids ) ) );
 		if ( empty( $qids ) ) {
 			return array();
 		}
+		$language = substr( (string) get_locale(), 0, 2 );
+		$language = $language ? $language : 'en';
+		$wiki     = $language . 'wiki';
+
 		$url = add_query_arg(
 			array(
-				'action' => 'wbgetentities',
-				'format' => 'json',
-				'props'  => 'claims',
-				'ids'    => implode( '|', array_slice( $qids, 0, 50 ) ),
+				'action'     => 'wbgetentities',
+				'format'     => 'json',
+				'props'      => 'claims|sitelinks',
+				'sitefilter' => $wiki,
+				'ids'        => implode( '|', array_slice( $qids, 0, 50 ) ),
 			),
 			self::WIKIDATA_API
 		);
@@ -701,7 +846,15 @@ final class Coywolf_SEO_AI {
 					}
 				}
 			}
-			$map[ (string) $qid ] = $values;
+			$wikipedia = '';
+			if ( isset( $entity['sitelinks'][ $wiki ]['title'] ) ) {
+				$wikipedia = 'https://' . $language . '.wikipedia.org/wiki/'
+					. rawurlencode( str_replace( ' ', '_', (string) $entity['sitelinks'][ $wiki ]['title'] ) );
+			}
+			$map[ (string) $qid ] = array(
+				'p31'       => $values,
+				'wikipedia' => $wikipedia,
+			);
 		}
 		return $map;
 	}

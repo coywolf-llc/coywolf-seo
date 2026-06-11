@@ -41,7 +41,7 @@ final class Coywolf_SEO_Import_Export {
 		check_admin_referer( 'coywolf_seo_export' );
 
 		$settings = Coywolf_SEO_Options::all();
-		unset( $settings['ai_api_key'] ); // Secrets never leave the site.
+		unset( $settings['ai_api_key'], $settings['kg_api_key'] ); // Secrets never leave the site.
 
 		$payload = array(
 			'plugin'   => 'coywolf-seo',
@@ -132,7 +132,7 @@ final class Coywolf_SEO_Import_Export {
 						<?php wp_nonce_field( 'coywolf_seo_export' ); ?>
 						<?php submit_button( __( 'Export settings', 'coywolf-seo' ), 'secondary', 'submit', false ); ?>
 					</form>
-					<p class="description"><?php esc_html_e( 'Downloads the plugin settings and saved author properties as a JSON file. The Anthropic API key is never exported.', 'coywolf-seo' ); ?></p>
+					<p class="description"><?php esc_html_e( 'Downloads the plugin settings and saved author properties as a JSON file. API keys are never exported.', 'coywolf-seo' ); ?></p>
 				</td>
 			</tr>
 			<tr>
