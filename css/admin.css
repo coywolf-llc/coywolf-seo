@@ -293,3 +293,62 @@
 	background: #fff;
 	max-width: 360px;
 }
+
+/* ----- Documentation page (rendered readme.md) ----- */
+
+.coywolf-seo-docs .coywolf-seo-doc-body {
+	max-width: 50rem;
+	margin-top: 12px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 8px 24px 24px;
+	line-height: 1.6;
+}
+
+.coywolf-seo-doc-body h1 {
+	font-size: 1.6em;
+	margin: 0.6em 0 0.3em;
+}
+
+.coywolf-seo-doc-body h2 {
+	font-size: 1.4em;
+	margin: 1.4em 0 0.4em;
+	padding-top: 0.6em;
+	border-top: 1px solid #f0f0f1;
+}
+
+.coywolf-seo-doc-body h3 {
+	font-size: 1.15em;
+	margin: 1.2em 0 0.3em;
+}
+
+.coywolf-seo-doc-body ul,
+.coywolf-seo-doc-body ol {
+	margin: 0.4em 0 1em 1.6em;
+}
+
+.coywolf-seo-doc-body li {
+	margin: 0.25em 0;
+	list-style: disc;
+}
+
+.coywolf-seo-doc-body ol li {
+	list-style: decimal;
+}
+
+.coywolf-seo-doc-body code {
+	background: #f6f7f7;
+	padding: 1px 5px;
+	border-radius: 3px;
+	font-size: 0.92em;
+}
+
+.coywolf-seo-doc-image {
+	display: block;
+	max-width: 100%;
+	height: auto;
+	margin: 0.75em 0 1.25em;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+}

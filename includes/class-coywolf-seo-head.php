@@ -158,6 +158,10 @@ final class Coywolf_SEO_Head {
 			$post = get_queried_object();
 			if ( $post && '' !== $post->post_excerpt ) {
 				$text = $post->post_excerpt;
+			} elseif ( $post ) {
+				// No manual excerpt: fall back to the AI-written
+				// description when that feature is on.
+				$text = Coywolf_SEO::instance()->ai()->description_for( $post->ID );
 			}
 		} elseif ( is_category() || is_tag() ) {
 			$text = term_description();

@@ -26,6 +26,7 @@ final class Coywolf_SEO_Admin {
 	 */
 	const SLUG_SITE     = 'coywolf-seo';
 	const SLUG_SETTINGS = 'coywolf-seo-settings';
+	const SLUG_DOCS     = 'coywolf-seo-documentation';
 
 	/**
 	 * Hook everything up.
@@ -117,6 +118,14 @@ final class Coywolf_SEO_Admin {
 		);
 		add_submenu_page(
 			self::SLUG_SITE,
+			__( 'Settings', 'coywolf-seo' ),
+			__( 'Settings', 'coywolf-seo' ),
+			'manage_options',
+			self::SLUG_SETTINGS,
+			array( $this, 'render_settings' )
+		);
+		add_submenu_page(
+			self::SLUG_SITE,
 			__( 'Import/Export', 'coywolf-seo' ),
 			__( 'Import/Export', 'coywolf-seo' ),
 			'manage_options',
@@ -125,12 +134,42 @@ final class Coywolf_SEO_Admin {
 		);
 		add_submenu_page(
 			self::SLUG_SITE,
-			__( 'Settings', 'coywolf-seo' ),
-			__( 'Settings', 'coywolf-seo' ),
-			'manage_options',
-			self::SLUG_SETTINGS,
-			array( $this, 'render_settings' )
+			__( 'Documentation', 'coywolf-seo' ),
+			__( 'Documentation', 'coywolf-seo' ),
+			self::CAPABILITY,
+			self::SLUG_DOCS,
+			array( $this, 'render_documentation' )
 		);
+	}
+
+	/**
+	 * Render the Documentation page.
+	 *
+	 * The body is generated from the bundled readme.md (the canonical
+	 * Markdown source — the same file GitHub shows) so the docs always
+	 * match the installed version. The leading logo <img> line is
+	 * dropped; everything else renders through Coywolf_SEO_Markdown.
+	 */
+	public function render_documentation() {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			return;
+		}
+		$readme = COYWOLF_SEO_PATH . 'readme.md';
+		$text   = is_readable( $readme ) ? (string) file_get_contents( $readme ) : ''; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reading the plugin's own bundled, read-only text file, not a remote request.
+		// Drop the leading logo <img> line; the rest is Markdown.
+		$text = preg_replace( '/^\s*<img\b[^>]*>\s*$/m', '', $text );
+		?>
+		<div class="wrap coywolf-seo-wrap coywolf-seo-docs">
+			<h1><?php esc_html_e( 'Documentation', 'coywolf-seo' ); ?></h1>
+			<?php if ( '' === trim( $text ) ) : ?>
+				<p><?php esc_html_e( 'Documentation is unavailable (readme.md not found).', 'coywolf-seo' ); ?></p>
+			<?php else : ?>
+				<div class="coywolf-seo-doc-body">
+					<?php echo wp_kses_post( Coywolf_SEO_Markdown::to_html( $text ) ); ?>
+				</div>
+			<?php endif; ?>
+		</div>
+		<?php
 	}
 
 	/**
@@ -303,7 +342,7 @@ final class Coywolf_SEO_Admin {
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized field-by-field in Coywolf_SEO_Options::sanitize().
 		$raw = isset( $_POST['coywolf_seo'] ) && is_array( $_POST['coywolf_seo'] ) ? wp_unslash( $_POST['coywolf_seo'] ) : array();
 
-		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'news_enabled', 'news_include_posts', 'news_include_pages', 'ai_enabled' ) as $key ) {
+		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'news_enabled', 'news_include_posts', 'news_include_pages', 'ai_enabled', 'ai_descriptions' ) as $key ) {
 			$raw[ $key ] = ! empty( $raw[ $key ] );
 		}
 		if ( empty( $raw['news_cats'] ) ) {
@@ -694,7 +733,7 @@ final class Coywolf_SEO_Admin {
 						<th scope="row"><?php esc_html_e( 'Exclude meta description', 'coywolf-seo' ); ?></th>
 						<td>
 							<label>
-								<input type="checkbox" name="coywolf_seo[exclude_meta_desc]" value="1" <?php checked( $o['exclude_meta_desc'] ); ?> />
+								<input type="checkbox" id="coywolf-seo-exclude-desc" name="coywolf_seo[exclude_meta_desc]" value="1" <?php checked( $o['exclude_meta_desc'] ); ?> />
 								<?php esc_html_e( 'Do not output a meta description on any page', 'coywolf-seo' ); ?>
 							</label>
 							<p class="description"><?php esc_html_e( 'Google usually generates a snippet from the content, so a meta description is no longer necessary.', 'coywolf-seo' ); ?></p>
@@ -727,7 +766,7 @@ final class Coywolf_SEO_Admin {
 							<p class="description"><?php esc_html_e( 'Main subjects become the about property and passing references become mentions. Every entity is grounded against Wikidata — Claude only extracts names, real items are looked up on Wikidata, and the chosen item is type-checked — so identifiers are never invented. Runs in the background after publishing.', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
-					<tbody id="coywolf-seo-ai-fields" <?php echo $o['ai_enabled'] ? '' : 'style="display:none"'; ?>>
+					<tbody id="coywolf-seo-ai-fields" <?php echo ( $o['ai_enabled'] || $o['ai_descriptions'] ) ? '' : 'style="display:none"'; ?>>
 					<tr>
 						<th scope="row"><label for="coywolf-seo-ai-key"><?php esc_html_e( 'Claude API key', 'coywolf-seo' ); ?></label></th>
 						<td>
@@ -745,6 +784,18 @@ final class Coywolf_SEO_Admin {
 								);
 								?>
 							</p>
+						</td>
+					</tr>
+					</tbody>
+					<tbody id="coywolf-seo-ai-desc-row" <?php echo $o['exclude_meta_desc'] ? 'style="display:none"' : ''; ?>>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Meta descriptions', 'coywolf-seo' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" id="coywolf-seo-ai-descriptions" name="coywolf_seo[ai_descriptions]" value="1" <?php checked( $o['ai_descriptions'] ); ?> />
+								<?php esc_html_e( 'Automatically write a meta description when a post or page is published or updated', 'coywolf-seo' ); ?>
+							</label>
+							<p class="description"><?php esc_html_e( 'Claude summarizes the content in under 200 characters, using your API key above. A manual excerpt always takes precedence, and nothing is generated while meta descriptions are excluded.', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
 					</tbody>
