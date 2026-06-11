@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.1
+- **Version:** 1.0.2
 - **Requires WordPress:** 6.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -40,6 +40,9 @@ Updates are delivered straight from the project's GitHub releases via the bundle
 Privacy-first: this plugin includes no analytics, no tracking, and no data gathering — nothing about you, your site, or your visitors is ever collected.
 
 ## Changelog
+
+### 1.0.2
+- Add schema markup, Open Graph metadata, and the Authors page (#3).
 
 ### 1.0.1
 - Add Site Details, Settings, titles, meta description, robots, canonical, and the SEO post/page section (#2).

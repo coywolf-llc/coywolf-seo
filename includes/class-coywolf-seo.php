@@ -22,7 +22,7 @@ final class Coywolf_SEO {
 	 * Plugin version. Kept in sync with the main-file "Version:" header by the
 	 * release workflow (it bumps both).
 	 */
-	const VERSION = '1.0.1';
+	const VERSION = '1.0.2';
 
 	/**
 	 * Singleton instance.
