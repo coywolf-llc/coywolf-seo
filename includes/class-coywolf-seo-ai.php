@@ -64,6 +64,11 @@ final class Coywolf_SEO_AI {
 	const BULK_OPTION = 'coywolf_seo_bulk_enrich';
 
 	/**
+	 * AJAX action for the parallel loopback runners.
+	 */
+	const BULK_RUNNER = 'coywolf_seo_bulk_runner';
+
+	/**
 	 * Default Claude model. Filterable via coywolf_seo_ai_model.
 	 */
 	const DEFAULT_MODEL = 'claude-opus-4-8';
@@ -91,6 +96,8 @@ final class Coywolf_SEO_AI {
 		add_action( 'wp_ajax_coywolf_seo_reanalyze', array( $this, 'ajax_reanalyze' ) );
 
 		add_action( self::BULK_HOOK, array( $this, 'bulk_worker' ) );
+		add_action( 'wp_ajax_' . self::BULK_RUNNER, array( $this, 'bulk_runner' ) );
+		add_action( 'wp_ajax_nopriv_' . self::BULK_RUNNER, array( $this, 'bulk_runner' ) );
 		add_action( 'admin_post_coywolf_seo_bulk_enrich', array( $this, 'handle_bulk_start' ) );
 		add_action( 'admin_post_coywolf_seo_bulk_stop', array( $this, 'handle_bulk_stop' ) );
 		add_action( 'wp_ajax_coywolf_seo_bulk_status', array( $this, 'ajax_bulk_status' ) );
@@ -128,11 +135,15 @@ final class Coywolf_SEO_AI {
 					'remaining' => array_map( 'intval', $ids ),
 					'started'   => gmdate( 'c' ),
 					'finished'  => '',
+					'token'     => wp_generate_password( 64, false ),
 				),
 				false
 			);
+			// Parallel loopback workers do the heavy lifting; the cron
+			// chain stays as a watchdog for hosts that block loopbacks.
+			$this->spawn_bulk_runners();
 			if ( ! wp_next_scheduled( self::BULK_HOOK ) ) {
-				wp_schedule_single_event( time(), self::BULK_HOOK );
+				wp_schedule_single_event( time() + 30, self::BULK_HOOK );
 			}
 			spawn_cron();
 		}
@@ -169,28 +180,164 @@ final class Coywolf_SEO_AI {
 	 * so progress continues while the page is open.
 	 */
 	public function bulk_worker() {
-		$state = (array) get_option( self::BULK_OPTION, array() );
+		$state = $this->bulk_state_fresh();
 		if ( ! isset( $state['status'] ) || 'running' !== $state['status'] ) {
 			return;
 		}
 
-		$deadline = time() + 25;
-		while ( ! empty( $state['remaining'] ) && time() < $deadline ) {
-			$post_id = (int) array_shift( $state['remaining'] );
+		// Watchdog: make sure the parallel runners are alive, then drain
+		// what we can in this tick too.
+		$this->spawn_bulk_runners();
+		$this->bulk_drain( 25 );
+
+		$state = $this->bulk_state_fresh();
+		if ( isset( $state['status'] ) && 'running' === $state['status'] && ! wp_next_scheduled( self::BULK_HOOK ) ) {
+			wp_schedule_single_event( time() + 30, self::BULK_HOOK );
+		}
+	}
+
+	/**
+	 * A parallel loopback runner: claims and analyzes posts within a time
+	 * budget, then chains a fresh runner and exits. Authenticated by the
+	 * run's token, not a user — the loopback request carries no cookies.
+	 */
+	public function bulk_runner() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- token-authenticated below; loopback requests have no user/nonce context.
+		$token = isset( $_POST['token'] ) ? (string) wp_unslash( $_POST['token'] ) : '';
+		$state = $this->bulk_state_fresh();
+		if ( '' === $token || empty( $state['token'] ) || ! hash_equals( (string) $state['token'], $token ) ) {
+			wp_die( '', '', array( 'response' => 403 ) );
+		}
+		if ( ! isset( $state['status'] ) || 'running' !== $state['status'] ) {
+			wp_die( '', '', array( 'response' => 200 ) );
+		}
+
+		// Let the runner outlive the HTTP client that spawned it.
+		ignore_user_abort( true );
+		if ( function_exists( 'set_time_limit' ) ) {
+			@set_time_limit( 120 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- best effort on restricted hosts.
+		}
+
+		$worked = $this->bulk_drain( 40 );
+
+		// More to do and we actually processed something: chain a runner.
+		$state = $this->bulk_state_fresh();
+		if ( $worked > 0 && isset( $state['status'] ) && 'running' === $state['status'] && ! empty( $state['remaining'] ) ) {
+			$this->spawn_bulk_runners( 1 );
+		}
+		wp_die( '', '', array( 'response' => 200 ) );
+	}
+
+	/**
+	 * Claim and analyze posts until the queue or the time budget runs out.
+	 *
+	 * @param int $budget Seconds to work.
+	 * @return int Posts processed.
+	 */
+	private function bulk_drain( $budget ) {
+		$deadline = time() + max( 5, (int) $budget );
+		$worked   = 0;
+		while ( time() < $deadline ) {
+			$post_id = $this->bulk_claim();
+			if ( ! $post_id ) {
+				break;
+			}
 			$this->analyze_post( $post_id );
-			$state['done'] = (int) $state['done'] + 1;
+			$this->bulk_record_done();
+			$worked++;
+		}
+		return $worked;
+	}
+
+	/**
+	 * Atomically claim the next queued post. A MySQL named lock guards
+	 * the read-modify-write so parallel runners never claim the same ID.
+	 *
+	 * @return int Post ID, 0 when the queue is empty or the run stopped.
+	 */
+	private function bulk_claim() {
+		global $wpdb;
+		$lock = 'coywolf_seo_bulk_' . get_current_blog_id();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- named lock for atomic queue claims.
+		$wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 10)', $lock ) );
+
+		$post_id = 0;
+		$state   = $this->bulk_state_fresh();
+		if ( isset( $state['status'] ) && 'running' === $state['status'] && ! empty( $state['remaining'] ) ) {
+			$post_id = (int) array_shift( $state['remaining'] );
 			update_option( self::BULK_OPTION, $state, false );
 		}
 
-		if ( empty( $state['remaining'] ) ) {
-			$state['status']   = 'done';
-			$state['finished'] = gmdate( 'c' );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- releases the named lock above.
+		$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
+		return $post_id;
+	}
+
+	/**
+	 * Count a processed post and close the run when the queue is empty.
+	 */
+	private function bulk_record_done() {
+		global $wpdb;
+		$lock = 'coywolf_seo_bulk_' . get_current_blog_id();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- named lock for atomic state updates.
+		$wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 10)', $lock ) );
+
+		$state = $this->bulk_state_fresh();
+		if ( isset( $state['status'] ) && 'running' === $state['status'] ) {
+			$state['done'] = (int) $state['done'] + 1;
+			if ( empty( $state['remaining'] ) ) {
+				$state['status']   = 'done';
+				$state['finished'] = gmdate( 'c' );
+			}
 			update_option( self::BULK_OPTION, $state, false );
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- releases the named lock above.
+		$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
+	}
+
+	/**
+	 * The bulk state, bypassing the options cache — parallel runners
+	 * mutate it between this process's reads.
+	 *
+	 * @return array
+	 */
+	private function bulk_state_fresh() {
+		wp_cache_delete( self::BULK_OPTION, 'options' );
+		return (array) get_option( self::BULK_OPTION, array() );
+	}
+
+	/**
+	 * Fire-and-forget loopback requests that become parallel runners.
+	 *
+	 * @param int $count Runners to spawn; 0 = the configured concurrency.
+	 */
+	private function spawn_bulk_runners( $count = 0 ) {
+		$state = $this->bulk_state_fresh();
+		if ( empty( $state['token'] ) || empty( $state['remaining'] ) ) {
 			return;
 		}
-
-		if ( ! wp_next_scheduled( self::BULK_HOOK ) ) {
-			wp_schedule_single_event( time(), self::BULK_HOOK );
+		if ( $count < 1 ) {
+			/**
+			 * How many posts are enriched in parallel during a bulk run.
+			 *
+			 * @param int $concurrency Default 3.
+			 */
+			$count = max( 1, min( 10, (int) apply_filters( 'coywolf_seo_bulk_concurrency', 3 ) ) );
+		}
+		for ( $i = 0; $i < $count; $i++ ) {
+			wp_remote_post(
+				admin_url( 'admin-ajax.php' ),
+				array(
+					'timeout'   => 0.01,
+					'blocking'  => false,
+					'sslverify' => apply_filters( 'https_local_ssl_verify', false ),
+					'body'      => array(
+						'action' => self::BULK_RUNNER,
+						'token'  => (string) $state['token'],
+					),
+				)
+			);
 		}
 	}
 
