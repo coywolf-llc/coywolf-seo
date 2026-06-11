@@ -4,7 +4,7 @@ Tags: seo
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.24
+Stable tag: 1.0.25
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -56,6 +56,9 @@ Updates are delivered straight from the project's GitHub releases via the bundle
 Privacy-first: this plugin includes no analytics, no tracking, and no data gathering — nothing about you, your site, or your visitors is ever collected. Outbound connections exist only for features you turn on: with IndexNow enabled, the changed URL is sent to Bing's IndexNow endpoint on publish, update, and delete; with AI enrichment enabled, the published post's title and content are sent to Anthropic's API (https://www.anthropic.com/legal/privacy) using your own API key, entity names are looked up on Wikidata's public API (https://foundation.wikimedia.org/wiki/Policy:Privacy_policy). Nothing else, nowhere else.
 
 == Changelog ==
+
+= 1.0.25 =
+* Bulk enrich-all with live progress, and gate schema entities on Entity detection (#26).
 
 = 1.0.24 =
 * Claude model picker in AI enrichment settings (#25).
