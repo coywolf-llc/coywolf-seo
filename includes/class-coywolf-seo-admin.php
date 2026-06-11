@@ -165,6 +165,17 @@ final class Coywolf_SEO_Admin {
 	 * @param string $hook Current admin page hook.
 	 */
 	public function enqueue_assets( $hook ) {
+		// The post-deletion decision notice on All Posts/Pages uses the
+		// plugin styles; everything else is plugin-screen only.
+		if ( 'edit.php' === $hook ) {
+			wp_enqueue_style(
+				'coywolf-seo-admin',
+				COYWOLF_SEO_URL . 'css/admin.css',
+				array(),
+				Coywolf_SEO::VERSION
+			);
+			return;
+		}
 		if ( strpos( $hook, self::SLUG_SITE ) === false ) {
 			return;
 		}

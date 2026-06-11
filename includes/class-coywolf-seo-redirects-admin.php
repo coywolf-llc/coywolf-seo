@@ -43,6 +43,105 @@ final class Coywolf_SEO_Redirects_Admin {
 		add_action( 'admin_post_coywolf_seo_redirect_save', array( $this, 'handle_save' ) );
 		add_action( 'admin_post_coywolf_seo_redirect_row', array( $this, 'handle_row_action' ) );
 		add_action( 'admin_post_coywolf_seo_redirect_test', array( $this, 'handle_test' ) );
+		add_action( 'admin_notices', array( $this, 'maybe_show_deletion_notice' ) );
+	}
+
+	/**
+	 * Right after a post or page is trashed or deleted from the list
+	 * screen, present the URL decision there and then — no trip to the
+	 * Redirects page needed.
+	 */
+	public function maybe_show_deletion_notice() {
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen || ! in_array( $screen->id, array( 'edit-post', 'edit-page' ), true ) || ! current_user_can( Coywolf_SEO_Admin::CAPABILITY ) ) {
+			return;
+		}
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only signals WordPress sets after its own trash/delete actions.
+		if ( ! isset( $_GET['trashed'] ) && ! isset( $_GET['deleted'] ) ) {
+			return;
+		}
+		$ids = isset( $_GET['ids'] ) ? array_map( 'absint', explode( ',', sanitize_text_field( wp_unslash( $_GET['ids'] ) ) ) ) : array();
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		$rows = ! empty( $ids )
+			? $this->redirects->pending_for_posts( $ids )
+			: array_slice( $this->redirects->pending_deletions(), 0, 5 );
+		if ( empty( $rows ) ) {
+			return;
+		}
+
+		$return_to = '';
+		if ( isset( $_SERVER['REQUEST_URI'] ) ) {
+			// Strip the one-shot trashed/deleted flags so acting on the
+			// notice doesn't re-trigger it after the redirect back.
+			$return_to = remove_query_arg( array( 'trashed', 'deleted', 'ids' ), esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) );
+		}
+		?>
+		<div class="notice coywolf-seo-pending coywolf-seo-deletion-notice">
+			<h3><?php esc_html_e( 'What should happen to the deleted URL?', 'coywolf-seo' ); ?></h3>
+			<table class="coywolf-seo-decision-table">
+				<tbody>
+					<?php foreach ( $rows as $row ) : ?>
+						<tr>
+							<td class="coywolf-seo-cell-grow">
+								<strong><?php echo esc_html( $row->post_title ); ?></strong>
+								<code><?php echo esc_html( $row->path ); ?></code>
+							</td>
+							<td class="coywolf-seo-cell-actions">
+								<?php $this->render_decision_actions( $row, $return_to ); ?>
+							</td>
+						</tr>
+					<?php endforeach; ?>
+				</tbody>
+			</table>
+		</div>
+		<?php
+	}
+
+	/**
+	 * The three decision forms for a deleted-content row: mark gone (410),
+	 * redirect to a URL, or dismiss. Used on the Redirects page and in the
+	 * post-deletion notice.
+	 *
+	 * @param object $row       Deleted-content row.
+	 * @param string $return_to Admin URL to return to ('' = Redirects page).
+	 */
+	public function render_decision_actions( $row, $return_to = '' ) {
+		?>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form">
+			<input type="hidden" name="action" value="coywolf_seo_redirect_save" />
+			<?php wp_nonce_field( 'coywolf_seo_redirect_save' ); ?>
+			<input type="hidden" name="resolve_deleted" value="<?php echo esc_attr( (string) $row->id ); ?>" />
+			<input type="hidden" name="redirect[source]" value="<?php echo esc_attr( $row->path ); ?>" />
+			<input type="hidden" name="redirect[type]" value="410" />
+			<?php if ( '' !== $return_to ) : ?>
+				<input type="hidden" name="return_to" value="<?php echo esc_attr( $return_to ); ?>" />
+			<?php endif; ?>
+			<button type="submit" class="button"><?php esc_html_e( 'Mark gone (410)', 'coywolf-seo' ); ?></button>
+		</form>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form">
+			<input type="hidden" name="action" value="coywolf_seo_redirect_save" />
+			<?php wp_nonce_field( 'coywolf_seo_redirect_save' ); ?>
+			<input type="hidden" name="resolve_deleted" value="<?php echo esc_attr( (string) $row->id ); ?>" />
+			<input type="hidden" name="redirect[source]" value="<?php echo esc_attr( $row->path ); ?>" />
+			<input type="hidden" name="redirect[type]" value="301" />
+			<?php if ( '' !== $return_to ) : ?>
+				<input type="hidden" name="return_to" value="<?php echo esc_attr( $return_to ); ?>" />
+			<?php endif; ?>
+			<input type="url" name="redirect[target]" class="regular-text" placeholder="<?php esc_attr_e( 'Redirect to…', 'coywolf-seo' ); ?>" required />
+			<button type="submit" class="button button-primary"><?php esc_html_e( 'Redirect', 'coywolf-seo' ); ?></button>
+		</form>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form">
+			<input type="hidden" name="action" value="coywolf_seo_redirect_row" />
+			<?php wp_nonce_field( 'coywolf_seo_redirect_row' ); ?>
+			<input type="hidden" name="row_action" value="dismiss_deleted" />
+			<input type="hidden" name="row_id" value="<?php echo esc_attr( (string) $row->id ); ?>" />
+			<?php if ( '' !== $return_to ) : ?>
+				<input type="hidden" name="return_to" value="<?php echo esc_attr( $return_to ); ?>" />
+			<?php endif; ?>
+			<button type="submit" class="button-link"><?php esc_html_e( 'Dismiss', 'coywolf-seo' ); ?></button>
+		</form>
+		<?php
 	}
 
 	/**
@@ -65,11 +164,6 @@ final class Coywolf_SEO_Redirects_Admin {
 		if ( isset( $_POST['resolve_deleted'] ) ) {
 			$this->resolve_deleted( absint( $_POST['resolve_deleted'] ) );
 		}
-		// A converted 404 row is cleared from the log.
-		if ( isset( $_POST['resolve_404'] ) ) {
-			$this->resolve_404( absint( $_POST['resolve_404'] ) );
-		}
-
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 		$this->back( array( 'redirect-saved' => $id > 0 ? 'updated' : (int) $result ) );
 	}
@@ -98,9 +192,6 @@ final class Coywolf_SEO_Redirects_Admin {
 					break;
 				case 'dismiss_deleted':
 					$this->resolve_deleted( $id );
-					break;
-				case 'dismiss_404':
-					$this->resolve_404( $id );
 					break;
 			}
 		}
@@ -141,16 +232,6 @@ final class Coywolf_SEO_Redirects_Admin {
 		$wpdb->delete( Coywolf_SEO_Redirects::table( 'deleted' ), array( 'id' => $id ), array( '%d' ) );
 	}
 
-	/**
-	 * Remove a converted/dismissed 404 row.
-	 *
-	 * @param int $id Row ID.
-	 */
-	private function resolve_404( $id ) {
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- purpose-built table.
-		$wpdb->delete( Coywolf_SEO_Redirects::table( 'log404' ), array( 'id' => $id ), array( '%d' ) );
-	}
 
 	/**
 	 * Back to the Redirects page with state.
@@ -158,7 +239,19 @@ final class Coywolf_SEO_Redirects_Admin {
 	 * @param array $args Query args.
 	 */
 	private function back( array $args ) {
-		wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php?page=' . Coywolf_SEO_Redirects::SLUG ) ) );
+		$destination = admin_url( 'admin.php?page=' . Coywolf_SEO_Redirects::SLUG );
+		// Actions taken from the post-deletion notice return to the list
+		// screen they came from (admin URLs only).
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified in guard() before any handler calls back().
+		if ( isset( $_POST['return_to'] ) ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- validated against admin_url below.
+			$requested = wp_validate_redirect( esc_url_raw( wp_unslash( $_POST['return_to'] ) ), '' );
+			if ( '' !== $requested ) {
+				$destination = $requested;
+				unset( $args['redirect-saved'], $args['redirect-test'] );
+			}
+		}
+		wp_safe_redirect( add_query_arg( $args, $destination ) );
 		exit;
 	}
 
@@ -168,7 +261,6 @@ final class Coywolf_SEO_Redirects_Admin {
 	public function render() {
 		$rules    = $this->redirects->all_rules();
 		$pending  = $this->redirects->pending_deletions();
-		$log_404s = $this->redirects->recent_404s();
 		$types    = Coywolf_SEO_Redirects::types();
 
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- read-only display flags set by our own redirects, each sanitized on read.
@@ -211,31 +303,8 @@ final class Coywolf_SEO_Redirects_Admin {
 										<span class="description"><?php echo esc_html( gmdate( 'M j, Y', strtotime( $row->deleted ) ) ); ?></span>
 									</td>
 									<td class="coywolf-seo-cell-actions">
-										<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form">
-											<input type="hidden" name="action" value="coywolf_seo_redirect_save" />
-											<?php wp_nonce_field( 'coywolf_seo_redirect_save' ); ?>
-											<input type="hidden" name="resolve_deleted" value="<?php echo esc_attr( (string) $row->id ); ?>" />
-											<input type="hidden" name="redirect[source]" value="<?php echo esc_attr( $row->path ); ?>" />
-											<input type="hidden" name="redirect[type]" value="410" />
-											<button type="submit" class="button"><?php esc_html_e( 'Mark gone (410)', 'coywolf-seo' ); ?></button>
-										</form>
-										<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form">
-											<input type="hidden" name="action" value="coywolf_seo_redirect_save" />
-											<?php wp_nonce_field( 'coywolf_seo_redirect_save' ); ?>
-											<input type="hidden" name="resolve_deleted" value="<?php echo esc_attr( (string) $row->id ); ?>" />
-											<input type="hidden" name="redirect[source]" value="<?php echo esc_attr( $row->path ); ?>" />
-											<input type="hidden" name="redirect[type]" value="301" />
-											<input type="url" name="redirect[target]" class="regular-text" placeholder="<?php esc_attr_e( 'Redirect to…', 'coywolf-seo' ); ?>" required />
-											<button type="submit" class="button button-primary"><?php esc_html_e( 'Redirect', 'coywolf-seo' ); ?></button>
-										</form>
-										<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form">
-											<input type="hidden" name="action" value="coywolf_seo_redirect_row" />
-											<?php wp_nonce_field( 'coywolf_seo_redirect_row' ); ?>
-											<input type="hidden" name="row_action" value="dismiss_deleted" />
-											<input type="hidden" name="row_id" value="<?php echo esc_attr( (string) $row->id ); ?>" />
-											<button type="submit" class="button-link"><?php esc_html_e( 'Dismiss', 'coywolf-seo' ); ?></button>
-										</form>
-									</td>
+										<?php $this->render_decision_actions( $row ); ?>
+										</td>
 								</tr>
 							<?php endforeach; ?>
 						</tbody>
@@ -403,64 +472,6 @@ final class Coywolf_SEO_Redirects_Admin {
 				</tbody>
 			</table>
 
-			<div class="coywolf-seo-panel">
-				<h2><?php esc_html_e( 'Recent 404s', 'coywolf-seo' ); ?></h2>
-				<?php if ( empty( $log_404s ) ) : ?>
-					<p class="description"><?php esc_html_e( 'No 404s recorded. Static assets and probe junk are filtered out automatically; the log keeps the 500 most recent paths for 30 days.', 'coywolf-seo' ); ?></p>
-				<?php else : ?>
-					<table class="widefat striped">
-						<thead>
-							<tr>
-								<th><?php esc_html_e( 'Path', 'coywolf-seo' ); ?></th>
-								<th><?php esc_html_e( 'Hits', 'coywolf-seo' ); ?></th>
-								<th><?php esc_html_e( 'Last seen', 'coywolf-seo' ); ?></th>
-								<th><?php esc_html_e( 'Referrer', 'coywolf-seo' ); ?></th>
-								<th><?php esc_html_e( 'Actions', 'coywolf-seo' ); ?></th>
-							</tr>
-						</thead>
-						<tbody>
-							<?php foreach ( $log_404s as $row ) : ?>
-								<tr>
-									<td><code><?php echo esc_html( $row->path ); ?></code></td>
-									<td><?php echo esc_html( number_format_i18n( (int) $row->hits ) ); ?></td>
-									<td><?php echo esc_html( gmdate( 'M j, Y', strtotime( $row->last_seen ) ) ); ?></td>
-									<td><?php echo '' !== $row->referrer ? esc_html( wp_parse_url( $row->referrer, PHP_URL_HOST ) ) : '—'; ?></td>
-									<td class="coywolf-seo-cell-actions">
-										<a class="button" href="
-										<?php
-										echo esc_url(
-											add_query_arg(
-												array(
-													'page' => Coywolf_SEO_Redirects::SLUG,
-													'prefill-source' => rawurlencode( $row->path ),
-												),
-												admin_url( 'admin.php' )
-											) . '#coywolf-seo-qa-source'
-										);
-										?>
-																"><?php esc_html_e( 'Redirect…', 'coywolf-seo' ); ?></a>
-										<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form">
-											<input type="hidden" name="action" value="coywolf_seo_redirect_save" />
-											<?php wp_nonce_field( 'coywolf_seo_redirect_save' ); ?>
-											<input type="hidden" name="resolve_404" value="<?php echo esc_attr( (string) $row->id ); ?>" />
-											<input type="hidden" name="redirect[source]" value="<?php echo esc_attr( $row->path ); ?>" />
-											<input type="hidden" name="redirect[type]" value="410" />
-											<button type="submit" class="button"><?php esc_html_e( '410', 'coywolf-seo' ); ?></button>
-										</form>
-										<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form">
-											<input type="hidden" name="action" value="coywolf_seo_redirect_row" />
-											<?php wp_nonce_field( 'coywolf_seo_redirect_row' ); ?>
-											<input type="hidden" name="row_action" value="dismiss_404" />
-											<input type="hidden" name="row_id" value="<?php echo esc_attr( (string) $row->id ); ?>" />
-											<button type="submit" class="button-link"><?php esc_html_e( 'Dismiss', 'coywolf-seo' ); ?></button>
-										</form>
-									</td>
-								</tr>
-							<?php endforeach; ?>
-						</tbody>
-					</table>
-				<?php endif; ?>
-			</div>
 		</div>
 		<?php
 	}
