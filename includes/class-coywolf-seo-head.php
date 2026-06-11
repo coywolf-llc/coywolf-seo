@@ -156,12 +156,13 @@ final class Coywolf_SEO_Head {
 			$text   = ( '' !== $custom ) ? $custom : get_bloginfo( 'description' );
 		} elseif ( is_singular( array( 'post', 'page' ) ) ) {
 			$post = get_queried_object();
-			if ( $post && '' !== $post->post_excerpt ) {
-				$text = $post->post_excerpt;
-			} elseif ( $post ) {
-				// No manual excerpt: fall back to the AI-written
-				// description when that feature is on.
+			if ( $post ) {
+				// With AI meta descriptions active, the written summary
+				// replaces the excerpt; otherwise the excerpt applies.
 				$text = Coywolf_SEO::instance()->ai()->description_for( $post->ID );
+				if ( '' === $text && '' !== $post->post_excerpt ) {
+					$text = $post->post_excerpt;
+				}
 			}
 		} elseif ( is_category() || is_tag() ) {
 			$text = term_description();

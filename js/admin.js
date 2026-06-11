@@ -190,6 +190,15 @@
 			$( '#coywolf-seo-term-title-row' ).insertAfter( $( '.form-field.term-name-wrap' ).first() );
 			$( '#coywolf-seo-term-og-row' ).insertAfter( $( '.form-field.term-description-wrap' ).first() );
 
+			// The Page Title placeholder mirrors the Name as it is typed
+			// (#tag-name on the add form, #name on the edit screen).
+			$( '#tag-name, #name' ).on( 'input', function () {
+				$( '#coywolf-seo-term-title' ).attr( 'placeholder', this.value );
+			} );
+			if ( $( '#tag-name' ).length && $( '#tag-name' ).val() ) {
+				$( '#coywolf-seo-term-title' ).attr( 'placeholder', $( '#tag-name' ).val() );
+			}
+
 			var termFrame = null;
 			$( document ).on( 'click', '#coywolf-seo-term-og-select', function ( e ) {
 				e.preventDefault();
