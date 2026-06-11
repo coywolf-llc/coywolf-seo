@@ -843,7 +843,7 @@ final class Coywolf_SEO_Admin {
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form" id="coywolf-seo-bulk-cancel-form">
 									<input type="hidden" name="action" value="coywolf_seo_bulk_cancel" />
 									<?php wp_nonce_field( 'coywolf_seo_bulk_cancel' ); ?>
-									<button type="submit" class="button-link button-link-delete"><?php esc_html_e( 'Cancel', 'coywolf-seo' ); ?></button>
+									<button type="submit" class="button coywolf-seo-button-danger"><?php esc_html_e( 'Cancel', 'coywolf-seo' ); ?></button>
 								</form>
 							<?php elseif ( 'running' === $coywolf_seo_bulk['status'] ) : ?>
 								<div id="coywolf-seo-bulk-progress" data-running="1">
