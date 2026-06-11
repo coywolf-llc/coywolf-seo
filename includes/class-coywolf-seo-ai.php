@@ -54,6 +54,16 @@ final class Coywolf_SEO_AI {
 	const CRON_HOOK = 'coywolf_seo_ai_analyze';
 
 	/**
+	 * Cron hook driving the bulk enrich-all queue.
+	 */
+	const BULK_HOOK = 'coywolf_seo_ai_bulk';
+
+	/**
+	 * Option holding the bulk run's state.
+	 */
+	const BULK_OPTION = 'coywolf_seo_bulk_enrich';
+
+	/**
 	 * Default Claude model. Filterable via coywolf_seo_ai_model.
 	 */
 	const DEFAULT_MODEL = 'claude-opus-4-8';
@@ -79,6 +89,139 @@ final class Coywolf_SEO_AI {
 		add_action( 'transition_post_status', array( $this, 'maybe_queue' ), 10, 3 );
 		add_filter( 'http_request_args', array( $this, 'extend_anthropic_timeout' ), 10, 2 );
 		add_action( 'wp_ajax_coywolf_seo_reanalyze', array( $this, 'ajax_reanalyze' ) );
+
+		add_action( self::BULK_HOOK, array( $this, 'bulk_worker' ) );
+		add_action( 'admin_post_coywolf_seo_bulk_enrich', array( $this, 'handle_bulk_start' ) );
+		add_action( 'admin_post_coywolf_seo_bulk_stop', array( $this, 'handle_bulk_stop' ) );
+		add_action( 'wp_ajax_coywolf_seo_bulk_status', array( $this, 'ajax_bulk_status' ) );
+	}
+
+	/**
+	 * Start enriching every published post and page: build the queue and
+	 * kick the background chain. Existing analyses that already match the
+	 * current content and configuration are skipped by the usual hash, so
+	 * only stale or missing ones cost API calls.
+	 */
+	public function handle_bulk_start() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You are not allowed to run bulk enrichment.', 'coywolf-seo' ) );
+		}
+		check_admin_referer( 'coywolf_seo_bulk_enrich' );
+
+		if ( $this->enabled() || $this->descriptions_on() ) {
+			$ids = get_posts(
+				array(
+					'post_type'      => $this->post_types,
+					'post_status'    => 'publish',
+					'posts_per_page' => -1,
+					'fields'         => 'ids',
+					'orderby'        => 'ID',
+					'order'          => 'ASC',
+				)
+			);
+			update_option(
+				self::BULK_OPTION,
+				array(
+					'status'    => 'running',
+					'total'     => count( $ids ),
+					'done'      => 0,
+					'remaining' => array_map( 'intval', $ids ),
+					'started'   => gmdate( 'c' ),
+					'finished'  => '',
+				),
+				false
+			);
+			if ( ! wp_next_scheduled( self::BULK_HOOK ) ) {
+				wp_schedule_single_event( time(), self::BULK_HOOK );
+			}
+			spawn_cron();
+		}
+
+		wp_safe_redirect( admin_url( 'admin.php?page=coywolf-seo-settings&bulk-started=1' ) );
+		exit;
+	}
+
+	/**
+	 * Stop a running bulk enrichment.
+	 */
+	public function handle_bulk_stop() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You are not allowed to run bulk enrichment.', 'coywolf-seo' ) );
+		}
+		check_admin_referer( 'coywolf_seo_bulk_stop' );
+
+		$state = (array) get_option( self::BULK_OPTION, array() );
+		if ( isset( $state['status'] ) && 'running' === $state['status'] ) {
+			$state['status']    = 'stopped';
+			$state['remaining'] = array();
+			$state['finished']  = gmdate( 'c' );
+			update_option( self::BULK_OPTION, $state, false );
+		}
+		wp_unschedule_hook( self::BULK_HOOK );
+
+		wp_safe_redirect( admin_url( 'admin.php?page=coywolf-seo-settings' ) );
+		exit;
+	}
+
+	/**
+	 * Process the queue inside a time budget, then hand off to the next
+	 * cron tick. The settings page's status polling keeps WP-Cron firing,
+	 * so progress continues while the page is open.
+	 */
+	public function bulk_worker() {
+		$state = (array) get_option( self::BULK_OPTION, array() );
+		if ( ! isset( $state['status'] ) || 'running' !== $state['status'] ) {
+			return;
+		}
+
+		$deadline = time() + 25;
+		while ( ! empty( $state['remaining'] ) && time() < $deadline ) {
+			$post_id = (int) array_shift( $state['remaining'] );
+			$this->analyze_post( $post_id );
+			$state['done'] = (int) $state['done'] + 1;
+			update_option( self::BULK_OPTION, $state, false );
+		}
+
+		if ( empty( $state['remaining'] ) ) {
+			$state['status']   = 'done';
+			$state['finished'] = gmdate( 'c' );
+			update_option( self::BULK_OPTION, $state, false );
+			return;
+		}
+
+		if ( ! wp_next_scheduled( self::BULK_HOOK ) ) {
+			wp_schedule_single_event( time(), self::BULK_HOOK );
+		}
+	}
+
+	/**
+	 * The bulk run's state, for the settings page and its polling.
+	 *
+	 * @return array status/total/done/percent.
+	 */
+	public function bulk_status() {
+		$state   = (array) get_option( self::BULK_OPTION, array() );
+		$total   = isset( $state['total'] ) ? (int) $state['total'] : 0;
+		$done    = isset( $state['done'] ) ? (int) $state['done'] : 0;
+		$percent = $total > 0 ? (int) floor( ( $done / $total ) * 100 ) : 0;
+		return array(
+			'status'   => isset( $state['status'] ) ? (string) $state['status'] : '',
+			'total'    => $total,
+			'done'     => $done,
+			'percent'  => $percent,
+			'finished' => isset( $state['finished'] ) ? (string) $state['finished'] : '',
+		);
+	}
+
+	/**
+	 * Status endpoint for the settings page's progress polling.
+	 */
+	public function ajax_bulk_status() {
+		check_ajax_referer( 'coywolf_seo_bulk_status' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array(), 403 );
+		}
+		wp_send_json_success( $this->bulk_status() );
 	}
 
 	/**
@@ -463,10 +606,15 @@ final class Coywolf_SEO_AI {
 	 * @return array { about: array[], mentions: array[] }
 	 */
 	public static function schema_nodes( $post_id ) {
-		$out   = array(
+		$out = array(
 			'about'    => array(),
 			'mentions' => array(),
 		);
+		// Entity detection off: stored entities stay in the database but
+		// leave the schema output.
+		if ( ! (bool) Coywolf_SEO_Options::get( 'ai_enabled' ) ) {
+			return $out;
+		}
 		$saved = get_post_meta( $post_id, self::META_KEY, true );
 		if ( ! is_array( $saved ) || empty( $saved['entities'] ) || ! is_array( $saved['entities'] ) ) {
 			return $out;
