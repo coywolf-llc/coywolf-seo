@@ -101,6 +101,8 @@ final class Coywolf_SEO_AI {
 		add_action( 'admin_post_coywolf_seo_bulk_resume', array( $this, 'handle_bulk_resume' ) );
 		add_action( 'admin_post_coywolf_seo_bulk_cancel', array( $this, 'handle_bulk_cancel' ) );
 		add_action( 'wp_ajax_coywolf_seo_bulk_status', array( $this, 'ajax_bulk_status' ) );
+		add_action( 'wp_ajax_coywolf_seo_bulk_estimate', array( $this, 'ajax_bulk_estimate' ) );
+		add_action( 'wp_ajax_coywolf_seo_ai_test', array( $this, 'ajax_ai_test' ) );
 	}
 
 	/**
@@ -708,6 +710,156 @@ final class Coywolf_SEO_AI {
 		$state['last_error']    = $reason;
 		update_option( self::BULK_OPTION, $state, false );
 		wp_unschedule_hook( self::BULK_HOOK );
+	}
+
+	/**
+	 * What a bulk run would process and roughly cost.
+	 *
+	 * @param string $model Model to price ('' = the saved/default model).
+	 * @return array posts, skipped, est_cost, reserve_cost, model, from_history.
+	 */
+	public function bulk_estimate( $model = '' ) {
+		$model = '' !== $model ? $model : $this->model();
+
+		$scan = get_transient( 'coywolf_seo_bulk_scan' );
+		if ( ! is_array( $scan ) ) {
+			$ids   = get_posts(
+				array(
+					'post_type'      => $this->post_types,
+					'post_status'    => 'publish',
+					'posts_per_page' => -1,
+					'fields'         => 'ids',
+				)
+			);
+			$stale = 0;
+			$chars = 0;
+			foreach ( $ids as $post_id ) {
+				$post = get_post( $post_id );
+				if ( ! $post ) {
+					continue;
+				}
+				$content = $this->plain_content( $post );
+				if ( '' === trim( $content ) ) {
+					continue;
+				}
+				$hash  = md5( get_the_title( $post ) . "\n" . $content . "\n" . $this->config_signature() );
+				$saved = get_post_meta( $post_id, self::META_KEY, true );
+				if ( is_array( $saved ) && isset( $saved['hash'] ) && $saved['hash'] === $hash ) {
+					continue;
+				}
+				$stale++;
+				$chars += strlen( $content );
+			}
+			$scan = array(
+				'stale' => $stale,
+				'chars' => $chars,
+				'total' => count( $ids ),
+			);
+			set_transient( 'coywolf_seo_bulk_scan', $scan, 10 * MINUTE_IN_SECONDS );
+		}
+
+		$stale = (int) $scan['stale'];
+		if ( $stale < 1 ) {
+			return array(
+				'posts'        => 0,
+				'skipped'      => (int) $scan['total'],
+				'est_cost'     => 0.0,
+				'reserve_cost' => 0.0,
+				'model'        => $model,
+				'from_history' => false,
+			);
+		}
+
+		// Content makes one model pass for extraction and another for
+		// descriptions; ~4 characters per token plus prompt overhead.
+		$passes      = 1 + ( $this->descriptions_on() ? 1 : 0 );
+		$avg_in_post = (int) ceil( ( ( $scan['chars'] / max( 1, $stale ) ) / 4 + 400 ) * $passes );
+		$avg_out     = 250 + ( $this->descriptions_on() ? 80 : 0 ) + 50;
+
+		// Prefer the measured lifetime averages once there is real data.
+		$history      = Coywolf_SEO_AI_Batch::usage_summary( $model );
+		$from_history = ! empty( $history ) && $history['posts'] >= 3;
+		if ( $from_history ) {
+			$avg_in_post = (int) $history['avg_input'];
+			$avg_out     = (int) $history['avg_output'];
+		}
+
+		$est_cost = Coywolf_SEO_AI_Batch::estimate_cost( $model, $avg_in_post * $stale, $avg_out * $stale );
+
+		// What Anthropic's upfront check needs to clear: the worst case of
+		// the largest single batch (the extraction chunk).
+		$chunk        = min( $stale, max( 1, (int) apply_filters( 'coywolf_seo_bulk_batch_size', 100 ) ) );
+		$reserve_cost = Coywolf_SEO_AI_Batch::estimate_cost( $model, (int) ( $avg_in_post * $chunk ), 2000 * $chunk );
+
+		return array(
+			'posts'        => $stale,
+			'skipped'      => (int) $scan['total'] - $stale,
+			'est_cost'     => round( $est_cost, 2 ),
+			'reserve_cost' => round( $reserve_cost, 2 ),
+			'model'        => $model,
+			'from_history' => $from_history,
+		);
+	}
+
+	/**
+	 * Estimator endpoint - recalculates when the Model dropdown changes.
+	 */
+	public function ajax_bulk_estimate() {
+		check_ajax_referer( 'coywolf_seo_bulk_status' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array(), 403 );
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce checked above.
+		$model = isset( $_POST['model'] ) ? preg_replace( '/[^a-z0-9.\-]/', '', strtolower( (string) wp_unslash( $_POST['model'] ) ) ) : '';
+		wp_send_json_success( $this->bulk_estimate( $model ) );
+	}
+
+	/**
+	 * Connection test: a tiny real-time call and a tiny batch submission
+	 * (cancelled immediately). Their success/failure pattern pinpoints
+	 * whether a billing error is account-wide or batch-specific (a
+	 * Workspace spend limit).
+	 */
+	public function ajax_ai_test() {
+		check_ajax_referer( 'coywolf_seo_bulk_status' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array(), 403 );
+		}
+
+		$messages_ok    = false;
+		$messages_error = '';
+		try {
+			$reply       = (string) $this->generate( 'Reply with exactly: OK', 'ping' );
+			$messages_ok = '' !== trim( $reply );
+		} catch ( \Throwable $e ) {
+			$messages_error = $e->getMessage();
+		}
+
+		$batch       = $this->batch();
+		$batch_ok    = false;
+		$batch_error = '';
+		$batch_id    = $batch->submit( array( $batch->request( 'ping', 'Reply with exactly: OK', 'ping', 100 ) ) );
+		if ( is_wp_error( $batch_id ) ) {
+			$batch_error = $batch_id->get_error_message();
+		} else {
+			$batch_ok = true;
+			$batch->cancel( $batch_id );
+		}
+
+		$hint = '';
+		if ( $messages_ok && ! $batch_ok && false !== stripos( $batch_error, 'credit' ) ) {
+			$hint = __( 'Regular API calls work but batch creation is rejected on billing grounds: that is the signature of a Workspace spend limit. In the Anthropic Console open Settings -> Workspaces -> the workspace this key belongs to -> Limits, and raise or remove the monthly spend limit (or create a key in the Default workspace).', 'coywolf-seo' );
+		}
+
+		wp_send_json_success(
+			array(
+				'messages_ok'    => $messages_ok,
+				'messages_error' => $messages_error,
+				'batch_ok'       => $batch_ok,
+				'batch_error'    => $batch_error,
+				'hint'           => $hint,
+			)
+		);
 	}
 
 	/**

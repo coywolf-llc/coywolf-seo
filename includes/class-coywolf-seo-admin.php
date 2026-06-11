@@ -266,6 +266,14 @@ final class Coywolf_SEO_Admin {
 					'confirmDelete'      => __( 'Delete this redirect?', 'coywolf-seo' ),
 					'confirmBulkEnrich'  => __( 'Enrich ALL published posts and pages now? This runs in the background, can take a while, and incurs Anthropic API costs. Content already analyzed with the current settings is skipped.', 'coywolf-seo' ),
 					'confirmBulkCancel'  => __( 'Cancel this run for good? The remaining queue is discarded — a new run would re-check every post from the start (already-analyzed content is skipped at no cost).', 'coywolf-seo' ),
+					'estimateLine'       => __( '%POSTS% posts need enrichment (%SKIPPED% already current). Estimated cost: ~$%COST% at batch rates for %MODEL%. Your Anthropic balance (and any Workspace spend limit) must cover about $%RESERVE% for the largest batch\'s upfront check.', 'coywolf-seo' ),
+					'estimateNone'       => __( 'Everything is already analyzed with the current settings — a run would cost nothing.', 'coywolf-seo' ),
+					'estimateUnsaved'    => __( '(Previewing an unsaved model — the run uses the saved Model setting.)', 'coywolf-seo' ),
+					'estimateHistory'    => __( 'Based on your measured average usage.', 'coywolf-seo' ),
+					'estimateHeuristic'  => __( 'Rough estimate based on content length.', 'coywolf-seo' ),
+					'testRunning'        => __( 'Testing — this makes one tiny paid call…', 'coywolf-seo' ),
+					'testMessages'       => __( 'Regular API:', 'coywolf-seo' ),
+					'testBatches'        => __( 'Batches API:', 'coywolf-seo' ),
 					'confirmBulkDelete' => __( 'Delete the selected redirects?', 'coywolf-seo' ),
 				),
 			)
@@ -921,6 +929,11 @@ final class Coywolf_SEO_Admin {
 									<?php endif; ?>
 								<?php endif; ?>
 							<?php endif; ?>
+							<p class="description" id="coywolf-seo-bulk-estimate" data-loading="<?php esc_attr_e( 'Calculating the estimated cost…', 'coywolf-seo' ); ?>"><em><?php esc_html_e( 'Calculating the estimated cost…', 'coywolf-seo' ); ?></em></p>
+							<p>
+								<button type="button" class="button" id="coywolf-seo-ai-test"><?php esc_html_e( 'Test API access', 'coywolf-seo' ); ?></button>
+								<span class="description" id="coywolf-seo-ai-test-result"></span>
+							</p>
 							<p class="description"><strong><?php esc_html_e( 'Use sparingly:', 'coywolf-seo' ); ?></strong> <?php esc_html_e( 'this runs the enabled AI features over every published post and page through Anthropic\'s Batches API at 50% of standard token prices. Results can take up to an hour (occasionally longer) and incur API costs each run — content already analyzed with the current settings is skipped automatically.', 'coywolf-seo' ); ?></p>
 							<?php $coywolf_seo_usage = Coywolf_SEO_AI_Batch::usage_summary( Coywolf_SEO::instance()->ai()->model() ); ?>
 							<?php if ( ! empty( $coywolf_seo_usage ) ) : ?>
