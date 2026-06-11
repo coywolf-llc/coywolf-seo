@@ -366,13 +366,13 @@ final class Coywolf_SEO_AI {
 	private function bulk_step( array $state, $deadline ) {
 		switch ( $state['stage'] ) {
 			case 'extract_submit':
-				return $this->bulk_submit_stage( $state, 'extract_wait', $this->extract_system(), false );
+				return $this->bulk_submit_stage( $state, 'extract_wait', $this->extract_system(), false, 2000 );
 
 			case 'describe_submit':
-				return $this->bulk_submit_stage( $state, 'describe_wait', $this->describe_system(), false );
+				return $this->bulk_submit_stage( $state, 'describe_wait', $this->describe_system(), false, 300 );
 
 			case 'disambig_submit':
-				return $this->bulk_submit_stage( $state, 'disambig_wait', $this->disambiguate_system(), true );
+				return $this->bulk_submit_stage( $state, 'disambig_wait', $this->disambiguate_system(), true, 1000 );
 
 
 			case 'extract_wait':
@@ -488,9 +488,12 @@ final class Coywolf_SEO_AI {
 	 * @param string $system     System prompt for every request.
 	 * @param bool   $queued     Build from state.queue (disambiguation)
 	 *                           instead of the whole pipeline.
+	 * @param int    $max_tokens Per-request output allowance — kept tight
+	 *                           because Anthropic validates the batch's
+	 *                           worst-case cost against the credit balance.
 	 * @return bool
 	 */
-	private function bulk_submit_stage( array $state, $next_stage, $system, $queued ) {
+	private function bulk_submit_stage( array $state, $next_stage, $system, $queued, $max_tokens = 1000 ) {
 		// First entry into the stage seeds its submission queue.
 		if ( ! isset( $state['stage_queue'] ) || ! is_array( $state['stage_queue'] ) ) {
 			$state['stage_queue'] = $queued ? array_values( (array) $state['queue'] ) : array_values( (array) $state['pipeline'] );
@@ -500,9 +503,12 @@ final class Coywolf_SEO_AI {
 		 * Posts per submitted batch — Anthropic caps batches at 100k
 		 * requests / 256 MB; chunking keeps payloads well clear.
 		 *
-		 * @param int $size Default 500.
+		 * Smaller batches also keep the upfront worst-case cost check
+		 * (sum of every request's max_tokens) well under modest balances.
+		 *
+		 * @param int $size Default 100.
 		 */
-		$chunk_size = max( 1, (int) apply_filters( 'coywolf_seo_bulk_batch_size', 500 ) );
+		$chunk_size = max( 1, (int) apply_filters( 'coywolf_seo_bulk_batch_size', 100 ) );
 		$batch      = $this->batch();
 		$requests   = array();
 		$bytes      = 0;
@@ -521,7 +527,7 @@ final class Coywolf_SEO_AI {
 				$user = $this->prompt_user( $title, $content );
 			}
 			$bytes     += strlen( $user );
-			$requests[] = $batch->request( 'p' . $post_id, $system, $user );
+			$requests[] = $batch->request( 'p' . $post_id, $system, $user, $max_tokens );
 		}
 
 		if ( empty( $requests ) ) {

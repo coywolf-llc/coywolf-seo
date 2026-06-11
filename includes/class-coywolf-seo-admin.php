@@ -835,6 +835,10 @@ final class Coywolf_SEO_Admin {
 										);
 										?>
 										<?php esc_html_e( 'Fix the cause (for example, top up API credits), then Resume to continue where it left off.', 'coywolf-seo' ); ?>
+										<?php if ( false !== stripos( $coywolf_seo_bulk['paused_reason'], 'credit balance' ) ) : ?>
+											<br />
+											<?php esc_html_e( 'Note: Anthropic checks a batch\'s maximum possible cost up front — not what it will actually spend — so this can trigger even with a healthy balance. Resume submits smaller batches with tighter token allowances, which usually clears it. If it persists, check the Model setting: legacy Opus models cost several times more than the default.', 'coywolf-seo' ); ?>
+										<?php endif; ?>
 									</p>
 								<?php endif; ?>
 								<p class="description">
