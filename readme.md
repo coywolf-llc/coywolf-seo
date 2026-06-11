@@ -27,6 +27,8 @@ Coywolf SEO is built on a simple idea: an SEO plugin should give you exactly wha
 - **Access rights** — choose whether Editors can manage the plugin alongside Administrators.
 - **Takes over from other SEO plugins** — with Yoast SEO, Rank Math, All in One SEO, or The SEO Framework also active, their titles, descriptions, schema, Open Graph, robots, and canonical output is suppressed through each plugin's own switches, so nothing is duplicated while you migrate. Their sitemaps and redirects are left running.
 - **Hide the category prefix** — serve category archives at `/news/` instead of `/category/news/`, with 301 redirects from the old URLs.
+- **IndexNow** — ping Bing the moment a post or page is published, updated, or deleted. The site key is generated for you and served virtually; no file is written.
+- **News sitemap** — optionally serve `/coywolf-news-sitemap.xml` with articles from the last 48 hours; choose whether posts and/or pages are included and which categories are in or out.
 
 <!-- wporg-strip:start -->
 Updates are delivered straight from the project's GitHub releases via the bundled self-updater, so new versions show up on **Dashboard → Updates** like any other plugin.
@@ -39,7 +41,7 @@ Updates are delivered straight from the project's GitHub releases via the bundle
 
 ## Privacy
 
-Privacy-first: this plugin includes no analytics, no tracking, and no data gathering — nothing about you, your site, or your visitors is ever collected.
+Privacy-first: this plugin includes no analytics, no tracking, and no data gathering — nothing about you, your site, or your visitors is ever collected. Its only outbound connection is one you turn on: with IndexNow enabled, the changed URL is sent to Bing's IndexNow endpoint on publish, update, and delete — nothing else, nowhere else.
 
 ## Changelog
 

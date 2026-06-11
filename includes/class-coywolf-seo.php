@@ -95,6 +95,20 @@ final class Coywolf_SEO {
 	private $category_base;
 
 	/**
+	 * IndexNow module.
+	 *
+	 * @var Coywolf_SEO_IndexNow
+	 */
+	private $indexnow;
+
+	/**
+	 * News sitemap module.
+	 *
+	 * @var Coywolf_SEO_News_Sitemap
+	 */
+	private $news_sitemap;
+
+	/**
 	 * Create (once) and return the plugin instance.
 	 *
 	 * @return Coywolf_SEO
@@ -130,6 +144,12 @@ final class Coywolf_SEO {
 
 		$this->category_base = new Coywolf_SEO_Category_Base();
 		$this->category_base->init();
+
+		$this->indexnow = new Coywolf_SEO_IndexNow();
+		$this->indexnow->init();
+
+		$this->news_sitemap = new Coywolf_SEO_News_Sitemap();
+		$this->news_sitemap->init();
 
 		if ( is_admin() ) {
 			$this->admin = new Coywolf_SEO_Admin();
