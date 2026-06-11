@@ -173,46 +173,77 @@
 		}
 		$( '#coywolf-seo-ai-enabled, #coywolf-seo-ai-descriptions' ).on( 'change', syncAiKeyFields );
 
-		// Bulk enrichment: confirm before starting; poll progress while a
-		// run is active (each poll also gives WP-Cron a chance to fire).
-		$( '#coywolf-seo-bulk-form' ).on( 'submit', function ( e ) {
-			if ( ! window.confirm( config.i18n.confirmBulkEnrich || 'Enrich all posts and pages now?' ) ) {
-				e.preventDefault();
+		// Bulk enrichment controls update in place: the forms post over
+		// AJAX (the plain submit stays as the no-JS fallback), the server
+		// re-renders the controls, and the area swaps without a reload.
+		var $bulkArea = $( '#coywolf-seo-bulk-area' );
+		var bulkPollTimer = null;
+
+		function bulkRender( html, status ) {
+			$bulkArea.html( html ).attr( 'data-status', status );
+			window.clearTimeout( bulkPollTimer );
+			if ( 'running' === status ) {
+				bulkPollTimer = window.setTimeout( pollBulk, 4000 );
+			} else if ( typeof loadEstimate === 'function' ) {
+				loadEstimate( '', false ); // Stale-post counts changed.
 			}
-		} );
-		$( '#coywolf-seo-bulk-cancel-form' ).on( 'submit', function ( e ) {
-			if ( ! window.confirm( config.i18n.confirmBulkCancel || 'Cancel this run for good?' ) ) {
-				e.preventDefault();
+		}
+
+		function bulkOp( op ) {
+			$bulkArea.css( 'opacity', 0.5 ).find( 'button' ).prop( 'disabled', true );
+			$.post( config.ajaxUrl, {
+				action: 'coywolf_seo_bulk_action',
+				_ajax_nonce: config.bulkActionNonce,
+				op: op
+			} ).done( function ( res ) {
+				if ( res && res.success ) {
+					bulkRender( res.data.html, res.data.status );
+				}
+			} ).always( function () {
+				$bulkArea.css( 'opacity', 1 ).find( 'button' ).prop( 'disabled', false );
+			} );
+		}
+
+		$( document ).on( 'submit', '.coywolf-seo-bulk-op', function ( e ) {
+			e.preventDefault();
+			var op = $( this ).data( 'op' );
+			if ( 'start' === op && ! window.confirm( config.i18n.confirmBulkEnrich || 'Enrich all posts and pages now?' ) ) {
+				return;
 			}
+			if ( 'cancel' === op && ! window.confirm( config.i18n.confirmBulkCancel || 'Cancel this run for good?' ) ) {
+				return;
+			}
+			bulkOp( op );
 		} );
-		var $bulkBox = $( '#coywolf-seo-bulk-progress' );
-		if ( $bulkBox.length && $bulkBox.data( 'running' ) ) {
-			var pollBulk = function () {
-				$.post( config.ajaxUrl, {
-					action: 'coywolf_seo_bulk_status',
-					_ajax_nonce: config.bulkStatusNonce
-				} ).done( function ( res ) {
-					if ( ! res || ! res.success ) {
-						return;
-					}
-					var d = res.data;
-					$bulkBox.find( '.coywolf-seo-progress-bar' ).css( 'width', d.percent + '%' );
-					var bulkText = d.done + ' / ' + d.total + ' (' + d.percent + '%)';
-					if ( d.stage_label ) {
-						bulkText += ' — ' + d.stage_label;
-					}
-					if ( d.failed > 0 ) {
-						bulkText += ' — ' + d.failed + ' failed';
-					}
-					$bulkBox.find( '.coywolf-seo-bulk-text' ).text( bulkText );
-					if ( 'running' === d.status ) {
-						window.setTimeout( pollBulk, 4000 );
-					} else {
-						window.location.reload();
-					}
-				} );
-			};
-			window.setTimeout( pollBulk, 4000 );
+
+		function pollBulk() {
+			$.post( config.ajaxUrl, {
+				action: 'coywolf_seo_bulk_status',
+				_ajax_nonce: config.bulkStatusNonce
+			} ).done( function ( res ) {
+				if ( ! res || ! res.success ) {
+					return;
+				}
+				var d = res.data;
+				var $box = $bulkArea.find( '#coywolf-seo-bulk-progress' );
+				$box.find( '.coywolf-seo-progress-bar' ).css( 'width', d.percent + '%' );
+				var bulkText = d.done + ' / ' + d.total + ' (' + d.percent + '%)';
+				if ( d.stage_label ) {
+					bulkText += ' — ' + d.stage_label;
+				}
+				if ( d.failed > 0 ) {
+					bulkText += ' — ' + d.failed + ' failed';
+				}
+				$box.find( '.coywolf-seo-bulk-text' ).text( bulkText );
+				if ( 'running' === d.status ) {
+					bulkPollTimer = window.setTimeout( pollBulk, 4000 );
+				} else {
+					bulkOp( 'refresh' ); // Re-render done/paused in place.
+				}
+			} );
+		}
+		if ( $bulkArea.length && 'running' === $bulkArea.data( 'status' ) ) {
+			bulkPollTimer = window.setTimeout( pollBulk, 4000 );
 		}
 
 		// Bulk cost estimator: load on the settings page, refresh when the
