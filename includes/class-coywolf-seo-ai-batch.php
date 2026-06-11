@@ -59,17 +59,21 @@ final class Coywolf_SEO_AI_Batch {
 	/**
 	 * One batch request entry.
 	 *
-	 * @param string $custom_id Caller's correlation ID.
-	 * @param string $system    System prompt.
-	 * @param string $user      User prompt.
+	 * @param string $custom_id  Caller's correlation ID.
+	 * @param string $system     System prompt.
+	 * @param string $user       User prompt.
+	 * @param int    $max_tokens Output token allowance. Anthropic checks a
+	 *                           batch's MAXIMUM possible cost against the
+	 *                           credit balance at submission, so this is
+	 *                           sized per task, not set-and-forget high.
 	 * @return array
 	 */
-	public function request( $custom_id, $system, $user ) {
+	public function request( $custom_id, $system, $user, $max_tokens = 1000 ) {
 		return array(
 			'custom_id' => (string) $custom_id,
 			'params'    => array(
 				'model'      => $this->model,
-				'max_tokens' => 4000,
+				'max_tokens' => max( 100, (int) $max_tokens ),
 				'system'     => $system,
 				'messages'   => array(
 					array(
