@@ -511,7 +511,7 @@ final class Coywolf_SEO_Redirects_Admin {
 									<?php wp_nonce_field( 'coywolf_seo_redirect_row' ); ?>
 									<input type="hidden" name="row_action" value="<?php echo $rule->enabled ? 'disable' : 'enable'; ?>" />
 									<input type="hidden" name="row_id" value="<?php echo esc_attr( (string) $rule->id ); ?>" />
-									<button type="submit" class="button-link coywolf-seo-toggle" title="<?php echo esc_attr( $rule->enabled ? __( 'Disable', 'coywolf-seo' ) : __( 'Enable', 'coywolf-seo' ) ); ?>"><?php echo $rule->enabled ? '&#9679;' : '&#9675;'; ?></button>
+									<button type="submit" class="button-link coywolf-seo-toggle coywolf-seo-toggle-<?php echo $rule->enabled ? 'on' : 'off'; ?>" title="<?php echo esc_attr( $rule->enabled ? __( 'Disable', 'coywolf-seo' ) : __( 'Enable', 'coywolf-seo' ) ); ?>"><?php echo $rule->enabled ? '&#9679;' : '&#9675;'; ?></button>
 								</form>
 							</td>
 							<td>
