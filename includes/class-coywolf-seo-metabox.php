@@ -198,6 +198,10 @@ final class Coywolf_SEO_Metabox {
 				'articleTypeOptions' => $article_options,
 				'entityStatus'       => $entity_status,
 				'permalink'          => $permalink,
+				'aiEnabled'          => Coywolf_SEO::instance()->ai()->enabled(),
+				'postId'             => ( $post instanceof WP_Post ) ? (int) $post->ID : 0,
+				'ajaxUrl'            => admin_url( 'admin-ajax.php' ),
+				'reanalyzeNonce'     => wp_create_nonce( 'coywolf_seo_reanalyze' ),
 				'i18n'               => array(
 					'panelTitle'  => __( 'SEO', 'coywolf-seo' ),
 					'pageType'    => __( 'Schema page type', 'coywolf-seo' ),
@@ -206,6 +210,7 @@ final class Coywolf_SEO_Metabox {
 					'noindex'     => __( 'Noindex', 'coywolf-seo' ),
 					'nofollow'    => __( 'Nofollow', 'coywolf-seo' ),
 					'canonical'   => __( 'Canonical link', 'coywolf-seo' ),
+					'reanalyze'   => __( 'Re-analyze entities', 'coywolf-seo' ),
 				),
 			)
 		);
