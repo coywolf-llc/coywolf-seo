@@ -215,6 +215,69 @@
 			window.setTimeout( pollBulk, 4000 );
 		}
 
+		// Bulk cost estimator: load on the settings page, refresh when the
+		// Model dropdown changes (previewing without saving).
+		var $estimate = $( '#coywolf-seo-bulk-estimate' );
+		function loadEstimate( model, unsaved ) {
+			$estimate.html( '<em>' + $estimate.data( 'loading' ) + '</em>' );
+			$.post( config.ajaxUrl, {
+				action: 'coywolf_seo_bulk_estimate',
+				_ajax_nonce: config.bulkStatusNonce,
+				model: model || ''
+			} ).done( function ( res ) {
+				if ( ! res || ! res.success ) {
+					return;
+				}
+				var d = res.data;
+				if ( ! d.posts ) {
+					$estimate.text( config.i18n.estimateNone || 'Nothing to enrich.' );
+					return;
+				}
+				var line = ( config.i18n.estimateLine || '%POSTS% posts, ~$%COST%, reserve $%RESERVE% (%MODEL%)' )
+					.replace( '%POSTS%', d.posts )
+					.replace( '%SKIPPED%', d.skipped )
+					.replace( '%COST%', Number( d.est_cost ).toFixed( 2 ) )
+					.replace( '%RESERVE%', Number( d.reserve_cost ).toFixed( 2 ) )
+					.replace( '%MODEL%', d.model );
+				line += ' ' + ( d.from_history ? ( config.i18n.estimateHistory || '' ) : ( config.i18n.estimateHeuristic || '' ) );
+				if ( unsaved ) {
+					line += ' ' + ( config.i18n.estimateUnsaved || '' );
+				}
+				$estimate.text( line );
+			} );
+		}
+		if ( $estimate.length ) {
+			loadEstimate( '', false );
+			$( '#coywolf-seo-ai-model' ).on( 'change', function () {
+				loadEstimate( $( this ).val(), true );
+			} );
+		}
+
+		// API access test: one tiny real-time call and one tiny batch
+		// (cancelled immediately) — their pattern pinpoints billing issues.
+		$( '#coywolf-seo-ai-test' ).on( 'click', function () {
+			var $result = $( '#coywolf-seo-ai-test-result' );
+			$result.text( config.i18n.testRunning || 'Testing…' );
+			$.post( config.ajaxUrl, {
+				action: 'coywolf_seo_ai_test',
+				_ajax_nonce: config.bulkStatusNonce
+			} ).done( function ( res ) {
+				if ( ! res || ! res.success ) {
+					$result.text( 'Test failed to run.' );
+					return;
+				}
+				var d = res.data;
+				var parts = [
+					( config.i18n.testMessages || 'Regular API:' ) + ' ' + ( d.messages_ok ? '✓' : '✗ ' + d.messages_error ),
+					( config.i18n.testBatches || 'Batches API:' ) + ' ' + ( d.batch_ok ? '✓' : '✗ ' + d.batch_error )
+				];
+				if ( d.hint ) {
+					parts.push( d.hint );
+				}
+				$result.text( parts.join( ' — ' ) );
+			} );
+		} );
+
 		// Excluding meta descriptions hides the AI meta-description option
 		// immediately — and unchecking brings it right back.
 		function syncAiDescriptionRow() {
