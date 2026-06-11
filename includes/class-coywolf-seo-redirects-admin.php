@@ -327,6 +327,8 @@ final class Coywolf_SEO_Redirects_Admin {
 
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- read-only display flags set by our own redirects, each sanitized on read.
 		$saved_flag = isset( $_GET['redirect-saved'] ) ? sanitize_text_field( wp_unslash( $_GET['redirect-saved'] ) ) : '';
+		$imported   = isset( $_GET['redirect-imported'] ) ? absint( $_GET['redirect-imported'] ) : -1;
+		$import_skipped = isset( $_GET['redirect-skipped'] ) ? absint( $_GET['redirect-skipped'] ) : 0;
 		$error_flag = isset( $_GET['redirect-error'] ) ? sanitize_text_field( rawurldecode( wp_unslash( $_GET['redirect-error'] ) ) ) : '';
 		$test_url   = isset( $_GET['redirect-test'] ) ? esc_url_raw( rawurldecode( wp_unslash( $_GET['redirect-test'] ) ) ) : '';
 		$prefill    = isset( $_GET['prefill-source'] ) ? sanitize_text_field( wp_unslash( $_GET['prefill-source'] ) ) : '';
@@ -339,6 +341,26 @@ final class Coywolf_SEO_Redirects_Admin {
 
 			<?php if ( '' !== $error_flag ) : ?>
 				<div class="notice notice-error is-dismissible"><p><?php echo esc_html( $error_flag ); ?></p></div>
+			<?php elseif ( $imported >= 0 ) : ?>
+				<div class="notice notice-success is-dismissible">
+					<p>
+						<?php
+						printf(
+							/* translators: %d: number of imported redirects. */
+							esc_html( _n( 'Imported %d redirect.', 'Imported %d redirects.', $imported, 'coywolf-seo' ) ),
+							(int) $imported
+						);
+						if ( $import_skipped > 0 ) {
+							echo ' ';
+							printf(
+								/* translators: %d: number of skipped records. */
+								esc_html( _n( '%d record was skipped (already covered or not importable).', '%d records were skipped (already covered or not importable).', $import_skipped, 'coywolf-seo' ) ),
+								(int) $import_skipped
+							);
+						}
+						?>
+					</p>
+				</div>
 			<?php elseif ( '' !== $saved_flag ) : ?>
 				<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Redirects updated.', 'coywolf-seo' ); ?></p></div>
 			<?php endif; ?>

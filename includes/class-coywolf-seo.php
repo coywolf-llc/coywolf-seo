@@ -145,6 +145,13 @@ final class Coywolf_SEO {
 	private $redirects_admin = null;
 
 	/**
+	 * Redirect importers (admin only).
+	 *
+	 * @var Coywolf_SEO_Redirects_Import|null
+	 */
+	private $redirects_import = null;
+
+	/**
 	 * Create (once) and return the plugin instance.
 	 *
 	 * @return Coywolf_SEO
@@ -211,6 +218,9 @@ final class Coywolf_SEO {
 
 			$this->redirects_admin = new Coywolf_SEO_Redirects_Admin( $this->redirects );
 			$this->redirects_admin->init();
+
+			$this->redirects_import = new Coywolf_SEO_Redirects_Import( $this->redirects );
+			$this->redirects_import->init();
 		}
 	}
 
@@ -275,6 +285,16 @@ final class Coywolf_SEO {
 	 */
 	public function redirects_admin() {
 		return $this->redirects_admin;
+	}
+
+	/**
+	 * Redirect importers accessor (the Import/Export page renders its
+	 * section).
+	 *
+	 * @return Coywolf_SEO_Redirects_Import|null
+	 */
+	public function redirects_import() {
+		return $this->redirects_import;
 	}
 
 	/**
