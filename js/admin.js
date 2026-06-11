@@ -14,13 +14,19 @@
 		}
 		$( '.coywolf-seo-entity-toggle' ).on( 'change', syncEntityRows );
 
-		// Property repeater: clone the first row, clear its value.
-		$( '#coywolf-seo-add-prop' ).on( 'click', function () {
-			var $tbody = $( '#coywolf-seo-org-props tbody' );
+		// Property repeater (Site Details and Authors): clone the first row
+		// of the targeted table, cleared.
+		$( '.coywolf-seo-add-row' ).on( 'click', function () {
+			var $tbody = $( '#' + $( this ).data( 'target' ) ).find( 'tbody' );
 			var $row = $tbody.find( 'tr' ).first().clone();
 			$row.find( 'input' ).val( '' );
 			$row.find( 'select' ).prop( 'selectedIndex', 0 );
 			$tbody.append( $row );
+		} );
+
+		// Authors: load the selected user's details.
+		$( '#coywolf-seo-author-select' ).on( 'change', function () {
+			$( this ).closest( 'form' ).trigger( 'submit' );
 		} );
 
 		$( document ).on( 'click', '.coywolf-seo-remove-row', function () {

@@ -302,6 +302,91 @@ final class Coywolf_SEO_Options {
 	}
 
 	/**
+	 * Schema.org Person properties offered in the Authors property picker.
+	 * Values are entered as text or URLs; the schema builder shapes the
+	 * well-known ones (image, sameAs, worksFor) into their proper
+	 * structures.
+	 *
+	 * @return array Property => label.
+	 */
+	public static function person_properties() {
+		return array(
+			'name'                      => 'name',
+			'additionalName'            => 'additionalName',
+			'alternateName'             => 'alternateName',
+			'givenName'                 => 'givenName',
+			'familyName'                => 'familyName',
+			'honorificPrefix'           => 'honorificPrefix',
+			'honorificSuffix'           => 'honorificSuffix',
+			'description'               => 'description',
+			'disambiguatingDescription' => 'disambiguatingDescription',
+			'url'                       => 'url',
+			'image'                     => 'image',
+			'email'                     => 'email',
+			'telephone'                 => 'telephone',
+			'jobTitle'                  => 'jobTitle',
+			'worksFor'                  => 'worksFor',
+			'affiliation'               => 'affiliation',
+			'alumniOf'                  => 'alumniOf',
+			'memberOf'                  => 'memberOf',
+			'hasOccupation'             => 'hasOccupation',
+			'knowsAbout'                => 'knowsAbout',
+			'knowsLanguage'             => 'knowsLanguage',
+			'nationality'               => 'nationality',
+			'homeLocation'              => 'homeLocation',
+			'workLocation'              => 'workLocation',
+			'address'                   => 'address',
+			'birthDate'                 => 'birthDate',
+			'birthPlace'                => 'birthPlace',
+			'award'                     => 'award',
+			'brand'                     => 'brand',
+			'callSign'                  => 'callSign',
+			'colleague'                 => 'colleague',
+			'gender'                    => 'gender',
+			'sameAs'                    => 'sameAs',
+		);
+	}
+
+	/**
+	 * Option name holding per-user author schema properties.
+	 */
+	const AUTHORS_OPTION = 'coywolf_seo_authors';
+
+	/**
+	 * All saved author property sets, keyed by user ID.
+	 *
+	 * @return array
+	 */
+	public static function authors_all() {
+		$saved = get_option( self::AUTHORS_OPTION, array() );
+		return is_array( $saved ) ? $saved : array();
+	}
+
+	/**
+	 * Saved property rows for one author.
+	 *
+	 * @param int $user_id User ID.
+	 * @return array|null Ordered prop/value rows, or null when never saved.
+	 */
+	public static function author_rows( $user_id ) {
+		$all = self::authors_all();
+		return isset( $all[ $user_id ] ) && is_array( $all[ $user_id ] ) ? $all[ $user_id ] : null;
+	}
+
+	/**
+	 * Persist the property rows for one author.
+	 *
+	 * @param int   $user_id User ID.
+	 * @param array $rows    Sanitized prop/value rows.
+	 * @return void
+	 */
+	public static function save_author_rows( $user_id, array $rows ) {
+		$all             = self::authors_all();
+		$all[ $user_id ] = $rows;
+		update_option( self::AUTHORS_OPTION, $all );
+	}
+
+	/**
 	 * Per-post SEO meta for a post, merged over empty defaults.
 	 *
 	 * @param int $post_id Post ID.

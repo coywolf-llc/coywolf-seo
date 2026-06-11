@@ -17,6 +17,7 @@ global $wpdb;
 
 // Options.
 delete_option( 'coywolf_seo_settings' );
+delete_option( 'coywolf_seo_authors' );
 
 // Per-post SEO meta.
 delete_post_meta_by_key( '_coywolf_seo' );

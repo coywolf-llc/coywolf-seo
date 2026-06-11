@@ -46,9 +46,12 @@ define( 'COYWOLF_SEO_GITHUB_BUILD', true );
 /* wporg-strip:end */
 require_once __DIR__ . '/includes/class-coywolf-seo-options.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-admin.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-authors.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-metabox.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-titles.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-head.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-schema.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-opengraph.php';
 require_once __DIR__ . '/includes/class-coywolf-seo.php';
 
 register_activation_hook( __FILE__, array( 'Coywolf_SEO', 'on_activate' ) );

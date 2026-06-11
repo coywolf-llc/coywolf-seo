@@ -93,7 +93,8 @@ final class Coywolf_SEO_Head {
 	}
 
 	/**
-	 * The meta description for the current main query.
+	 * The meta description for the current main query, honoring the
+	 * "Exclude meta description" setting.
 	 *
 	 * @return string '' when none applies.
 	 */
@@ -101,6 +102,17 @@ final class Coywolf_SEO_Head {
 		if ( Coywolf_SEO_Options::get( 'exclude_meta_desc' ) ) {
 			return '';
 		}
+		return $this->source_description();
+	}
+
+	/**
+	 * The description for the current main query regardless of the exclude
+	 * setting — Open Graph and schema descriptions use this directly, since
+	 * the exclude setting only governs the meta description tag.
+	 *
+	 * @return string '' when none applies.
+	 */
+	public function source_description() {
 		$text = '';
 		if ( is_front_page() ) {
 			$custom = (string) Coywolf_SEO_Options::get( 'homepage_description' );
