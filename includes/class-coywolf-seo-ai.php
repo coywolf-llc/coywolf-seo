@@ -121,7 +121,7 @@ final class Coywolf_SEO_AI {
 	 * @return string
 	 */
 	private function config_signature() {
-		return 'model:' . apply_filters( 'coywolf_seo_ai_model', self::DEFAULT_MODEL )
+		return 'model:' . $this->model()
 			. '|ent:' . ( $this->enabled() ? '1' : '0' )
 			. '|desc:' . ( $this->descriptions_on() ? '1' : '0' );
 	}
@@ -168,6 +168,63 @@ final class Coywolf_SEO_AI {
 	 */
 	public function enabled() {
 		return (bool) Coywolf_SEO_Options::get( 'ai_enabled' ) && '' !== $this->api_key();
+	}
+
+	/**
+	 * The Claude model in use: the saved setting (or the default), still
+	 * overridable in code via the coywolf_seo_ai_model filter.
+	 *
+	 * @return string
+	 */
+	public function model() {
+		$saved = trim( (string) Coywolf_SEO_Options::get( 'ai_model' ) );
+		return (string) apply_filters( 'coywolf_seo_ai_model', '' !== $saved ? $saved : self::DEFAULT_MODEL );
+	}
+
+	/**
+	 * Models available to the saved key, from Anthropic's model list —
+	 * cached for 12 hours; empty without a key or on failure (the
+	 * settings page falls back to a curated list).
+	 *
+	 * @return array Rows of id/name.
+	 */
+	public function available_models() {
+		$key = $this->api_key();
+		if ( '' === $key ) {
+			return array();
+		}
+		$cached = get_transient( 'coywolf_seo_ai_models' );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+		$response = wp_remote_get(
+			'https://api.anthropic.com/v1/models?limit=100',
+			array(
+				'timeout'    => 8,
+				'user-agent' => $this->user_agent(),
+				'headers'    => array(
+					'x-api-key'         => $key,
+					'anthropic-version' => '2023-06-01',
+				),
+			)
+		);
+		if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+			return array();
+		}
+		$body   = json_decode( wp_remote_retrieve_body( $response ), true );
+		$models = array();
+		foreach ( (array) ( $body['data'] ?? array() ) as $row ) {
+			if ( is_array( $row ) && ! empty( $row['id'] ) && 0 === strpos( (string) $row['id'], 'claude-' ) ) {
+				$models[] = array(
+					'id'   => (string) $row['id'],
+					'name' => ! empty( $row['display_name'] ) ? (string) $row['display_name'] : (string) $row['id'],
+				);
+			}
+		}
+		if ( ! empty( $models ) ) {
+			set_transient( 'coywolf_seo_ai_models', $models, 12 * HOUR_IN_SECONDS );
+		}
+		return $models;
 	}
 
 	/**
@@ -740,7 +797,7 @@ final class Coywolf_SEO_AI {
 		 *
 		 * @param string $model Model ID.
 		 */
-		$model = apply_filters( 'coywolf_seo_ai_model', self::DEFAULT_MODEL );
+		$model = $this->model();
 
 		$options = new RequestOptions();
 		$options->setTimeout( $this->timeout() );
