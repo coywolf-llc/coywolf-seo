@@ -1,9 +1,71 @@
 /**
- * Coywolf SEO admin behavior: the Organization/Person toggle, the property
- * repeater, and the Open Graph image picker.
+ * Coywolf SEO admin behavior: the Organization/Person toggle, the typed
+ * property repeaters (Site Details and Authors), the media pickers, and
+ * the Settings-page field visibility.
+ *
+ * Property input metadata arrives via the CoywolfSEOAdmin global
+ * (wp_localize_script): propertyInputs maps a property name to either
+ * { input: 'url'|'email'|... } or { fields: { sub: { label, input } } }.
  */
 ( function ( $ ) {
 	'use strict';
+
+	var config = window.CoywolfSEOAdmin || { propertyInputs: {}, i18n: {} };
+
+	/**
+	 * Build the value cell contents for a property, mirroring the PHP
+	 * renderer in Coywolf_SEO_Admin::render_property_value_cell().
+	 */
+	function buildValueCell( nameBase, prop ) {
+		var meta = config.propertyInputs[ prop ] || { input: 'text' };
+		var $cell = $( '<td class="coywolf-seo-prop-value"></td>' );
+
+		if ( meta.fields ) {
+			var $wrap = $( '<div class="coywolf-seo-subfields"></div>' );
+			$.each( meta.fields, function ( sub, subMeta ) {
+				var $label = $( '<label></label>' );
+				$label.append( $( '<span></span>' ).text( subMeta.label ) );
+				$label.append(
+					$( '<input/>', {
+						type: subMeta.input,
+						name: nameBase + '[' + sub + ']'
+					} )
+				);
+				$wrap.append( $label );
+			} );
+			$cell.append( $wrap );
+			return $cell;
+		}
+
+		if ( meta.input === 'image' ) {
+			$cell.append(
+				$( '<input/>', {
+					type: 'url',
+					class: 'regular-text',
+					name: nameBase,
+					placeholder: config.i18n.pasteOrSelect || ''
+				} )
+			);
+			$cell.append( ' ' );
+			$cell.append(
+				$( '<button/>', {
+					type: 'button',
+					class: 'button coywolf-seo-media-btn',
+					text: config.i18n.selectImage || 'Select image'
+				} )
+			);
+			return $cell;
+		}
+
+		$cell.append(
+			$( '<input/>', {
+				type: meta.input || 'text',
+				class: 'regular-text',
+				name: nameBase
+			} )
+		);
+		return $cell;
+	}
 
 	$( function () {
 		// Organization / Person toggle.
@@ -14,14 +76,79 @@
 		}
 		$( '.coywolf-seo-entity-toggle' ).on( 'change', syncEntityRows );
 
-		// Property repeater (Site Details and Authors): clone the first row
-		// of the targeted table, cleared.
+		// Property repeaters: add a fresh row (cloned select, rebuilt value
+		// cell) with the table's next index.
 		$( '.coywolf-seo-add-row' ).on( 'click', function () {
-			var $tbody = $( '#' + $( this ).data( 'target' ) ).find( 'tbody' );
-			var $row = $tbody.find( 'tr' ).first().clone();
-			$row.find( 'input' ).val( '' );
-			$row.find( 'select' ).prop( 'selectedIndex', 0 );
+			var $table = $( '#' + $( this ).data( 'target' ) );
+			var $tbody = $table.find( 'tbody' );
+			var field = $table.data( 'field' );
+			var index = parseInt( $table.attr( 'data-next-index' ), 10 ) || $tbody.find( 'tr' ).length;
+			$table.attr( 'data-next-index', index + 1 );
+
+			var $first = $tbody.find( 'tr' ).first();
+			var $row = $( '<tr class="coywolf-seo-prop-row"></tr>' );
+			var $selectCell = $( '<td></td>' );
+			var $select = $first.find( 'select.coywolf-seo-prop-select' ).clone();
+			$select.attr( 'name', 'coywolf_seo[' + field + '][' + index + '][prop]' );
+			$select.prop( 'selectedIndex', 0 );
+			$selectCell.append( $select );
+			$row.append( $selectCell );
+
+			var nameBase = 'coywolf_seo[' + field + '][' + index + '][value]';
+			$row.append( buildValueCell( nameBase, $select.val() ) );
+			$row.append(
+				$( '<td></td>' ).append(
+					$( '<button/>', {
+						type: 'button',
+						class: 'button-link coywolf-seo-remove-row',
+						'aria-label': config.i18n.removeProperty || 'Remove property',
+						html: '&times;'
+					} )
+				)
+			);
 			$tbody.append( $row );
+		} );
+
+		// Changing a row's property swaps its value cell to the matching
+		// input type, keeping the row's index.
+		$( document ).on( 'change', '.coywolf-seo-prop-select', function () {
+			var $select = $( this );
+			var match = /\[(\w+)\]\[(\d+)\]\[prop\]$/.exec( $select.attr( 'name' ) || '' );
+			if ( ! match ) {
+				return;
+			}
+			var nameBase = 'coywolf_seo[' + match[ 1 ] + '][' + match[ 2 ] + '][value]';
+			$select.closest( 'tr' ).find( '.coywolf-seo-prop-value' ).replaceWith( buildValueCell( nameBase, $select.val() ) );
+		} );
+
+		$( document ).on( 'click', '.coywolf-seo-remove-row', function () {
+			var $rows = $( this ).closest( 'tbody' ).find( 'tr' );
+			if ( $rows.length > 1 ) {
+				$( this ).closest( 'tr' ).remove();
+			} else {
+				$rows.first().find( 'input' ).val( '' );
+			}
+		} );
+
+		// Media picker inside repeaters: writes the chosen image URL into
+		// the sibling input (uploads land in the Media Library via wp.media).
+		var repeaterFrame = null;
+		$( document ).on( 'click', '.coywolf-seo-media-btn', function ( e ) {
+			e.preventDefault();
+			var $input = $( this ).closest( 'td' ).find( 'input[type="url"]' ).first();
+			if ( ! repeaterFrame ) {
+				repeaterFrame = wp.media( {
+					title: config.i18n.selectImage || 'Select image',
+					library: { type: 'image' },
+					multiple: false
+				} );
+			}
+			repeaterFrame.off( 'select' );
+			repeaterFrame.on( 'select', function () {
+				var attachment = repeaterFrame.state().get( 'selection' ).first().toJSON();
+				$input.val( attachment.url ).trigger( 'change' );
+			} );
+			repeaterFrame.open();
 		} );
 
 		// Authors: load the selected user's details.
@@ -34,15 +161,9 @@
 			$( '#coywolf-seo-news-cats' ).toggle( $( this ).val() !== 'all' );
 		} );
 
-		$( document ).on( 'click', '.coywolf-seo-remove-row', function () {
-			var $rows = $( this ).closest( 'tbody' ).find( 'tr' );
-			if ( $rows.length > 1 ) {
-				$( this ).closest( 'tr' ).remove();
-			} else {
-				// Last row: clear it instead of removing, so the repeater
-				// always has a template row to clone.
-				$rows.first().find( 'input' ).val( '' );
-			}
+		// AI enrichment: only show the API key once entity detection is on.
+		$( '#coywolf-seo-ai-enabled' ).on( 'change', function () {
+			$( '#coywolf-seo-ai-fields' ).toggle( this.checked );
 		} );
 
 		// Open Graph image picker.

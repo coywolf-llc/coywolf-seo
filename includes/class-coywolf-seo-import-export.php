@@ -14,9 +14,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Import/Export handlers and the Settings-page section.
+ * Import/Export handlers and admin page.
  */
 final class Coywolf_SEO_Import_Export {
+
+	/**
+	 * Menu slug.
+	 */
+	const SLUG = 'coywolf-seo-import-export';
 
 	/**
 	 * Hook everything up.
@@ -107,17 +112,17 @@ final class Coywolf_SEO_Import_Export {
 	 * @param string $what Notice key.
 	 */
 	private function redirect_back( $what ) {
-		wp_safe_redirect( add_query_arg( 'coywolf-seo-saved', $what, admin_url( 'admin.php?page=' . Coywolf_SEO_Admin::SLUG_SETTINGS ) ) );
+		wp_safe_redirect( add_query_arg( 'coywolf-seo-saved', $what, admin_url( 'admin.php?page=' . self::SLUG ) ) );
 		exit;
 	}
 
 	/**
-	 * Render the Import/Export section (its own forms, outside the main
-	 * Settings form).
+	 * Render the Import/Export page.
 	 */
-	public function render_section() {
+	public function render_page() {
 		?>
-		<h2><?php esc_html_e( 'Import/Export', 'coywolf-seo' ); ?></h2>
+		<div class="wrap coywolf-seo-wrap">
+		<h1><?php esc_html_e( 'Import/Export', 'coywolf-seo' ); ?></h1>
 		<table class="form-table" role="presentation">
 			<tr>
 				<th scope="row"><?php esc_html_e( 'Export', 'coywolf-seo' ); ?></th>
@@ -143,6 +148,7 @@ final class Coywolf_SEO_Import_Export {
 				</td>
 			</tr>
 		</table>
+		</div>
 		<?php
 	}
 }

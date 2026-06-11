@@ -27,12 +27,81 @@ final class Coywolf_SEO_Metabox {
 	 * Hook everything up.
 	 */
 	public function init() {
+		add_action( 'init', array( $this, 'register_meta' ) );
 		add_action( 'add_meta_boxes', array( $this, 'register' ) );
 		add_action( 'save_post', array( $this, 'save' ), 10, 2 );
+		add_action( 'enqueue_block_editor_assets', array( $this, 'enqueue_editor_panel' ) );
 	}
 
 	/**
-	 * Register the meta box.
+	 * Register the SEO post meta for the block editor (REST). The block
+	 * editor's SEO panel in the document sidebar reads and writes this.
+	 */
+	public function register_meta() {
+		$page_types    = array_keys( Coywolf_SEO_Options::page_types() );
+		$article_types = array_keys( Coywolf_SEO_Options::article_types() );
+
+		$schema = array(
+			'type'                 => 'object',
+			'properties'           => array(
+				'page_type'    => array(
+					'type' => 'string',
+					'enum' => array_merge( array( '' ), $page_types ),
+				),
+				'article_type' => array(
+					'type' => 'string',
+					'enum' => array_merge( array( '', 'none' ), $article_types ),
+				),
+				'noindex'      => array( 'type' => 'boolean' ),
+				'nofollow'     => array( 'type' => 'boolean' ),
+				'canonical'    => array(
+					'type'   => 'string',
+					'format' => 'uri',
+				),
+			),
+			'additionalProperties' => false,
+		);
+
+		$default = array(
+			'page_type'    => '',
+			'article_type' => '',
+			'noindex'      => false,
+			'nofollow'     => false,
+			'canonical'    => '',
+		);
+
+		foreach ( $this->post_types as $type ) {
+			register_post_meta(
+				$type,
+				'_coywolf_seo',
+				array(
+					'type'          => 'object',
+					'single'        => true,
+					'default'       => $default,
+					'auth_callback' => array( $this, 'can_edit_meta' ),
+					'show_in_rest'  => array( 'schema' => $schema ),
+				)
+			);
+		}
+	}
+
+	/**
+	 * The protected meta key is editable by whoever can edit the post.
+	 *
+	 * @param bool   $allowed   Unused default.
+	 * @param string $meta_key  Unused key.
+	 * @param int    $object_id Post ID.
+	 * @return bool
+	 */
+	public function can_edit_meta( $allowed, $meta_key, $object_id ) {
+		unset( $allowed, $meta_key );
+		return current_user_can( 'edit_post', $object_id );
+	}
+
+	/**
+	 * Register the classic meta box. In the block editor the document
+	 * sidebar panel replaces it ( __back_compat_meta_box ), so the box only
+	 * renders in the classic editor.
 	 */
 	public function register() {
 		foreach ( $this->post_types as $type ) {
@@ -42,9 +111,74 @@ final class Coywolf_SEO_Metabox {
 				array( $this, 'render' ),
 				$type,
 				'normal',
-				'default'
+				'default',
+				array( '__back_compat_meta_box' => true )
 			);
 		}
+	}
+
+	/**
+	 * Enqueue the document-sidebar SEO panel in the block editor.
+	 */
+	public function enqueue_editor_panel() {
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen || 'post' !== $screen->base || ! in_array( (string) $screen->post_type, $this->post_types, true ) ) {
+			return;
+		}
+
+		wp_enqueue_script(
+			'coywolf-seo-editor',
+			COYWOLF_SEO_URL . 'js/editor.js',
+			array( 'wp-plugins', 'wp-edit-post', 'wp-element', 'wp-components', 'wp-data' ),
+			Coywolf_SEO::VERSION,
+			true
+		);
+
+		$page_options = array(
+			array(
+				'label' => __( 'Default', 'coywolf-seo' ),
+				'value' => '',
+			),
+		);
+		foreach ( Coywolf_SEO_Options::page_types() as $value => $label ) {
+			$page_options[] = array(
+				'label' => $label,
+				'value' => $value,
+			);
+		}
+		$article_options = array(
+			array(
+				'label' => __( 'Default', 'coywolf-seo' ),
+				'value' => '',
+			),
+			array(
+				'label' => __( 'None', 'coywolf-seo' ),
+				'value' => 'none',
+			),
+		);
+		foreach ( Coywolf_SEO_Options::article_types() as $value => $label ) {
+			$article_options[] = array(
+				'label' => $label,
+				'value' => $value,
+			);
+		}
+
+		wp_localize_script(
+			'coywolf-seo-editor',
+			'CoywolfSEOEditor',
+			array(
+				'pageTypeOptions'    => $page_options,
+				'articleTypeOptions' => $article_options,
+				'i18n'               => array(
+					'panelTitle'  => __( 'SEO', 'coywolf-seo' ),
+					'pageType'    => __( 'Schema page type', 'coywolf-seo' ),
+					'articleType' => __( 'Schema article type', 'coywolf-seo' ),
+					'noindex'     => __( 'Noindex', 'coywolf-seo' ),
+					'nofollow'    => __( 'Nofollow', 'coywolf-seo' ),
+					'canonical'   => __( 'Canonical link', 'coywolf-seo' ),
+				),
+			)
+		);
 	}
 
 	/**

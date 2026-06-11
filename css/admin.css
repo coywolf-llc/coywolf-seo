@@ -40,6 +40,21 @@
 	color: #8a2424;
 }
 
+.coywolf-seo-subfields label {
+	display: block;
+	margin-bottom: 6px;
+}
+
+.coywolf-seo-subfields label span {
+	display: inline-block;
+	min-width: 140px;
+	color: #50575e;
+}
+
+.coywolf-seo-props .coywolf-seo-prop-value {
+	min-width: 360px;
+}
+
 .coywolf-seo-cat-list {
 	max-height: 180px;
 	overflow-y: auto;

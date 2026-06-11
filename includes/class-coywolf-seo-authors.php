@@ -90,17 +90,8 @@ final class Coywolf_SEO_Authors {
 		}
 
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized row-by-row below.
-		$raw    = isset( $_POST['coywolf_seo'] ) && is_array( $_POST['coywolf_seo'] ) ? wp_unslash( $_POST['coywolf_seo'] ) : array();
-		$props  = isset( $raw['author_prop'] ) && is_array( $raw['author_prop'] ) ? array_values( $raw['author_prop'] ) : array();
-		$values = isset( $raw['author_value'] ) && is_array( $raw['author_value'] ) ? array_values( $raw['author_value'] ) : array();
-
-		$rows = array();
-		foreach ( $props as $i => $prop ) {
-			$rows[] = array(
-				'prop'  => (string) $prop,
-				'value' => isset( $values[ $i ] ) ? (string) $values[ $i ] : '',
-			);
-		}
+		$raw  = isset( $_POST['coywolf_seo'] ) && is_array( $_POST['coywolf_seo'] ) ? wp_unslash( $_POST['coywolf_seo'] ) : array();
+		$rows = isset( $raw['author_rows'] ) && is_array( $raw['author_rows'] ) ? array_values( $raw['author_rows'] ) : array();
 		$rows = Coywolf_SEO_Options::sanitize_properties( $rows, Coywolf_SEO_Options::person_properties() );
 
 		Coywolf_SEO_Options::save_author_rows( $user_id, $rows );
@@ -165,25 +156,13 @@ final class Coywolf_SEO_Authors {
 					<input type="hidden" name="coywolf_seo_author_id" value="<?php echo esc_attr( (string) $user->ID ); ?>" />
 					<?php wp_nonce_field( 'coywolf_seo_author' ); ?>
 
-					<table class="coywolf-seo-props" id="coywolf-seo-author-props">
+					<table class="coywolf-seo-props" id="coywolf-seo-author-props" data-field="author_rows" data-next-index="<?php echo esc_attr( (string) count( $rows ) ); ?>">
 						<tbody>
-							<?php foreach ( $rows as $row ) : ?>
-								<tr>
-									<td>
-										<select name="coywolf_seo[author_prop][]">
-											<?php foreach ( $person_props as $prop => $label ) : ?>
-												<option value="<?php echo esc_attr( $prop ); ?>" <?php selected( $row['prop'], $prop ); ?>><?php echo esc_html( $label ); ?></option>
-											<?php endforeach; ?>
-										</select>
-									</td>
-									<td><input type="text" class="regular-text" name="coywolf_seo[author_value][]" value="<?php echo esc_attr( $row['value'] ); ?>" /></td>
-									<td><button type="button" class="button-link coywolf-seo-remove-row" aria-label="<?php esc_attr_e( 'Remove property', 'coywolf-seo' ); ?>">&times;</button></td>
-								</tr>
-							<?php endforeach; ?>
+							<?php Coywolf_SEO_Admin::render_property_rows( 'author_rows', $rows, $person_props ); ?>
 						</tbody>
 					</table>
 					<button type="button" class="button coywolf-seo-add-row" data-target="coywolf-seo-author-props"><?php esc_html_e( 'Add property', 'coywolf-seo' ); ?></button>
-					<p class="description"><?php esc_html_e( 'Schema.org Person properties. Add a property more than once (sameAs, for example) to output multiple values. Empty rows are not saved.', 'coywolf-seo' ); ?></p>
+					<p class="description"><?php esc_html_e( 'Schema.org Person properties — each value input matches the property type. Add a property more than once (sameAs, for example) to output multiple values. Empty rows are not saved.', 'coywolf-seo' ); ?></p>
 
 					<?php submit_button( __( 'Save Author', 'coywolf-seo' ) ); ?>
 				</form>

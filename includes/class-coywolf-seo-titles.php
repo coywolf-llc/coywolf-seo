@@ -26,6 +26,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class Coywolf_SEO_Titles {
 
 	/**
+	 * The document title computed before the force-rewrite buffer opens.
+	 * Computing it inside the output-buffer display handler would run other
+	 * plugins' title filters there, where any filter that buffers or echoes
+	 * fatals the whole page at shutdown.
+	 *
+	 * @var string
+	 */
+	private $forced_title = '';
+
+	/**
 	 * Hook everything up.
 	 */
 	public function init() {
@@ -48,19 +58,21 @@ final class Coywolf_SEO_Titles {
 		}
 		if ( is_home() ) {
 			// Blog posts index when a static front page is set.
-			return single_post_title( '', false );
+			return (string) single_post_title( '', false );
 		}
 		if ( is_singular( array( 'post', 'page' ) ) ) {
-			return single_post_title( '', false );
+			return (string) single_post_title( '', false );
 		}
 		if ( is_category() || is_tag() ) {
-			return single_term_title( '', false );
+			return (string) single_term_title( '', false );
 		}
 		return '';
 	}
 
 	/**
-	 * Whether the current context appends the site name.
+	 * Whether the current context appends the site name. One site-wide
+	 * setting covers posts, pages, categories, and tags; the homepage
+	 * title always stands alone.
 	 *
 	 * @return bool
 	 */
@@ -68,19 +80,7 @@ final class Coywolf_SEO_Titles {
 		if ( is_front_page() ) {
 			return false;
 		}
-		if ( is_singular( 'post' ) || is_home() ) {
-			return (bool) Coywolf_SEO_Options::get( 'post_append_site_name' );
-		}
-		if ( is_singular( 'page' ) ) {
-			return (bool) Coywolf_SEO_Options::get( 'page_append_site_name' );
-		}
-		if ( is_category() ) {
-			return (bool) Coywolf_SEO_Options::get( 'cat_append_site_name' );
-		}
-		if ( is_tag() ) {
-			return (bool) Coywolf_SEO_Options::get( 'tag_append_site_name' );
-		}
-		return false;
+		return (bool) Coywolf_SEO_Options::get( 'append_site_name' );
 	}
 
 	/**
@@ -127,6 +127,9 @@ final class Coywolf_SEO_Titles {
 		if ( '' === $this->managed_title() ) {
 			return;
 		}
+		// The query is fully resolved at this point; compute the title now
+		// so no filters run inside the buffer's display handler.
+		$this->forced_title = wp_get_document_title();
 		ob_start( array( $this, 'rewrite_title_tag' ) );
 	}
 
@@ -138,7 +141,7 @@ final class Coywolf_SEO_Titles {
 	 * @return string
 	 */
 	public function rewrite_title_tag( $html ) {
-		$title = wp_get_document_title();
+		$title = $this->forced_title;
 		if ( '' === $title || false === stripos( $html, '<title' ) ) {
 			return $html;
 		}

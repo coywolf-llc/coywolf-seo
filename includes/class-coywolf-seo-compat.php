@@ -47,6 +47,52 @@ final class Coywolf_SEO_Compat {
 
 		add_action( 'template_redirect', array( $this, 'suppress_head_output' ), 0 );
 		add_action( 'admin_notices', array( $this, 'maybe_show_detected_notice' ) );
+		add_action( 'init', array( $this, 'suppress_editor_ui' ), 99 );
+	}
+
+	/**
+	 * Hide the other SEO plugins' edit-screen UI (classic meta box and
+	 * block-editor sidebar) — this plugin's SEO panel replaces them.
+	 *
+	 * Each switch is the plugin's own UI-only gate, verified to leave its
+	 * sitemaps and indexables untouched. Everything is a plain filter, so
+	 * nothing breaks when a plugin is absent or changes internally — the
+	 * worst case is its UI reappearing.
+	 */
+	public function suppress_editor_ui() {
+		if ( ! is_admin() ) {
+			return;
+		}
+
+		// Yoast SEO: one gate covers the classic meta box, the whole
+		// block-editor enqueue (the sidebar ships in it), and its columns.
+		foreach ( get_post_types( array( 'public' => true ), 'names' ) as $post_type ) {
+			add_filter( "wpseo_enable_editor_features_{$post_type}", '__return_false' );
+		}
+
+		// Rank Math: kills its meta box and Gutenberg sidebar together.
+		add_filter( 'rank_math/metabox/add_seo_metabox', '__return_false' );
+
+		// The SEO Framework: UI-only gate for its in-post box.
+		add_filter( 'the_seo_framework_seobox_output', '__return_false' );
+
+		// SEOPress: the classic meta box and the React metabox/sidebar are
+		// gated separately.
+		add_filter( 'seopress_metaboxe_seo', '__return_empty_array' );
+		add_filter( 'seopress_metaboxe_content_analysis', '__return_empty_array' );
+		add_filter( 'seopress_can_enqueue_universal_metabox', '__return_false' );
+
+		// AIOSEO has no filter; without its meta box mount node the Vue
+		// sidebar never initializes either. Also a belt for Yoast < 16.2.
+		add_action( 'add_meta_boxes', array( $this, 'remove_seo_meta_boxes' ), 100 );
+	}
+
+	/**
+	 * Remove the boxes that have no UI filter, after their owners add them.
+	 */
+	public function remove_seo_meta_boxes() {
+		remove_meta_box( 'aioseo-settings', null, 'normal' );
+		remove_meta_box( 'wpseo_meta', null, 'normal' );
 	}
 
 	/**
@@ -91,9 +137,11 @@ final class Coywolf_SEO_Compat {
 		remove_all_actions( 'rank_math/head' );
 
 		// Every one of these plugins takes the title over through
-		// pre_get_document_title; clearing it returns the title to
-		// WordPress's parts-based composition, which this plugin filters.
-		remove_all_filters( 'pre_get_document_title' );
+		// pre_get_document_title; removing their callbacks (scoped to known
+		// SEO plugin classes, so unrelated plugins keep theirs) returns the
+		// title to WordPress's parts-based composition, which this plugin
+		// filters.
+		$this->remove_seo_title_filters();
 
 		// Some SEO plugins remove core's robots output to print their own.
 		// Theirs is gone now, so make sure core's (which this plugin
@@ -103,6 +151,31 @@ final class Coywolf_SEO_Compat {
 		}
 		// Same for core's canonical: this plugin removes and replaces it
 		// itself in Coywolf_SEO_Head, so nothing to restore here.
+	}
+
+	/**
+	 * Remove pre_get_document_title callbacks that belong to known SEO
+	 * plugins, leaving every other plugin's title filter alone.
+	 */
+	private function remove_seo_title_filters() {
+		global $wp_filter;
+		if ( empty( $wp_filter['pre_get_document_title'] ) || ! isset( $wp_filter['pre_get_document_title']->callbacks ) ) {
+			return;
+		}
+		foreach ( $wp_filter['pre_get_document_title']->callbacks as $priority => $callbacks ) {
+			foreach ( $callbacks as $callback ) {
+				$fn    = $callback['function'];
+				$owner = '';
+				if ( is_array( $fn ) && isset( $fn[0] ) ) {
+					$owner = is_object( $fn[0] ) ? get_class( $fn[0] ) : (string) $fn[0];
+				} elseif ( is_string( $fn ) ) {
+					$owner = $fn;
+				}
+				if ( '' !== $owner && preg_match( '/yoast|wpseo|rank_?math|aioseo|seopress|the_seo_framework|autodescription/i', $owner ) ) {
+					remove_filter( 'pre_get_document_title', $fn, $priority );
+				}
+			}
+		}
 	}
 
 	/**
