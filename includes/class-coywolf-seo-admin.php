@@ -182,6 +182,7 @@ final class Coywolf_SEO_Admin {
 		}
 		check_admin_referer( 'coywolf_seo_remove_ai_key' );
 		Coywolf_SEO_Options::update( array( 'ai_api_key' => '' ) );
+		delete_transient( 'coywolf_seo_ai_models' );
 		$this->redirect_back( self::SLUG_SETTINGS, 'ai-key-removed' );
 	}
 
@@ -368,6 +369,9 @@ final class Coywolf_SEO_Admin {
 		// stored key (removal happens through its own Remove link).
 		if ( isset( $raw['ai_api_key'] ) && '' === trim( (string) $raw['ai_api_key'] ) ) {
 			unset( $raw['ai_api_key'] );
+		}
+		if ( isset( $raw['ai_api_key'] ) ) {
+			delete_transient( 'coywolf_seo_ai_models' ); // New key: refresh the model list.
 		}
 
 		$news_before = (bool) Coywolf_SEO_Options::get( 'news_enabled' );
@@ -811,6 +815,34 @@ final class Coywolf_SEO_Admin {
 								);
 								?>
 							</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="coywolf-seo-ai-model"><?php esc_html_e( 'Model', 'coywolf-seo' ); ?></label></th>
+						<td>
+							<?php
+							$coywolf_seo_models = Coywolf_SEO::instance()->ai()->available_models();
+							if ( empty( $coywolf_seo_models ) ) {
+								$coywolf_seo_models = array(
+									array( 'id' => 'claude-opus-4-8', 'name' => 'Claude Opus 4.8' ),
+									array( 'id' => 'claude-sonnet-4-6', 'name' => 'Claude Sonnet 4.6' ),
+									array( 'id' => 'claude-haiku-4-5-20251001', 'name' => 'Claude Haiku 4.5' ),
+								);
+							}
+							$coywolf_seo_model_saved = (string) $o['ai_model'];
+							$coywolf_seo_model_known = '' === $coywolf_seo_model_saved;
+							?>
+							<select id="coywolf-seo-ai-model" name="coywolf_seo[ai_model]">
+								<option value=""><?php esc_html_e( 'Default (Claude Opus 4.8)', 'coywolf-seo' ); ?></option>
+								<?php foreach ( $coywolf_seo_models as $coywolf_seo_model ) : ?>
+									<?php $coywolf_seo_model_known = $coywolf_seo_model_known || $coywolf_seo_model['id'] === $coywolf_seo_model_saved; ?>
+									<option value="<?php echo esc_attr( $coywolf_seo_model['id'] ); ?>" <?php selected( $coywolf_seo_model_saved, $coywolf_seo_model['id'] ); ?>><?php echo esc_html( $coywolf_seo_model['name'] . ' — ' . $coywolf_seo_model['id'] ); ?></option>
+								<?php endforeach; ?>
+								<?php if ( ! $coywolf_seo_model_known ) : ?>
+									<option value="<?php echo esc_attr( $coywolf_seo_model_saved ); ?>" selected><?php echo esc_html( $coywolf_seo_model_saved ); ?></option>
+								<?php endif; ?>
+							</select>
+							<p class="description"><?php esc_html_e( 'Used for entity detection and meta descriptions. The list comes from the models available to your key. Changing the model re-analyzes each post on its next save (or via Re-analyze).', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
 					</tbody>

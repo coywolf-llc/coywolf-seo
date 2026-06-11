@@ -34,6 +34,7 @@ wp_unschedule_hook( 'coywolf_seo_redirects_prune' );
 // Redirect manager tables.
 delete_option( 'coywolf_seo_db_version' );
 delete_option( 'coywolf_seo_import_dismissed' );
+delete_transient( 'coywolf_seo_ai_models' );
 foreach ( array( 'coywolf_seo_redirects', 'coywolf_seo_404s', 'coywolf_seo_deleted' ) as $coywolf_seo_redirect_table ) {
 	$coywolf_seo_table_name = $wpdb->prefix . $coywolf_seo_redirect_table;
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix and a literal; %i needs WP 6.2+.
