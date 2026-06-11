@@ -44,6 +44,11 @@ require_once __DIR__ . '/includes/class-github-updater.php';
 // Flags this as the GitHub distribution (stripped from the WordPress.org build).
 define( 'COYWOLF_SEO_GITHUB_BUILD', true );
 /* wporg-strip:end */
+require_once __DIR__ . '/includes/class-coywolf-seo-options.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-admin.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-metabox.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-titles.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-head.php';
 require_once __DIR__ . '/includes/class-coywolf-seo.php';
 
 register_activation_hook( __FILE__, array( 'Coywolf_SEO', 'on_activate' ) );

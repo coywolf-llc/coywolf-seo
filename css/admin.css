@@ -1,0 +1,41 @@
+/* Coywolf SEO admin styles. */
+
+.coywolf-seo-wrap h2 {
+	margin-top: 2em;
+	padding-top: 1em;
+	border-top: 1px solid #dcdcde;
+}
+
+.coywolf-seo-og-preview img {
+	max-width: 300px;
+	height: auto;
+	display: block;
+	margin-bottom: 8px;
+	border: 1px solid #dcdcde;
+	border-radius: 2px;
+}
+
+.coywolf-seo-props {
+	border-collapse: collapse;
+	margin-bottom: 8px;
+}
+
+.coywolf-seo-props td {
+	padding: 0 8px 8px 0;
+	vertical-align: middle;
+}
+
+.coywolf-seo-props select {
+	min-width: 180px;
+}
+
+.coywolf-seo-remove-row {
+	color: #b32d2e;
+	font-size: 18px;
+	line-height: 1;
+	text-decoration: none;
+}
+
+.coywolf-seo-remove-row:hover {
+	color: #8a2424;
+}

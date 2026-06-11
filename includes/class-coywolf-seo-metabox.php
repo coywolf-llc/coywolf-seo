@@ -1,0 +1,179 @@
+<?php
+/**
+ * The "SEO" section on the Post and Page edit screens: schema type
+ * overrides, noindex/nofollow, and a canonical link override. Stored in a
+ * single `_coywolf_seo` post meta array; defaults mean "no meta saved".
+ *
+ * @package CoywolfSEO
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Post/Page SEO meta box.
+ */
+final class Coywolf_SEO_Metabox {
+
+	/**
+	 * Post types that get the SEO box.
+	 *
+	 * @var string[]
+	 */
+	private $post_types = array( 'post', 'page' );
+
+	/**
+	 * Hook everything up.
+	 */
+	public function init() {
+		add_action( 'add_meta_boxes', array( $this, 'register' ) );
+		add_action( 'save_post', array( $this, 'save' ), 10, 2 );
+	}
+
+	/**
+	 * Register the meta box.
+	 */
+	public function register() {
+		foreach ( $this->post_types as $type ) {
+			add_meta_box(
+				'coywolf-seo',
+				__( 'SEO', 'coywolf-seo' ),
+				array( $this, 'render' ),
+				$type,
+				'normal',
+				'default'
+			);
+		}
+	}
+
+	/**
+	 * Render the box.
+	 *
+	 * @param WP_Post $post Post being edited.
+	 */
+	public function render( $post ) {
+		$meta       = Coywolf_SEO_Options::post_meta( $post->ID );
+		$is_page    = 'page' === $post->post_type;
+		$page_types = Coywolf_SEO_Options::page_types();
+		$art_types  = Coywolf_SEO_Options::article_types();
+
+		$default_page_type = Coywolf_SEO_Options::get( $is_page ? 'page_page_type' : 'post_page_type' );
+		$default_art_type  = Coywolf_SEO_Options::get( $is_page ? 'page_article_type' : 'post_article_type' );
+		$default_art_label = ( 'none' === $default_art_type )
+			? __( 'None', 'coywolf-seo' )
+			: ( isset( $art_types[ $default_art_type ] ) ? $art_types[ $default_art_type ] : $default_art_type );
+
+		wp_nonce_field( 'coywolf_seo_meta_' . $post->ID, 'coywolf_seo_meta_nonce' );
+		?>
+		<table class="form-table" role="presentation">
+			<tr>
+				<th scope="row"><label for="coywolf-seo-page-type"><?php esc_html_e( 'Schema page type', 'coywolf-seo' ); ?></label></th>
+				<td>
+					<select id="coywolf-seo-page-type" name="coywolf_seo_meta[page_type]">
+						<option value="">
+							<?php
+							/* translators: %s: the site-wide default schema type. */
+							printf( esc_html__( 'Default (%s)', 'coywolf-seo' ), esc_html( isset( $page_types[ $default_page_type ] ) ? $page_types[ $default_page_type ] : $default_page_type ) );
+							?>
+						</option>
+						<?php foreach ( $page_types as $type => $label ) : ?>
+							<option value="<?php echo esc_attr( $type ); ?>" <?php selected( $meta['page_type'], $type ); ?>><?php echo esc_html( $label ); ?></option>
+						<?php endforeach; ?>
+					</select>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><label for="coywolf-seo-article-type"><?php esc_html_e( 'Schema article type', 'coywolf-seo' ); ?></label></th>
+				<td>
+					<select id="coywolf-seo-article-type" name="coywolf_seo_meta[article_type]">
+						<option value="">
+							<?php
+							/* translators: %s: the site-wide default schema type. */
+							printf( esc_html__( 'Default (%s)', 'coywolf-seo' ), esc_html( $default_art_label ) );
+							?>
+						</option>
+						<option value="none" <?php selected( $meta['article_type'], 'none' ); ?>><?php esc_html_e( 'None', 'coywolf-seo' ); ?></option>
+						<?php foreach ( $art_types as $type => $label ) : ?>
+							<option value="<?php echo esc_attr( $type ); ?>" <?php selected( $meta['article_type'], $type ); ?>><?php echo esc_html( $label ); ?></option>
+						<?php endforeach; ?>
+					</select>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><?php esc_html_e( 'Robots', 'coywolf-seo' ); ?></th>
+				<td>
+					<label>
+						<input type="checkbox" name="coywolf_seo_meta[noindex]" value="1" <?php checked( $meta['noindex'] ); ?> />
+						<?php esc_html_e( 'Noindex', 'coywolf-seo' ); ?>
+					</label>
+					<p class="description"><?php esc_html_e( 'Adds noindex to the robots metadata and removes index.', 'coywolf-seo' ); ?></p>
+					<label>
+						<input type="checkbox" name="coywolf_seo_meta[nofollow]" value="1" <?php checked( $meta['nofollow'] ); ?> />
+						<?php esc_html_e( 'Nofollow', 'coywolf-seo' ); ?>
+					</label>
+					<p class="description"><?php esc_html_e( 'Adds nofollow to the robots metadata and removes follow.', 'coywolf-seo' ); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><label for="coywolf-seo-canonical"><?php esc_html_e( 'Canonical link', 'coywolf-seo' ); ?></label></th>
+				<td>
+					<input type="url" class="large-text" id="coywolf-seo-canonical" name="coywolf_seo_meta[canonical]" value="<?php echo esc_attr( $meta['canonical'] ); ?>" placeholder="<?php echo esc_attr( get_permalink( $post ) ); ?>" />
+					<p class="description"><?php esc_html_e( 'Replaces the default canonical link for this content.', 'coywolf-seo' ); ?></p>
+				</td>
+			</tr>
+		</table>
+		<?php
+	}
+
+	/**
+	 * Save the box.
+	 *
+	 * @param int     $post_id Post ID.
+	 * @param WP_Post $post    Post object.
+	 */
+	public function save( $post_id, $post ) {
+		if ( ! isset( $_POST['coywolf_seo_meta_nonce'] ) ) {
+			return;
+		}
+		check_admin_referer( 'coywolf_seo_meta_' . $post_id, 'coywolf_seo_meta_nonce' );
+
+		if ( ! in_array( $post->post_type, $this->post_types, true ) ) {
+			return;
+		}
+		if ( wp_is_post_autosave( $post_id ) || wp_is_post_revision( $post_id ) ) {
+			return;
+		}
+		if ( ! current_user_can( 'edit_post', $post_id ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized field-by-field below.
+		$raw = isset( $_POST['coywolf_seo_meta'] ) && is_array( $_POST['coywolf_seo_meta'] ) ? wp_unslash( $_POST['coywolf_seo_meta'] ) : array();
+
+		$page_types = Coywolf_SEO_Options::page_types();
+		$art_types  = Coywolf_SEO_Options::article_types();
+
+		$page_type = isset( $raw['page_type'] ) && isset( $page_types[ $raw['page_type'] ] ) ? (string) $raw['page_type'] : '';
+		$art_type  = '';
+		if ( isset( $raw['article_type'] ) && ( 'none' === $raw['article_type'] || isset( $art_types[ $raw['article_type'] ] ) ) ) {
+			$art_type = (string) $raw['article_type'];
+		}
+
+		$meta = array(
+			'page_type'    => $page_type,
+			'article_type' => $art_type,
+			'noindex'      => ! empty( $raw['noindex'] ),
+			'nofollow'     => ! empty( $raw['nofollow'] ),
+			'canonical'    => isset( $raw['canonical'] ) ? esc_url_raw( (string) $raw['canonical'] ) : '',
+		);
+
+		// All defaults? Keep the database clean.
+		if ( '' === $meta['page_type'] && '' === $meta['article_type'] && ! $meta['noindex'] && ! $meta['nofollow'] && '' === $meta['canonical'] ) {
+			delete_post_meta( $post_id, '_coywolf_seo' );
+			return;
+		}
+
+		update_post_meta( $post_id, '_coywolf_seo', $meta );
+	}
+}
