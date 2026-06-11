@@ -30,6 +30,8 @@ Features:
 * Hide the category prefix — serve category archives at /news/ instead of /category/news/, with 301 redirects from the old URLs.
 * IndexNow — ping Bing the moment a post or page is published, updated, or deleted. The site key is generated for you and served virtually; no file is written.
 * News sitemap — optionally serve /coywolf-news-sitemap.xml with articles from the last 48 hours; choose whether posts and/or pages are included and which categories are in or out.
+* AI Schema enrichment — bring your own Anthropic API key and Claude analyzes each post in the background as it is published: main subjects land in the Article schema's about property, passing references in mentions, each grounded to a real Wikidata item. Claude only ever extracts entity names — real candidates are looked up on Wikidata's public API, the model chooses among them, and the chosen item's type is verified — so identifiers are never invented.
+* Import/Export — download the plugin settings and author properties as JSON and import them on another site. Your API key is never exported.
 
 <!-- wporg-strip:start -->
 Updates are delivered straight from the project's GitHub releases via the bundled self-updater, so new versions show up on Dashboard > Updates like any other plugin.
@@ -42,7 +44,7 @@ Updates are delivered straight from the project's GitHub releases via the bundle
 
 == Privacy ==
 
-Privacy-first: this plugin includes no analytics, no tracking, and no data gathering — nothing about you, your site, or your visitors is ever collected. Its only outbound connection is one you turn on: with IndexNow enabled, the changed URL is sent to Bing's IndexNow endpoint on publish, update, and delete — nothing else, nowhere else.
+Privacy-first: this plugin includes no analytics, no tracking, and no data gathering — nothing about you, your site, or your visitors is ever collected. Outbound connections exist only for features you turn on: with IndexNow enabled, the changed URL is sent to Bing's IndexNow endpoint on publish, update, and delete; with AI Schema enrichment enabled, the published post's title and content are sent to Anthropic's API (https://www.anthropic.com/legal/privacy) using your own API key, and entity names are looked up on Wikidata's public API (https://foundation.wikimedia.org/wiki/Policy:Privacy_policy). Nothing else, nowhere else.
 
 == Changelog ==
 

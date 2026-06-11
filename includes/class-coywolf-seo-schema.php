@@ -159,6 +159,16 @@ final class Coywolf_SEO_Schema {
 				$article['image'] = $image;
 			}
 
+			// AI-grounded entities: main subjects as about, passing
+			// references as mentions.
+			$entities = Coywolf_SEO_AI::schema_nodes( $post->ID );
+			if ( ! empty( $entities['about'] ) ) {
+				$article['about'] = $entities['about'];
+			}
+			if ( ! empty( $entities['mentions'] ) ) {
+				$article['mentions'] = $entities['mentions'];
+			}
+
 			$author_node = $this->author_node( (int) $post->post_author );
 			if ( $author_node ) {
 				$article['author'] = array( '@id' => $author_node['@id'] );

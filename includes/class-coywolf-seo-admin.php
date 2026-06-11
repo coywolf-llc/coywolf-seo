@@ -152,6 +152,11 @@ final class Coywolf_SEO_Admin {
 			$message = __( 'Settings saved.', 'coywolf-seo' );
 		} elseif ( 'author' === $saved ) {
 			$message = __( 'The author details have been saved.', 'coywolf-seo' );
+		} elseif ( 'import' === $saved ) {
+			$message = __( 'Settings imported.', 'coywolf-seo' );
+		} elseif ( 'import-error' === $saved ) {
+			printf( '<div class="notice notice-error is-dismissible"><p>%s</p></div>', esc_html__( 'The file could not be imported. Use an unmodified Coywolf SEO export file.', 'coywolf-seo' ) );
+			return;
 		} else {
 			$message = __( 'Site details saved.', 'coywolf-seo' );
 		}
@@ -210,12 +215,22 @@ final class Coywolf_SEO_Admin {
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized field-by-field in Coywolf_SEO_Options::sanitize().
 		$raw = isset( $_POST['coywolf_seo'] ) && is_array( $_POST['coywolf_seo'] ) ? wp_unslash( $_POST['coywolf_seo'] ) : array();
 
-		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'news_enabled', 'news_include_posts', 'news_include_pages' ) as $key ) {
+		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'news_enabled', 'news_include_posts', 'news_include_pages', 'ai_enabled' ) as $key ) {
 			$raw[ $key ] = ! empty( $raw[ $key ] );
 		}
 		if ( empty( $raw['news_cats'] ) ) {
 			$raw['news_cats'] = array();
 		}
+
+		// The API key field is write-only: an empty submission keeps the
+		// stored key, and the clear checkbox removes it.
+		if ( isset( $raw['ai_api_key'] ) && '' === trim( (string) $raw['ai_api_key'] ) ) {
+			unset( $raw['ai_api_key'] );
+		}
+		if ( ! empty( $raw['ai_api_key_clear'] ) ) {
+			$raw['ai_api_key'] = '';
+		}
+		unset( $raw['ai_api_key_clear'] );
 
 		$news_before = (bool) Coywolf_SEO_Options::get( 'news_enabled' );
 		$clean       = Coywolf_SEO_Options::sanitize( $raw );
@@ -583,6 +598,43 @@ final class Coywolf_SEO_Admin {
 					</tr>
 				</table>
 
+				<h2><?php esc_html_e( 'AI Schema enrichment', 'coywolf-seo' ); ?></h2>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Entity detection', 'coywolf-seo' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="coywolf_seo[ai_enabled]" value="1" <?php checked( $o['ai_enabled'] ); ?> />
+								<?php esc_html_e( 'Analyze posts and pages with Claude when they are published or updated, and add the detected entities to their Article schema', 'coywolf-seo' ); ?>
+							</label>
+							<p class="description"><?php esc_html_e( 'Main subjects become the about property and passing references become mentions. Every entity is grounded against Wikidata — Claude only extracts names, real items are looked up on Wikidata, and the chosen item is type-checked — so identifiers are never invented. Runs in the background after publishing.', 'coywolf-seo' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="coywolf-seo-ai-key"><?php esc_html_e( 'Claude API key', 'coywolf-seo' ); ?></label></th>
+						<td>
+							<input type="password" class="regular-text" id="coywolf-seo-ai-key" name="coywolf_seo[ai_api_key]" value="" autocomplete="off" placeholder="<?php echo esc_attr( '' !== (string) $o['ai_api_key'] ? __( 'Saved — enter a new key to replace it', 'coywolf-seo' ) : 'sk-ant-…' ); ?>" />
+							<?php if ( '' !== (string) $o['ai_api_key'] ) : ?>
+								<br />
+								<label>
+									<input type="checkbox" name="coywolf_seo[ai_api_key_clear]" value="1" />
+									<?php esc_html_e( 'Remove the saved key', 'coywolf-seo' ); ?>
+								</label>
+							<?php endif; ?>
+							<p class="description">
+								<?php
+								printf(
+									/* translators: 1: Anthropic console URL, 2: constant name. */
+									esc_html__( 'Your own Anthropic API key, created at %1$s. Stored server-side and never shown again. You can define %2$s in wp-config.php instead.', 'coywolf-seo' ),
+									'<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>',
+									'<code>ANTHROPIC_API_KEY</code>'
+								);
+								?>
+							</p>
+						</td>
+					</tr>
+				</table>
+
 				<h2><?php esc_html_e( 'IndexNow', 'coywolf-seo' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
@@ -653,6 +705,8 @@ final class Coywolf_SEO_Admin {
 
 				<?php submit_button( __( 'Save Settings', 'coywolf-seo' ) ); ?>
 			</form>
+
+			<?php Coywolf_SEO::instance()->import_export()->render_section(); ?>
 		</div>
 		<?php
 	}
