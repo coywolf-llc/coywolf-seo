@@ -4,7 +4,7 @@ Tags: seo
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.3
+Stable tag: 1.0.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -45,6 +45,9 @@ Updates are delivered straight from the project's GitHub releases via the bundle
 Privacy-first: this plugin includes no analytics, no tracking, and no data gathering — nothing about you, your site, or your visitors is ever collected. Its only outbound connection is one you turn on: with IndexNow enabled, the changed URL is sent to Bing's IndexNow endpoint on publish, update, and delete — nothing else, nowhere else.
 
 == Changelog ==
+
+= 1.0.4 =
+* Add IndexNow pings to Bing and the optional News XML sitemap (#5).
 
 = 1.0.3 =
 * Suppress other SEO plugins' output and add category prefix removal (#4).
