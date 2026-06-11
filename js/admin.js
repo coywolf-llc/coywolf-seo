@@ -180,6 +180,11 @@
 				e.preventDefault();
 			}
 		} );
+		$( '#coywolf-seo-bulk-cancel-form' ).on( 'submit', function ( e ) {
+			if ( ! window.confirm( config.i18n.confirmBulkCancel || 'Cancel this run for good?' ) ) {
+				e.preventDefault();
+			}
+		} );
 		var $bulkBox = $( '#coywolf-seo-bulk-progress' );
 		if ( $bulkBox.length && $bulkBox.data( 'running' ) ) {
 			var pollBulk = function () {
