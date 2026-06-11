@@ -100,6 +100,8 @@ final class Coywolf_SEO_AI {
 		add_action( 'wp_ajax_nopriv_' . self::BULK_RUNNER, array( $this, 'bulk_runner' ) );
 		add_action( 'admin_post_coywolf_seo_bulk_enrich', array( $this, 'handle_bulk_start' ) );
 		add_action( 'admin_post_coywolf_seo_bulk_stop', array( $this, 'handle_bulk_stop' ) );
+		add_action( 'admin_post_coywolf_seo_bulk_resume', array( $this, 'handle_bulk_resume' ) );
+		add_action( 'admin_post_coywolf_seo_bulk_cancel', array( $this, 'handle_bulk_cancel' ) );
 		add_action( 'wp_ajax_coywolf_seo_bulk_status', array( $this, 'ajax_bulk_status' ) );
 	}
 
@@ -153,25 +155,85 @@ final class Coywolf_SEO_AI {
 	}
 
 	/**
-	 * Stop a running bulk enrichment.
+	 * Stop button: pause the run, keeping the queue for Resume.
 	 */
 	public function handle_bulk_stop() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'You are not allowed to run bulk enrichment.', 'coywolf-seo' ) );
 		}
 		check_admin_referer( 'coywolf_seo_bulk_stop' );
+		$this->pause_bulk();
+		wp_safe_redirect( admin_url( 'admin.php?page=coywolf-seo-settings' ) );
+		exit;
+	}
 
-		$state = (array) get_option( self::BULK_OPTION, array() );
+	/**
+	 * Resume button: continue a paused run.
+	 */
+	public function handle_bulk_resume() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You are not allowed to run bulk enrichment.', 'coywolf-seo' ) );
+		}
+		check_admin_referer( 'coywolf_seo_bulk_resume' );
+		$this->resume_bulk();
+		wp_safe_redirect( admin_url( 'admin.php?page=coywolf-seo-settings' ) );
+		exit;
+	}
+
+	/**
+	 * Cancel button: kill the run for good.
+	 */
+	public function handle_bulk_cancel() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You are not allowed to run bulk enrichment.', 'coywolf-seo' ) );
+		}
+		check_admin_referer( 'coywolf_seo_bulk_cancel' );
+		$this->cancel_bulk();
+		wp_safe_redirect( admin_url( 'admin.php?page=coywolf-seo-settings' ) );
+		exit;
+	}
+
+	/**
+	 * Pause: workers stop claiming immediately (a post already mid-API
+	 * call finishes), the queue and counters stay for Resume.
+	 */
+	public function pause_bulk() {
+		$state = $this->bulk_state_fresh();
 		if ( isset( $state['status'] ) && 'running' === $state['status'] ) {
-			$state['status']    = 'stopped';
-			$state['remaining'] = array();
-			$state['finished']  = gmdate( 'c' );
+			$state['status'] = 'paused';
 			update_option( self::BULK_OPTION, $state, false );
 		}
 		wp_unschedule_hook( self::BULK_HOOK );
+	}
 
-		wp_safe_redirect( admin_url( 'admin.php?page=coywolf-seo-settings' ) );
-		exit;
+	/**
+	 * Resume a paused run: fresh token, fresh worker fleet, watchdog back.
+	 */
+	public function resume_bulk() {
+		$state = $this->bulk_state_fresh();
+		if ( ! isset( $state['status'] ) || 'paused' !== $state['status'] || empty( $state['remaining'] ) ) {
+			return;
+		}
+		$state['status'] = 'running';
+		$state['token']  = wp_generate_password( 64, false );
+		update_option( self::BULK_OPTION, $state, false );
+
+		$this->spawn_bulk_runners();
+		if ( ! wp_next_scheduled( self::BULK_HOOK ) ) {
+			wp_schedule_single_event( time() + 30, self::BULK_HOOK );
+		}
+		spawn_cron();
+	}
+
+	/**
+	 * Cancel: delete the run state — the token dies with it, so stray
+	 * runner chains are rejected, claims return nothing, and the
+	 * watchdog is unscheduled. Only a post already mid-API call in a
+	 * live worker still lands.
+	 */
+	public function cancel_bulk() {
+		delete_option( self::BULK_OPTION );
+		wp_unschedule_hook( self::BULK_HOOK );
 	}
 
 	/**
@@ -314,7 +376,7 @@ final class Coywolf_SEO_AI {
 	 */
 	private function spawn_bulk_runners( $count = 0 ) {
 		$state = $this->bulk_state_fresh();
-		if ( empty( $state['token'] ) || empty( $state['remaining'] ) ) {
+		if ( empty( $state['token'] ) || empty( $state['remaining'] ) || ! isset( $state['status'] ) || 'running' !== $state['status'] ) {
 			return;
 		}
 		if ( $count < 1 ) {

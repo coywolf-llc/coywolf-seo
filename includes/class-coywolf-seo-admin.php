@@ -265,6 +265,7 @@ final class Coywolf_SEO_Admin {
 					'removeProperty' => __( 'Remove property', 'coywolf-seo' ),
 					'confirmDelete'      => __( 'Delete this redirect?', 'coywolf-seo' ),
 					'confirmBulkEnrich'  => __( 'Enrich ALL published posts and pages now? This runs in the background, can take a while, and incurs Anthropic API costs. Content already analyzed with the current settings is skipped.', 'coywolf-seo' ),
+					'confirmBulkCancel'  => __( 'Cancel this run for good? The remaining queue is discarded — a new run would re-check every post from the start (already-analyzed content is skipped at no cost).', 'coywolf-seo' ),
 					'confirmBulkDelete' => __( 'Delete the selected redirects?', 'coywolf-seo' ),
 				),
 			)
@@ -821,7 +822,30 @@ final class Coywolf_SEO_Admin {
 						<th scope="row"><?php esc_html_e( 'Enrich all content', 'coywolf-seo' ); ?></th>
 						<td>
 							<?php $coywolf_seo_bulk = Coywolf_SEO::instance()->ai()->bulk_status(); ?>
-							<?php if ( 'running' === $coywolf_seo_bulk['status'] ) : ?>
+							<?php if ( 'paused' === $coywolf_seo_bulk['status'] ) : ?>
+								<div class="coywolf-seo-progress"><div class="coywolf-seo-progress-bar" style="width:<?php echo esc_attr( (string) $coywolf_seo_bulk['percent'] ); ?>%"></div></div>
+								<p class="description">
+									<?php
+									printf(
+										/* translators: 1: processed count, 2: total, 3: percent. */
+										esc_html__( 'Paused at %1$d of %2$d (%3$d%%). Posts already mid-analysis when you stopped may still finish.', 'coywolf-seo' ),
+										(int) $coywolf_seo_bulk['done'],
+										(int) $coywolf_seo_bulk['total'],
+										(int) $coywolf_seo_bulk['percent']
+									);
+									?>
+								</p>
+								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form">
+									<input type="hidden" name="action" value="coywolf_seo_bulk_resume" />
+									<?php wp_nonce_field( 'coywolf_seo_bulk_resume' ); ?>
+									<button type="submit" class="button button-primary"><?php esc_html_e( 'Resume', 'coywolf-seo' ); ?></button>
+								</form>
+								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form" id="coywolf-seo-bulk-cancel-form">
+									<input type="hidden" name="action" value="coywolf_seo_bulk_cancel" />
+									<?php wp_nonce_field( 'coywolf_seo_bulk_cancel' ); ?>
+									<button type="submit" class="button-link button-link-delete"><?php esc_html_e( 'Cancel', 'coywolf-seo' ); ?></button>
+								</form>
+							<?php elseif ( 'running' === $coywolf_seo_bulk['status'] ) : ?>
 								<div id="coywolf-seo-bulk-progress" data-running="1">
 									<div class="coywolf-seo-progress"><div class="coywolf-seo-progress-bar" style="width:<?php echo esc_attr( (string) $coywolf_seo_bulk['percent'] ); ?>%"></div></div>
 									<p class="description coywolf-seo-bulk-text">
