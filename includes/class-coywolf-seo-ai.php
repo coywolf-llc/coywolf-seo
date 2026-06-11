@@ -31,6 +31,7 @@
 
 use WordPress\AiClient\AiClient;
 use WordPress\AiClient\Providers\Http\DTO\ApiKeyRequestAuthentication;
+use WordPress\AiClient\Providers\Http\DTO\RequestOptions;
 use WordPress\AnthropicAiProvider\Provider\AnthropicProvider;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -75,6 +76,42 @@ final class Coywolf_SEO_AI {
 	public function init() {
 		add_action( self::CRON_HOOK, array( $this, 'analyze_post' ) );
 		add_action( 'transition_post_status', array( $this, 'maybe_queue' ), 10, 3 );
+		add_filter( 'http_request_args', array( $this, 'extend_anthropic_timeout' ), 10, 2 );
+	}
+
+	/**
+	 * The timeout for Anthropic generation calls, in seconds. Model
+	 * generation takes far longer than WordPress's 5-second HTTP default.
+	 *
+	 * @return float
+	 */
+	private function timeout() {
+		/**
+		 * Filters the Anthropic request timeout (seconds).
+		 *
+		 * @param int $timeout Timeout in seconds.
+		 */
+		return (float) apply_filters( 'coywolf_seo_ai_timeout', 180 );
+	}
+
+	/**
+	 * Floor the WordPress HTTP timeout for Anthropic API requests.
+	 *
+	 * WordPress 7.0's bundled AI transport sends through the WordPress HTTP
+	 * API with its 5-second default — every generation call times out. The
+	 * SDK request options set the timeout too, but this filter guarantees
+	 * it for any call the SDK makes on its own (model discovery included).
+	 *
+	 * @param array  $args Request arguments.
+	 * @param string $url  Request URL.
+	 * @return array
+	 */
+	public function extend_anthropic_timeout( $args, $url ) {
+		if ( is_string( $url ) && false !== strpos( $url, 'api.anthropic.com' ) ) {
+			$timeout         = $this->timeout();
+			$args['timeout'] = isset( $args['timeout'] ) ? max( (float) $args['timeout'], $timeout ) : $timeout;
+		}
+		return $args;
 	}
 
 	/**
@@ -527,12 +564,16 @@ final class Coywolf_SEO_AI {
 		 */
 		$model = apply_filters( 'coywolf_seo_ai_model', self::DEFAULT_MODEL );
 
+		$options = new RequestOptions();
+		$options->setTimeout( $this->timeout() );
+
 		try {
 			return AiClient::prompt( $prompt, $registry )
 				->usingProvider( 'anthropic' )
 				->usingModelPreference( $model )
 				->usingSystemInstruction( $system )
 				->usingMaxTokens( 4000 )
+				->usingRequestOptions( $options )
 				->generateText();
 		} catch ( \Throwable $e ) {
 			// The pinned model may not be available to this key yet; let the
@@ -541,6 +582,7 @@ final class Coywolf_SEO_AI {
 				->usingProvider( 'anthropic' )
 				->usingSystemInstruction( $system )
 				->usingMaxTokens( 4000 )
+				->usingRequestOptions( $options )
 				->generateText();
 		}
 	}
