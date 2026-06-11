@@ -197,7 +197,11 @@
 					}
 					var d = res.data;
 					$bulkBox.find( '.coywolf-seo-progress-bar' ).css( 'width', d.percent + '%' );
-					$bulkBox.find( '.coywolf-seo-bulk-text' ).text( d.done + ' / ' + d.total + ' (' + d.percent + '%)' );
+					var bulkText = d.done + ' / ' + d.total + ' (' + d.percent + '%)';
+					if ( d.failed > 0 ) {
+						bulkText += ' — ' + d.failed + ' failed';
+					}
+					$bulkBox.find( '.coywolf-seo-bulk-text' ).text( bulkText );
 					if ( 'running' === d.status ) {
 						window.setTimeout( pollBulk, 4000 );
 					} else {
