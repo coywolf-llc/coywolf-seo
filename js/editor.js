@@ -78,6 +78,7 @@
 					update( 'article_type', v );
 				}
 			} ),
+			el( 'p', { className: 'coywolf-seo-robots-label' }, config.i18n.robots || 'Robots' ),
 			el( ToggleControl, {
 				label: config.i18n.noindex || 'Noindex',
 				checked: !! seo.noindex,
@@ -95,9 +96,11 @@
 			el( TextControl, {
 				label: config.i18n.canonical || 'Canonical link',
 				type: 'url',
-				value: seo.canonical,
+				// Show the URL actually in use; only a changed value is
+				// stored as an override.
+				value: seo.canonical || config.permalink || '',
 				onChange: function ( v ) {
-					update( 'canonical', v );
+					update( 'canonical', v === config.permalink ? '' : v );
 				}
 			} ),
 			config.entityStatus

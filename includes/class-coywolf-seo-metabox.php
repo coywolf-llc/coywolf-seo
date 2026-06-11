@@ -134,13 +134,35 @@ final class Coywolf_SEO_Metabox {
 			true
 		);
 
+		// Breathing room between the panel's controls.
+		wp_register_style( 'coywolf-seo-editor', false, array(), Coywolf_SEO::VERSION );
+		wp_enqueue_style( 'coywolf-seo-editor' );
+		wp_add_inline_style(
+			'coywolf-seo-editor',
+			'.coywolf-seo-panel .components-base-control, .coywolf-seo-panel .components-toggle-control { margin-bottom: 16px; }'
+			. ' .coywolf-seo-panel .coywolf-seo-robots-label { font-size: 11px; font-weight: 500; line-height: 1.4; text-transform: uppercase; margin: 0 0 8px; }'
+			. ' .coywolf-seo-panel .coywolf-seo-entity-status { margin: 4px 0 0; color: #50575e; }'
+		);
+
+		// The dropdowns name the site-wide default instead of just "Default".
+		$is_page       = 'page' === (string) $screen->post_type;
+		$page_types    = Coywolf_SEO_Options::page_types();
+		$article_types = Coywolf_SEO_Options::article_types();
+
+		$default_page_type = (string) Coywolf_SEO_Options::get( $is_page ? 'page_page_type' : 'post_page_type' );
+		$default_art_type  = (string) Coywolf_SEO_Options::get( $is_page ? 'page_article_type' : 'post_article_type' );
+		$default_art_label = ( 'none' === $default_art_type )
+			? __( 'None', 'coywolf-seo' )
+			: ( isset( $article_types[ $default_art_type ] ) ? $article_types[ $default_art_type ] : $default_art_type );
+
 		$page_options = array(
 			array(
-				'label' => __( 'Default', 'coywolf-seo' ),
+				/* translators: %s: the site-wide default schema type. */
+				'label' => sprintf( __( 'Default (%s)', 'coywolf-seo' ), isset( $page_types[ $default_page_type ] ) ? $page_types[ $default_page_type ] : $default_page_type ),
 				'value' => '',
 			),
 		);
-		foreach ( Coywolf_SEO_Options::page_types() as $value => $label ) {
+		foreach ( $page_types as $value => $label ) {
 			$page_options[] = array(
 				'label' => $label,
 				'value' => $value,
@@ -148,7 +170,8 @@ final class Coywolf_SEO_Metabox {
 		}
 		$article_options = array(
 			array(
-				'label' => __( 'Default', 'coywolf-seo' ),
+				/* translators: %s: the site-wide default schema type. */
+				'label' => sprintf( __( 'Default (%s)', 'coywolf-seo' ), $default_art_label ),
 				'value' => '',
 			),
 			array(
@@ -156,7 +179,7 @@ final class Coywolf_SEO_Metabox {
 				'value' => 'none',
 			),
 		);
-		foreach ( Coywolf_SEO_Options::article_types() as $value => $label ) {
+		foreach ( $article_types as $value => $label ) {
 			$article_options[] = array(
 				'label' => $label,
 				'value' => $value,
@@ -165,6 +188,7 @@ final class Coywolf_SEO_Metabox {
 
 		global $post;
 		$entity_status = ( $post instanceof WP_Post ) ? Coywolf_SEO::instance()->ai()->status_text( $post->ID ) : '';
+		$permalink     = ( $post instanceof WP_Post ) ? (string) get_permalink( $post ) : '';
 
 		wp_localize_script(
 			'coywolf-seo-editor',
@@ -173,10 +197,12 @@ final class Coywolf_SEO_Metabox {
 				'pageTypeOptions'    => $page_options,
 				'articleTypeOptions' => $article_options,
 				'entityStatus'       => $entity_status,
+				'permalink'          => $permalink,
 				'i18n'               => array(
 					'panelTitle'  => __( 'SEO', 'coywolf-seo' ),
 					'pageType'    => __( 'Schema page type', 'coywolf-seo' ),
 					'articleType' => __( 'Schema article type', 'coywolf-seo' ),
+					'robots'      => __( 'Robots', 'coywolf-seo' ),
 					'noindex'     => __( 'Noindex', 'coywolf-seo' ),
 					'nofollow'    => __( 'Nofollow', 'coywolf-seo' ),
 					'canonical'   => __( 'Canonical link', 'coywolf-seo' ),
@@ -256,8 +282,8 @@ final class Coywolf_SEO_Metabox {
 			<tr>
 				<th scope="row"><label for="coywolf-seo-canonical"><?php esc_html_e( 'Canonical link', 'coywolf-seo' ); ?></label></th>
 				<td>
-					<input type="url" class="large-text" id="coywolf-seo-canonical" name="coywolf_seo_meta[canonical]" value="<?php echo esc_attr( $meta['canonical'] ); ?>" placeholder="<?php echo esc_attr( get_permalink( $post ) ); ?>" />
-					<p class="description"><?php esc_html_e( 'Replaces the default canonical link for this content.', 'coywolf-seo' ); ?></p>
+					<input type="url" class="large-text" id="coywolf-seo-canonical" name="coywolf_seo_meta[canonical]" value="<?php echo esc_attr( '' !== $meta['canonical'] ? $meta['canonical'] : get_permalink( $post ) ); ?>" />
+					<p class="description"><?php esc_html_e( 'The URL in use — change it to set a different canonical for this content.', 'coywolf-seo' ); ?></p>
 				</td>
 			</tr>
 		</table>
@@ -298,12 +324,19 @@ final class Coywolf_SEO_Metabox {
 			$art_type = (string) $raw['article_type'];
 		}
 
+		$canonical = isset( $raw['canonical'] ) ? esc_url_raw( (string) $raw['canonical'] ) : '';
+		// The field shows the post's own URL; that is the default, not an
+		// override worth storing.
+		if ( (string) get_permalink( $post_id ) === $canonical ) {
+			$canonical = '';
+		}
+
 		$meta = array(
 			'page_type'    => $page_type,
 			'article_type' => $art_type,
 			'noindex'      => ! empty( $raw['noindex'] ),
 			'nofollow'     => ! empty( $raw['nofollow'] ),
-			'canonical'    => isset( $raw['canonical'] ) ? esc_url_raw( (string) $raw['canonical'] ) : '',
+			'canonical'    => $canonical,
 		);
 
 		// All defaults? Keep the database clean.
