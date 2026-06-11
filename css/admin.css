@@ -72,12 +72,21 @@
 /* Redirects screen. */
 
 .coywolf-seo-panel {
+	box-sizing: border-box;
 	background: #fff;
 	border: 1px solid #dcdcde;
 	border-radius: 2px;
 	padding: 12px 16px 16px;
 	margin: 16px 0;
 	max-width: 1100px;
+}
+
+/* The global section-heading treatment (top border + 2em gap) doesn't
+   belong inside panels. */
+.coywolf-seo-panel h2 {
+	margin-top: 0;
+	padding-top: 0;
+	border-top: none;
 }
 
 .coywolf-seo-pending {
@@ -273,6 +282,24 @@
 .coywolf-seo-toggle {
 	font-size: 16px;
 	text-decoration: none;
+}
+
+.coywolf-seo-toggle-on {
+	color: #00a32a;
+}
+
+.coywolf-seo-toggle-on:hover,
+.coywolf-seo-toggle-on:focus {
+	color: #008a20;
+}
+
+.coywolf-seo-toggle-off {
+	color: #d63638;
+}
+
+.coywolf-seo-toggle-off:hover,
+.coywolf-seo-toggle-off:focus {
+	color: #b32d2e;
 }
 
 .coywolf-seo-edit-form {
