@@ -43,8 +43,17 @@ final class Coywolf_SEO_Schema {
 			'@context' => 'https://schema.org',
 			'@graph'   => array_values( $graph ),
 		);
+		$json = wp_json_encode( $data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+		if ( false === $json || null === $json ) {
+			// Invalid UTF-8 somewhere in the content: retry with
+			// substitution rather than silently printing nothing.
+			$json = wp_json_encode( $data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE );
+		}
+		if ( ! $json ) {
+			return;
+		}
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON built by wp_json_encode; HTML-escaping would corrupt the JSON-LD.
-		echo '<script type="application/ld+json">' . wp_json_encode( $data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) . '</script>' . "\n";
+		echo '<script type="application/ld+json">' . $json . '</script>' . "\n";
 	}
 
 	/**
@@ -69,6 +78,20 @@ final class Coywolf_SEO_Schema {
 				$webpage['description'] = $desc;
 			}
 			return array_merge( array( $webpage ), $this->common_nodes() );
+		}
+
+		if ( is_home() ) {
+			// The blog posts index (when a static front page is set).
+			$posts_page = (int) get_option( 'page_for_posts' );
+			$url        = $posts_page ? get_permalink( $posts_page ) : home_url( '/' );
+			$collection = array(
+				'@type'    => 'CollectionPage',
+				'@id'      => $url . '#webpage',
+				'url'      => $url,
+				'name'     => Coywolf_SEO::instance()->titles()->managed_title(),
+				'isPartOf' => array( '@id' => $this->website_id() ),
+			);
+			return array_merge( array( $collection ), $this->common_nodes() );
 		}
 
 		if ( is_singular( array( 'post', 'page' ) ) ) {
@@ -333,12 +356,26 @@ final class Coywolf_SEO_Schema {
 				continue;
 			}
 			$prop  = (string) $row['prop'];
-			$value = isset( $row['value'] ) ? trim( (string) $row['value'] ) : '';
-			if ( '' === $value ) {
-				continue;
+			$value = isset( $row['value'] ) ? $row['value'] : '';
+			if ( is_array( $value ) ) {
+				$value = array_filter( array_map( 'strval', $value ), 'strlen' );
+				if ( empty( $value ) ) {
+					continue;
+				}
+			} else {
+				$value = trim( (string) $value );
+				if ( '' === $value ) {
+					continue;
+				}
 			}
 
-			if ( 'logo' === $prop || ( 'image' === $prop && 'Organization' === $parent_type ) ) {
+			if ( 'address' === $prop && is_array( $value ) ) {
+				$shaped = array_merge( array( '@type' => 'PostalAddress' ), $value );
+			} elseif ( 'contactPoint' === $prop && is_array( $value ) ) {
+				$shaped = array_merge( array( '@type' => 'ContactPoint' ), $value );
+			} elseif ( is_array( $value ) ) {
+				continue; // Unknown structured value; never output raw arrays.
+			} elseif ( 'logo' === $prop || ( 'image' === $prop && 'Organization' === $parent_type ) ) {
 				$shaped = array(
 					'@type' => 'ImageObject',
 					'url'   => $value,

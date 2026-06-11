@@ -38,42 +38,39 @@ final class Coywolf_SEO_Options {
 	public static function defaults() {
 		return array(
 			// Site Details.
-			'og_image_id'           => 0,
-			'entity_type'           => 'organization', // organization | person.
-			'person_user_id'        => 0,
-			'org_properties'        => array(), // Ordered list of array( 'prop' => ..., 'value' => ... ).
-			'homepage_title'        => '',
-			'homepage_description'  => '',
-			'post_append_site_name' => false,
-			'post_page_type'        => 'WebPage',
-			'post_article_type'     => 'Article',
-			'page_append_site_name' => false,
-			'page_page_type'        => 'WebPage',
-			'page_article_type'     => 'none',
-			'cat_append_site_name'  => false,
-			'cat_hide_prefix'       => false,
-			'tag_append_site_name'  => false,
+			'og_image_id'          => 0,
+			'entity_type'          => 'organization', // organization | person.
+			'person_user_id'       => 0,
+			'org_properties'       => array(), // Ordered list of array( 'prop' => ..., 'value' => ... ).
+			'homepage_title'       => '',
+			'homepage_description' => '',
+			'append_site_name'     => false,
+			'post_page_type'       => 'WebPage',
+			'post_article_type'    => 'Article',
+			'page_page_type'       => 'WebPage',
+			'page_article_type'    => 'none',
+			'cat_hide_prefix'      => false,
 			// Settings.
-			'access_role'           => 'administrator', // administrator | editor.
-			'force_rewrite_titles'  => false,
-			'exclude_meta_desc'     => false,
-			'robots_index'          => true,
-			'robots_follow'         => true,
-			'robots_max_image'      => true,
-			'robots_max_snippet'    => true,
-			'robots_max_video'      => true,
+			'access_role'          => 'administrator', // administrator | editor.
+			'force_rewrite_titles' => false,
+			'exclude_meta_desc'    => false,
+			'robots_index'         => true,
+			'robots_follow'        => true,
+			'robots_max_image'     => true,
+			'robots_max_snippet'   => true,
+			'robots_max_video'     => true,
 			// IndexNow.
-			'indexnow_enabled'      => false,
-			'indexnow_key'          => '',
+			'indexnow_enabled'     => false,
+			'indexnow_key'         => '',
 			// News sitemap.
-			'news_enabled'          => false,
-			'news_include_posts'    => true,
-			'news_include_pages'    => false,
-			'news_cat_mode'         => 'all', // all | include | exclude.
-			'news_cats'             => array(),
+			'news_enabled'         => false,
+			'news_include_posts'   => true,
+			'news_include_pages'   => false,
+			'news_cat_mode'        => 'all', // all | include | exclude.
+			'news_cats'            => array(),
 			// AI schema enrichment.
-			'ai_enabled'            => false,
-			'ai_api_key'            => '',
+			'ai_enabled'           => false,
+			'ai_api_key'           => '',
 		);
 	}
 
@@ -84,8 +81,21 @@ final class Coywolf_SEO_Options {
 	 */
 	public static function all() {
 		if ( null === self::$cache ) {
-			$saved       = get_option( self::OPTION, array() );
-			self::$cache = wp_parse_args( is_array( $saved ) ? $saved : array(), self::defaults() );
+			$saved = get_option( self::OPTION, array() );
+			$saved = is_array( $saved ) ? $saved : array();
+
+			// Migration: the four per-type "Append site name" options were
+			// consolidated into one. Carry an enabled legacy flag over.
+			if ( ! array_key_exists( 'append_site_name', $saved ) ) {
+				foreach ( array( 'post_append_site_name', 'page_append_site_name', 'cat_append_site_name', 'tag_append_site_name' ) as $legacy ) {
+					if ( ! empty( $saved[ $legacy ] ) ) {
+						$saved['append_site_name'] = true;
+						break;
+					}
+				}
+			}
+
+			self::$cache = wp_parse_args( $saved, self::defaults() );
 		}
 		return self::$cache;
 	}
@@ -126,11 +136,8 @@ final class Coywolf_SEO_Options {
 		$defaults = self::defaults();
 
 		$booleans = array(
-			'post_append_site_name',
-			'page_append_site_name',
-			'cat_append_site_name',
+			'append_site_name',
 			'cat_hide_prefix',
-			'tag_append_site_name',
 			'force_rewrite_titles',
 			'exclude_meta_desc',
 			'robots_index',
@@ -204,23 +211,130 @@ final class Coywolf_SEO_Options {
 	}
 
 	/**
+	 * Input metadata for schema properties: the HTML input type that fits
+	 * the property, and the sub-fields of structured properties. Properties
+	 * not listed here use a plain text input.
+	 *
+	 * @return array Property => array( input | fields ).
+	 */
+	public static function property_inputs() {
+		return array(
+			'url'               => array( 'input' => 'url' ),
+			'sameAs'            => array( 'input' => 'url' ),
+			'logo'              => array( 'input' => 'image' ),
+			'image'             => array( 'input' => 'image' ),
+			'email'             => array( 'input' => 'email' ),
+			'telephone'         => array( 'input' => 'tel' ),
+			'faxNumber'         => array( 'input' => 'tel' ),
+			'foundingDate'      => array( 'input' => 'date' ),
+			'birthDate'         => array( 'input' => 'date' ),
+			'numberOfEmployees' => array( 'input' => 'number' ),
+			'ethicsPolicy'      => array( 'input' => 'url' ),
+			'address'           => array(
+				'fields' => array(
+					'streetAddress'   => array(
+						'label' => __( 'Street address', 'coywolf-seo' ),
+						'input' => 'text',
+					),
+					'addressLocality' => array(
+						'label' => __( 'City', 'coywolf-seo' ),
+						'input' => 'text',
+					),
+					'addressRegion'   => array(
+						'label' => __( 'Region / State', 'coywolf-seo' ),
+						'input' => 'text',
+					),
+					'postalCode'      => array(
+						'label' => __( 'Postal code', 'coywolf-seo' ),
+						'input' => 'text',
+					),
+					'addressCountry'  => array(
+						'label' => __( 'Country', 'coywolf-seo' ),
+						'input' => 'text',
+					),
+				),
+			),
+			'contactPoint'      => array(
+				'fields' => array(
+					'telephone'   => array(
+						'label' => __( 'Telephone', 'coywolf-seo' ),
+						'input' => 'tel',
+					),
+					'email'       => array(
+						'label' => __( 'Email', 'coywolf-seo' ),
+						'input' => 'email',
+					),
+					'contactType' => array(
+						'label' => __( 'Contact type (customer support, sales, …)', 'coywolf-seo' ),
+						'input' => 'text',
+					),
+				),
+			),
+		);
+	}
+
+	/**
+	 * Sanitize one property value by its input type.
+	 *
+	 * @param string $value Raw value.
+	 * @param string $input Input type.
+	 * @return string
+	 */
+	private static function sanitize_property_value( $value, $input ) {
+		$value = (string) $value;
+		switch ( $input ) {
+			case 'url':
+			case 'image':
+				return esc_url_raw( $value );
+			case 'email':
+				return sanitize_email( $value );
+			default:
+				return sanitize_text_field( $value );
+		}
+	}
+
+	/**
 	 * Sanitize a property repeater submission into ordered prop/value rows.
+	 * Structured properties (address, contactPoint) carry an array value of
+	 * their sub-fields; everything else is a string.
 	 *
 	 * @param array $rows    Raw rows ( each array with 'prop' and 'value' ).
 	 * @param array $catalog Allowed property names => labels.
 	 * @return array
 	 */
 	public static function sanitize_properties( array $rows, array $catalog ) {
-		$clean = array();
+		$inputs = self::property_inputs();
+		$clean  = array();
 		foreach ( $rows as $row ) {
 			if ( ! is_array( $row ) || empty( $row['prop'] ) ) {
 				continue;
 			}
-			$prop  = (string) $row['prop'];
-			$value = isset( $row['value'] ) ? sanitize_text_field( (string) $row['value'] ) : '';
-			if ( ! isset( $catalog[ $prop ] ) || '' === $value ) {
+			$prop = (string) $row['prop'];
+			if ( ! isset( $catalog[ $prop ] ) ) {
 				continue;
 			}
+			$meta = isset( $inputs[ $prop ] ) ? $inputs[ $prop ] : array( 'input' => 'text' );
+
+			if ( isset( $meta['fields'] ) ) {
+				$raw_value = isset( $row['value'] ) && is_array( $row['value'] ) ? $row['value'] : array();
+				$value     = array();
+				foreach ( $meta['fields'] as $sub => $sub_meta ) {
+					$sub_value = isset( $raw_value[ $sub ] ) ? self::sanitize_property_value( $raw_value[ $sub ], $sub_meta['input'] ) : '';
+					if ( '' !== $sub_value ) {
+						$value[ $sub ] = $sub_value;
+					}
+				}
+				if ( empty( $value ) ) {
+					continue;
+				}
+			} else {
+				$input = isset( $meta['input'] ) ? $meta['input'] : 'text';
+				$value = isset( $row['value'] ) && ! is_array( $row['value'] ) ? self::sanitize_property_value( $row['value'], $input ) : '';
+				if ( '' === $value ) {
+					continue;
+				}
+			}
+
 			$clean[] = array(
 				'prop'  => $prop,
 				'value' => $value,
@@ -432,7 +546,7 @@ final class Coywolf_SEO_Options {
 			'nofollow'     => false,
 			'canonical'    => '',
 		);
-		$meta = get_post_meta( $post_id, '_coywolf_seo', true );
+		$meta     = get_post_meta( $post_id, '_coywolf_seo', true );
 		if ( ! is_array( $meta ) ) {
 			return $defaults;
 		}

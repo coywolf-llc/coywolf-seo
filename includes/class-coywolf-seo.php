@@ -39,7 +39,8 @@ final class Coywolf_SEO {
 	private $admin = null;
 
 	/**
-	 * Post/Page SEO meta box (admin only).
+	 * Post/Page SEO meta box and editor panel (meta registration runs on
+	 * every request — the block editor saves through REST).
 	 *
 	 * @var Coywolf_SEO_Metabox|null
 	 */
@@ -171,12 +172,15 @@ final class Coywolf_SEO {
 		$this->import_export = new Coywolf_SEO_Import_Export();
 		$this->import_export->init();
 
+		// Not admin-gated: the block editor reads and saves the SEO meta
+		// through the REST API, where is_admin() is false — the meta must
+		// be registered on every request.
+		$this->metabox = new Coywolf_SEO_Metabox();
+		$this->metabox->init();
+
 		if ( is_admin() ) {
 			$this->admin = new Coywolf_SEO_Admin();
 			$this->admin->init();
-
-			$this->metabox = new Coywolf_SEO_Metabox();
-			$this->metabox->init();
 		}
 	}
 
@@ -217,12 +221,41 @@ final class Coywolf_SEO {
 	}
 
 	/**
-	 * Activation hook: grant the admin capability per the saved setting and
-	 * regenerate rewrite rules (category prefix removal adds its own).
+	 * Activation hook: grant the admin capability per the saved setting,
+	 * regenerate rewrite rules (category prefix removal adds its own), and
+	 * purge known page caches so the new head output is served immediately
+	 * instead of pre-activation HTML from a page or CDN cache.
 	 */
 	public static function on_activate() {
 		Coywolf_SEO_Admin::sync_capability( (string) Coywolf_SEO_Options::get( 'access_role' ) );
 		flush_rewrite_rules();
+		self::purge_known_caches();
+		// One-time reminder for caches this plugin cannot purge itself.
+		set_transient( 'coywolf_seo_activation_notice', 1, 5 * MINUTE_IN_SECONDS );
+	}
+
+	/**
+	 * Best-effort purge of the page caches this plugin can reach. Caches it
+	 * cannot reach (host/CDN edge caches) are covered by the activation
+	 * notice instead.
+	 */
+	public static function purge_known_caches() {
+		if ( function_exists( 'rocket_clean_domain' ) ) {
+			rocket_clean_domain(); // WP Rocket.
+		}
+		if ( function_exists( 'w3tc_flush_all' ) ) {
+			w3tc_flush_all(); // W3 Total Cache.
+		}
+		if ( function_exists( 'wp_cache_clear_cache' ) ) {
+			wp_cache_clear_cache(); // WP Super Cache.
+		}
+		do_action( 'litespeed_purge_all' ); // LiteSpeed Cache (no-op without it).
+		if ( function_exists( 'sg_cachepress_purge_cache' ) ) {
+			sg_cachepress_purge_cache(); // SiteGround Optimizer.
+		}
+		if ( class_exists( 'autoptimizeCache' ) && method_exists( 'autoptimizeCache', 'clearall' ) ) {
+			autoptimizeCache::clearall();
+		}
 	}
 
 	/**

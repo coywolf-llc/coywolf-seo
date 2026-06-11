@@ -57,6 +57,15 @@ final class Coywolf_SEO_Head {
 			$paged = (int) get_query_var( 'paged' );
 			return ( $paged > 1 ) ? get_pagenum_link( $paged ) : home_url( '/' );
 		}
+		if ( is_home() ) {
+			// The blog posts index (when a static front page is set).
+			$paged = (int) get_query_var( 'paged' );
+			if ( $paged > 1 ) {
+				return get_pagenum_link( $paged );
+			}
+			$posts_page = (int) get_option( 'page_for_posts' );
+			return $posts_page ? (string) get_permalink( $posts_page ) : home_url( '/' );
+		}
 		if ( is_singular() ) {
 			$meta = Coywolf_SEO_Options::post_meta( get_queried_object_id() );
 			if ( '' !== $meta['canonical'] ) {
