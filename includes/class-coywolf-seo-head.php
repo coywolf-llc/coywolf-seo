@@ -35,8 +35,36 @@ final class Coywolf_SEO_Head {
 		// default re-add it when unchecked.
 		remove_filter( 'wp_robots', 'wp_robots_max_image_preview_large' );
 
+		// Render the robots meta ourselves: same directives pipeline as
+		// core's wp_robots(), but with double-quoted attributes.
+		remove_action( 'wp_head', 'wp_robots', 1 );
+		add_action( 'wp_head', array( $this, 'output_robots' ), 1 );
+
 		add_action( 'template_redirect', array( $this, 'swap_canonical' ), 9 );
 		add_action( 'wp_head', array( $this, 'output_meta_description' ), 1 );
+	}
+
+	/**
+	 * Print the robots meta tag. Mirrors core's wp_robots() composition —
+	 * the full wp_robots filter chain still applies — with double-quoted
+	 * attributes instead of core's single quotes.
+	 */
+	public function output_robots() {
+		/** This filter is documented in wp-includes/robots-template.php */
+		$robots = apply_filters( 'wp_robots', array() );
+
+		$parts = array();
+		foreach ( $robots as $directive => $value ) {
+			if ( is_string( $value ) ) {
+				$parts[] = $directive . ':' . $value;
+			} elseif ( $value ) {
+				$parts[] = $directive;
+			}
+		}
+		if ( empty( $parts ) ) {
+			return;
+		}
+		printf( '<meta name="robots" content="%s" />' . "\n", esc_attr( implode( ', ', $parts ) ) );
 	}
 
 	/**

@@ -121,7 +121,12 @@ final class Coywolf_SEO_AI {
 		}
 		$args = array( (int) $post->ID );
 		if ( ! wp_next_scheduled( self::CRON_HOOK, $args ) ) {
-			wp_schedule_single_event( time() + 15, self::CRON_HOOK, $args );
+			wp_schedule_single_event( time() + 5, self::CRON_HOOK, $args );
+			// Kick cron now so the analysis starts within seconds even on
+			// low-traffic sites, instead of waiting for the next visit.
+			if ( ! defined( 'DOING_CRON' ) || ! DOING_CRON ) {
+				spawn_cron();
+			}
 		}
 	}
 
@@ -153,25 +158,26 @@ final class Coywolf_SEO_AI {
 
 		try {
 			$mentions = $this->extract_mentions( $title, $content );
-			if ( empty( $mentions ) ) {
-				update_post_meta(
-					$post_id,
-					self::META_KEY,
-					array(
-						'hash'     => $hash,
-						'time'     => gmdate( 'c' ),
-						'entities' => array(),
-					)
-				);
-				return;
-			}
-			$entities = $this->ground_mentions( $mentions, $title, $content );
+			$entities = empty( $mentions ) ? array() : $this->ground_mentions( $mentions, $title, $content );
 		} catch ( \Throwable $e ) {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- debug-mode only.
 				error_log( 'Coywolf SEO AI enrichment failed for post ' . $post_id . ': ' . $e->getMessage() );
 			}
-			return; // No meta update: retried on the next save.
+			// Record the failure (with an empty hash so the next save
+			// retries) and surface it in the editor's SEO panel.
+			update_post_meta(
+				$post_id,
+				self::META_KEY,
+				array(
+					'hash'     => '',
+					'time'     => gmdate( 'c' ),
+					'status'   => 'error',
+					'error'    => $e->getMessage(),
+					'entities' => array(),
+				)
+			);
+			return;
 		}
 
 		update_post_meta(
@@ -180,9 +186,45 @@ final class Coywolf_SEO_AI {
 			array(
 				'hash'     => $hash,
 				'time'     => gmdate( 'c' ),
+				'status'   => 'ok',
+				'error'    => '',
 				'entities' => $entities,
 			)
 		);
+	}
+
+	/**
+	 * Human-readable analysis status for a post, shown in the editor's SEO
+	 * panel so a silent background failure is never invisible.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return string '' when enrichment is disabled.
+	 */
+	public function status_text( $post_id ) {
+		if ( ! $this->enabled() ) {
+			return '';
+		}
+		$saved = get_post_meta( $post_id, self::META_KEY, true );
+		if ( ! is_array( $saved ) ) {
+			return __( 'Entities: analyzed in the background after publishing.', 'coywolf-seo' );
+		}
+		if ( isset( $saved['status'] ) && 'error' === $saved['status'] ) {
+			/* translators: %s: error message. */
+			return sprintf( __( 'Entity analysis failed: %s — retried on the next save.', 'coywolf-seo' ), (string) $saved['error'] );
+		}
+		$about    = 0;
+		$mentions = 0;
+		if ( ! empty( $saved['entities'] ) && is_array( $saved['entities'] ) ) {
+			foreach ( $saved['entities'] as $entity ) {
+				if ( ! empty( $entity['primary'] ) ) {
+					$about++;
+				} else {
+					$mentions++;
+				}
+			}
+		}
+		/* translators: 1: number of about entities, 2: number of mention entities. */
+		return sprintf( __( 'Entities in schema: %1$d about, %2$d mentions.', 'coywolf-seo' ), $about, $mentions );
 	}
 
 	/**
@@ -396,6 +438,63 @@ final class Coywolf_SEO_AI {
 	}
 
 	/**
+	 * Whether the SDK has been bootstrapped this request, and which copy of
+	 * the PHP AI Client is in play.
+	 *
+	 * @var bool
+	 */
+	private static $sdk_loaded = false;
+
+	/**
+	 * True when the site itself provides the PHP AI Client (WordPress 7.0+
+	 * bundles it in core; the php-ai-client plugin provides it earlier).
+	 *
+	 * @var bool
+	 */
+	private static $site_provides_client = false;
+
+	/**
+	 * Bootstrap the SDK without ever shadowing a copy the site already has.
+	 *
+	 * WordPress 7.0 bundles the PHP AI Client in core (wp-settings.php
+	 * registers its autoloader), with its third-party internals scoped.
+	 * Loading our vendored copy of the same classes alongside it mixes the
+	 * two builds (Composer's autoloader prepends) and fatals deep inside
+	 * the SDK. So: when the client already exists, use it and only
+	 * autoload the Anthropic provider from our vendor directory; the full
+	 * vendored stack loads only on sites with no client at all (WP < 7.0).
+	 */
+	private function load_sdk() {
+		if ( self::$sdk_loaded ) {
+			return;
+		}
+		self::$sdk_loaded = true;
+
+		if ( class_exists( 'WordPress\\AiClient\\AiClient' ) ) {
+			self::$site_provides_client = true;
+			if ( ! class_exists( 'WordPress\\AnthropicAiProvider\\Provider\\AnthropicProvider' ) ) {
+				spl_autoload_register(
+					static function ( $class_name ) {
+						$prefix = 'WordPress\\AnthropicAiProvider\\';
+						if ( 0 !== strpos( $class_name, $prefix ) ) {
+							return;
+						}
+						$file = COYWOLF_SEO_PATH . 'vendor/wordpress/ai-provider-for-anthropic/src/'
+							. str_replace( '\\', '/', substr( $class_name, strlen( $prefix ) ) ) . '.php';
+						if ( file_exists( $file ) ) {
+							require $file;
+						}
+					}
+				);
+			}
+			return;
+		}
+
+		self::$site_provides_client = false;
+		require_once COYWOLF_SEO_PATH . 'vendor/autoload.php';
+	}
+
+	/**
 	 * Call Claude through the PHP AI Client with the Anthropic provider.
 	 *
 	 * @param string $system System instruction.
@@ -403,9 +502,16 @@ final class Coywolf_SEO_AI {
 	 * @return string Generated text.
 	 */
 	private function generate( $system, $prompt ) {
-		require_once COYWOLF_SEO_PATH . 'vendor/autoload.php';
+		$this->load_sdk();
 
 		$registry = AiClient::defaultRegistry();
+		if ( ! self::$site_provides_client ) {
+			// Our vendored stack ships no PSR-18 client for the SDK's
+			// discovery to find: route it through the WordPress HTTP API.
+			// (A site-provided client comes with its own transport wiring.)
+			require_once COYWOLF_SEO_PATH . 'includes/class-coywolf-seo-http-transporter.php';
+			$registry->setHttpTransporter( new Coywolf_SEO_Http_Transporter() );
+		}
 		if ( ! $registry->hasProvider( 'anthropic' ) ) {
 			$registry->registerProvider( AnthropicProvider::class );
 		}

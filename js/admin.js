@@ -76,26 +76,33 @@
 		}
 		$( '.coywolf-seo-entity-toggle' ).on( 'change', syncEntityRows );
 
-		// Property repeaters: add a fresh row (cloned select, rebuilt value
-		// cell) with the table's next index.
-		$( '.coywolf-seo-add-row' ).on( 'click', function () {
+		// Property repeaters: the picker below the rows adds a row for the
+		// chosen property, then resets itself.
+		$( '.coywolf-seo-add-select' ).on( 'change', function () {
+			var prop = $( this ).val();
+			if ( ! prop ) {
+				return;
+			}
 			var $table = $( '#' + $( this ).data( 'target' ) );
 			var $tbody = $table.find( 'tbody' );
 			var field = $table.data( 'field' );
 			var index = parseInt( $table.attr( 'data-next-index' ), 10 ) || $tbody.find( 'tr' ).length;
 			$table.attr( 'data-next-index', index + 1 );
 
-			var $first = $tbody.find( 'tr' ).first();
-			var $row = $( '<tr class="coywolf-seo-prop-row"></tr>' );
-			var $selectCell = $( '<td></td>' );
-			var $select = $first.find( 'select.coywolf-seo-prop-select' ).clone();
-			$select.attr( 'name', 'coywolf_seo[' + field + '][' + index + '][prop]' );
-			$select.prop( 'selectedIndex', 0 );
-			$selectCell.append( $select );
-			$row.append( $selectCell );
+			// The row's select carries the same catalog as the picker,
+			// minus its placeholder option.
+			var $select = $( this ).clone();
+			$select
+				.removeClass( 'coywolf-seo-add-select' )
+				.addClass( 'coywolf-seo-prop-select' )
+				.removeAttr( 'data-target aria-label' )
+				.attr( 'name', 'coywolf_seo[' + field + '][' + index + '][prop]' );
+			$select.find( 'option[value=""]' ).remove();
+			$select.val( prop );
 
-			var nameBase = 'coywolf_seo[' + field + '][' + index + '][value]';
-			$row.append( buildValueCell( nameBase, $select.val() ) );
+			var $row = $( '<tr class="coywolf-seo-prop-row"></tr>' );
+			$row.append( $( '<td></td>' ).append( $select ) );
+			$row.append( buildValueCell( 'coywolf_seo[' + field + '][' + index + '][value]', prop ) );
 			$row.append(
 				$( '<td></td>' ).append(
 					$( '<button/>', {
@@ -107,6 +114,7 @@
 				)
 			);
 			$tbody.append( $row );
+			$( this ).val( '' );
 		} );
 
 		// Changing a row's property swaps its value cell to the matching
@@ -121,13 +129,9 @@
 			$select.closest( 'tr' ).find( '.coywolf-seo-prop-value' ).replaceWith( buildValueCell( nameBase, $select.val() ) );
 		} );
 
+		// Rows can all be removed — the picker below adds them back.
 		$( document ).on( 'click', '.coywolf-seo-remove-row', function () {
-			var $rows = $( this ).closest( 'tbody' ).find( 'tr' );
-			if ( $rows.length > 1 ) {
-				$( this ).closest( 'tr' ).remove();
-			} else {
-				$rows.first().find( 'input' ).val( '' );
-			}
+			$( this ).closest( 'tr' ).remove();
 		} );
 
 		// Media picker inside repeaters: writes the chosen image URL into

@@ -234,13 +234,35 @@ final class Coywolf_SEO_Schema {
 	}
 
 	/**
-	 * The graph @id of the publisher entity (Organization or Person).
+	 * The graph @id of the publisher entity (Organization or Person). An
+	 * @id row in the property editor overrides the default anchor, and
+	 * every reference in the graph follows it.
 	 *
 	 * @return string
 	 */
 	private function entity_id() {
 		$type = Coywolf_SEO_Options::get( 'entity_type' );
-		return home_url( '/' ) . ( 'person' === $type ? '#person' : '#organization' );
+		if ( 'person' === $type ) {
+			$custom = $this->id_from_rows( Coywolf_SEO_Options::author_rows( (int) Coywolf_SEO_Options::get( 'person_user_id' ) ) );
+			return '' !== $custom ? $custom : home_url( '/' ) . '#person';
+		}
+		$custom = $this->id_from_rows( Coywolf_SEO_Options::get( 'org_properties' ) );
+		return '' !== $custom ? $custom : home_url( '/' ) . '#organization';
+	}
+
+	/**
+	 * The @id row value from a set of property rows, if any.
+	 *
+	 * @param mixed $rows Property rows.
+	 * @return string '' when not set.
+	 */
+	private function id_from_rows( $rows ) {
+		foreach ( (array) $rows as $row ) {
+			if ( is_array( $row ) && isset( $row['prop'] ) && '@id' === $row['prop'] && isset( $row['value'] ) && is_string( $row['value'] ) && '' !== $row['value'] ) {
+				return $row['value'];
+			}
+		}
+		return '';
 	}
 
 	/**
@@ -293,7 +315,10 @@ final class Coywolf_SEO_Schema {
 		if ( null === $node ) {
 			return null;
 		}
-		$node['@id'] = get_author_posts_url( $user_id ) . '#person';
+		// An @id row from the Authors page wins; default to the archive anchor.
+		if ( empty( $node['@id'] ) ) {
+			$node['@id'] = get_author_posts_url( $user_id ) . '#person';
+		}
 		return $node;
 	}
 
@@ -391,6 +416,8 @@ final class Coywolf_SEO_Schema {
 
 			if ( ! isset( $out[ $prop ] ) ) {
 				$out[ $prop ] = $shaped;
+			} elseif ( '@id' === $prop ) {
+				continue; // @id is single-valued; the first row wins.
 			} else {
 				if ( ! is_array( $out[ $prop ] ) || isset( $out[ $prop ]['@type'] ) ) {
 					$out[ $prop ] = array( $out[ $prop ] );
