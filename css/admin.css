@@ -106,6 +106,28 @@
 	margin-left: 8px;
 }
 
+/* Decision rows: the 410 button, the redirect field/button pair, and the
+   dismiss link sit on one centered line instead of wobbling on the text
+   baseline. */
+.coywolf-seo-pending .coywolf-seo-cell-actions {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
+}
+
+.coywolf-seo-pending .coywolf-seo-inline-form {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	margin-right: 0;
+}
+
+.coywolf-seo-pending .coywolf-seo-inline-form .button,
+.coywolf-seo-pending .coywolf-seo-inline-form .regular-text {
+	margin: 0;
+}
+
 .coywolf-seo-quick-row {
 	display: flex;
 	gap: 8px;
