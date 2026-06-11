@@ -55,6 +55,20 @@
 	min-width: 360px;
 }
 
+.coywolf-seo-details {
+	margin-top: 8px;
+	max-width: 640px;
+}
+
+.coywolf-seo-details summary {
+	cursor: pointer;
+	color: #2271b1;
+}
+
+.coywolf-seo-details ol {
+	margin: 8px 0 8px 20px;
+}
+
 /* Redirects screen. */
 
 .coywolf-seo-panel {

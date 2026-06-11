@@ -756,15 +756,28 @@ final class Coywolf_SEO_Admin {
 							<?php if ( '' !== (string) $o['kg_api_key'] ) : ?>
 								<a class="button-link button-link-delete" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=coywolf_seo_remove_kg_key' ), 'coywolf_seo_remove_kg_key' ) ); ?>"><?php esc_html_e( 'Remove', 'coywolf-seo' ); ?></a>
 							<?php endif; ?>
-							<p class="description">
-								<?php
-								printf(
-									/* translators: %s: Google Knowledge Graph API docs URL. */
-									esc_html__( 'Optional. With a key from %s, detected entities also get Google\'s description, image, and official website, plus a Knowledge Graph sameAs link.', 'coywolf-seo' ),
-									'<a href="https://developers.google.com/knowledge-graph" target="_blank" rel="noopener noreferrer">developers.google.com/knowledge-graph</a>'
-								);
-								?>
-							</p>
+							<p class="description"><?php esc_html_e( 'Optional. With a key, detected entities also get Google\'s description, image, and official website, plus a Knowledge Graph sameAs link.', 'coywolf-seo' ); ?></p>
+							<details class="coywolf-seo-details">
+								<summary><?php esc_html_e( 'How to get a Google Knowledge Graph Search API key', 'coywolf-seo' ); ?></summary>
+								<ol>
+									<li>
+										<?php
+										printf(
+											/* translators: %s: Google Cloud Console link. */
+											esc_html__( 'Go to the %s and sign in with your Google account.', 'coywolf-seo' ),
+											'<a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">Google Cloud Console</a>'
+										);
+										?>
+									</li>
+									<li><?php esc_html_e( 'Select or create a project.', 'coywolf-seo' ); ?></li>
+									<li><?php esc_html_e( 'Open the navigation menu, select APIs & Services, and click Enabled APIs & Services.', 'coywolf-seo' ); ?></li>
+									<li><?php esc_html_e( 'Click + Enable APIs and Services, search for “Knowledge Graph”, and click Enable.', 'coywolf-seo' ); ?></li>
+									<li><?php esc_html_e( 'Go back to the navigation menu and select APIs & Services → Credentials.', 'coywolf-seo' ); ?></li>
+									<li><?php esc_html_e( 'Click + Create Credentials and select API key.', 'coywolf-seo' ); ?></li>
+									<li><?php esc_html_e( '(Optional but recommended) Click Restrict key and limit it to the “Knowledge Graph Search API” for security.', 'coywolf-seo' ); ?></li>
+								</ol>
+								<p><strong><?php esc_html_e( 'Important:', 'coywolf-seo' ); ?></strong> <?php esc_html_e( 'Restrict by API only — do not add a website (HTTP referrer) restriction. The lookups come from your server, not a browser, so a referrer-restricted key is rejected.', 'coywolf-seo' ); ?></p>
+							</details>
 						</td>
 					</tr>
 					</tbody>

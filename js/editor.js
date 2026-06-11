@@ -24,9 +24,11 @@
 	var config = window.CoywolfSEOEditor || { pageTypeOptions: [], articleTypeOptions: [], i18n: {} };
 	var useSelect = wp.data.useSelect;
 	var useDispatch = wp.data.useDispatch;
+	var useState = wp.element.useState;
 	var SelectControl = wp.components.SelectControl;
 	var ToggleControl = wp.components.ToggleControl;
 	var TextControl = wp.components.TextControl;
+	var Button = wp.components.Button;
 
 	var META_KEY = '_coywolf_seo';
 	var DEFAULTS = {
@@ -42,6 +44,28 @@
 			return select( 'core/editor' ).getEditedPostAttribute( 'meta' );
 		}, [] );
 		var editPost = useDispatch( 'core/editor' ).editPost;
+		var statusState = useState( config.entityStatus || '' );
+		var entityStatus = statusState[ 0 ];
+		var setEntityStatus = statusState[ 1 ];
+
+		function reanalyze() {
+			var data = new window.FormData();
+			data.append( 'action', 'coywolf_seo_reanalyze' );
+			data.append( '_ajax_nonce', config.reanalyzeNonce );
+			data.append( 'post_id', config.postId );
+			setEntityStatus( '…' );
+			window
+				.fetch( config.ajaxUrl, { method: 'POST', credentials: 'same-origin', body: data } )
+				.then( function ( r ) {
+					return r.json();
+				} )
+				.then( function ( json ) {
+					setEntityStatus( ( json.data && json.data.message ) || '' );
+				} )
+				.catch( function () {
+					setEntityStatus( 'Request failed.' );
+				} );
+		}
 
 		var raw = meta ? meta[ META_KEY ] : null;
 		var seo = Object.assign( {}, DEFAULTS, raw && ! Array.isArray( raw ) ? raw : {} );
@@ -103,8 +127,15 @@
 					update( 'canonical', v === config.permalink ? '' : v );
 				}
 			} ),
-			config.entityStatus
-				? el( 'p', { className: 'coywolf-seo-entity-status', style: { color: '#50575e', marginBottom: 0 } }, config.entityStatus )
+			entityStatus
+				? el( 'p', { className: 'coywolf-seo-entity-status', style: { color: '#50575e', marginBottom: 0 } }, entityStatus )
+				: null,
+			config.aiEnabled && config.postId
+				? el(
+					Button,
+					{ variant: 'secondary', isSecondary: true, onClick: reanalyze, style: { marginTop: '8px' } },
+					config.i18n.reanalyze || 'Re-analyze entities'
+				)
 				: null
 		);
 	}

@@ -71,12 +71,65 @@ final class Coywolf_SEO_AI {
 	private $post_types = array( 'post', 'page' );
 
 	/**
+	 * The first Knowledge Graph lookup failure of the current run, for the
+	 * editor's status line.
+	 *
+	 * @var string
+	 */
+	private $last_kg_error = '';
+
+	/**
 	 * Hook everything up.
 	 */
 	public function init() {
 		add_action( self::CRON_HOOK, array( $this, 'analyze_post' ) );
 		add_action( 'transition_post_status', array( $this, 'maybe_queue' ), 10, 3 );
 		add_filter( 'http_request_args', array( $this, 'extend_anthropic_timeout' ), 10, 2 );
+		add_action( 'wp_ajax_coywolf_seo_reanalyze', array( $this, 'ajax_reanalyze' ) );
+	}
+
+	/**
+	 * Queue a fresh analysis from the editor's Re-analyze button, ignoring
+	 * the unchanged-content skip.
+	 */
+	public function ajax_reanalyze() {
+		check_ajax_referer( 'coywolf_seo_reanalyze' );
+		$post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
+		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
+			wp_send_json_error( array( 'message' => __( 'Not allowed.', 'coywolf-seo' ) ), 403 );
+		}
+		if ( ! $this->enabled() ) {
+			wp_send_json_error( array( 'message' => __( 'Entity detection is not enabled in Settings.', 'coywolf-seo' ) ), 400 );
+		}
+
+		// Clear the stored hash so the analysis runs even when the content
+		// has not changed.
+		$saved = get_post_meta( $post_id, self::META_KEY, true );
+		if ( is_array( $saved ) ) {
+			$saved['hash'] = '';
+			update_post_meta( $post_id, self::META_KEY, $saved );
+		}
+
+		$args = array( $post_id );
+		if ( ! wp_next_scheduled( self::CRON_HOOK, $args ) ) {
+			wp_schedule_single_event( time(), self::CRON_HOOK, $args );
+		}
+		spawn_cron();
+
+		wp_send_json_success( array( 'message' => __( 'Analysis queued — reload in a minute to see the result.', 'coywolf-seo' ) ) );
+	}
+
+	/**
+	 * A fingerprint of the configuration that shapes analysis results.
+	 * Folding it into the content hash means changing the configuration
+	 * (adding the Knowledge Graph key, switching models) re-analyzes posts
+	 * on their next save instead of being skipped as "unchanged".
+	 *
+	 * @return string
+	 */
+	private function config_signature() {
+		return 'kg:' . ( '' !== (string) Coywolf_SEO_Options::get( 'kg_api_key' ) ? '1' : '0' )
+			. '|model:' . apply_filters( 'coywolf_seo_ai_model', self::DEFAULT_MODEL );
 	}
 
 	/**
@@ -186,8 +239,9 @@ final class Coywolf_SEO_AI {
 			return;
 		}
 
-		// Unchanged since the last successful run? Done.
-		$hash  = md5( $title . "\n" . $content );
+		// Unchanged since the last successful run (with the same
+		// configuration)? Done.
+		$hash  = md5( $title . "\n" . $content . "\n" . $this->config_signature() );
 		$saved = get_post_meta( $post_id, self::META_KEY, true );
 		if ( is_array( $saved ) && isset( $saved['hash'] ) && $saved['hash'] === $hash ) {
 			return;
@@ -227,6 +281,7 @@ final class Coywolf_SEO_AI {
 				'time'     => gmdate( 'c' ),
 				'status'   => 'ok',
 				'error'    => '',
+				'kg_error' => $this->last_kg_error,
 				'entities' => $entities,
 			)
 		);
@@ -302,8 +357,16 @@ final class Coywolf_SEO_AI {
 				}
 			}
 		}
-		/* translators: 1: number of about entities, 2: number of mention entities. */
-		return sprintf( __( 'Entities in schema: %1$d about, %2$d mentions.', 'coywolf-seo' ), $about, $mentions );
+		$text = sprintf(
+			/* translators: 1: number of about entities, 2: number of mention entities. */
+			__( 'Entities in schema: %1$d about, %2$d mentions.', 'coywolf-seo' ),
+			$about,
+			$mentions
+		);
+		if ( ! empty( $saved['kg_error'] ) ) {
+			$text .= ' ' . (string) $saved['kg_error'];
+		}
+		return $text;
 	}
 
 	/**
@@ -523,6 +586,8 @@ final class Coywolf_SEO_AI {
 	 * @return array
 	 */
 	private function kg_enrich( array $entities ) {
+		$this->last_kg_error = '';
+
 		$key = (string) Coywolf_SEO_Options::get( 'kg_api_key' );
 		if ( '' === $key || empty( $entities ) ) {
 			return $entities;
@@ -546,7 +611,19 @@ final class Coywolf_SEO_AI {
 					'user-agent' => $this->user_agent(),
 				)
 			);
-			if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+			if ( is_wp_error( $response ) ) {
+				$this->last_kg_error = $response->get_error_message();
+				continue;
+			}
+			$code = (int) wp_remote_retrieve_response_code( $response );
+			if ( 200 !== $code ) {
+				// Surface Google's own explanation (a referrer-restricted
+				// key, the API not enabled, quota) so the failure is
+				// diagnosable from the editor instead of silent.
+				$body_error = json_decode( wp_remote_retrieve_body( $response ), true );
+				$message    = isset( $body_error['error']['message'] ) ? (string) $body_error['error']['message'] : '';
+				/* translators: 1: HTTP status code, 2: error message from Google. */
+				$this->last_kg_error = sprintf( __( 'Google Knowledge Graph returned HTTP %1$d%2$s', 'coywolf-seo' ), $code, '' !== $message ? ': ' . $message : '' );
 				continue;
 			}
 			$body = json_decode( wp_remote_retrieve_body( $response ), true );
