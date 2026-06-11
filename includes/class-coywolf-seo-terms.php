@@ -42,6 +42,12 @@ final class Coywolf_SEO_Terms {
 	 * Hook everything up.
 	 */
 	public function init() {
+		// Term descriptions keep post-level HTML: core's save filter
+		// (wp_filter_kses) allows only a minimal inline tag set for users
+		// without unfiltered_html — swap it for the full safe post set.
+		// Late on init, after core's kses_init() has decided the filters.
+		add_action( 'init', array( $this, 'allow_description_html' ), 20 );
+
 		foreach ( $this->taxonomies as $taxonomy ) {
 			add_action( "{$taxonomy}_add_form_fields", array( $this, 'render_add_fields' ) );
 			add_action( "{$taxonomy}_edit_form_fields", array( $this, 'render_edit_fields' ) );
@@ -66,6 +72,16 @@ final class Coywolf_SEO_Terms {
 					'sanitize_callback' => 'absint',
 				)
 			);
+		}
+	}
+
+	/**
+	 * Let term descriptions carry the same safe HTML as post content.
+	 */
+	public function allow_description_html() {
+		if ( false !== has_filter( 'pre_term_description', 'wp_filter_kses' ) ) {
+			remove_filter( 'pre_term_description', 'wp_filter_kses' );
+			add_filter( 'pre_term_description', 'wp_filter_post_kses' );
 		}
 	}
 
@@ -124,7 +140,7 @@ final class Coywolf_SEO_Terms {
 		<tr class="form-field" id="coywolf-seo-term-title-row">
 			<th scope="row"><label for="coywolf-seo-term-title"><?php esc_html_e( 'Page Title', 'coywolf-seo' ); ?></label></th>
 			<td>
-				<input type="text" id="coywolf-seo-term-title" name="coywolf_seo_term_title" value="<?php echo esc_attr( $title ); ?>" />
+				<input type="text" id="coywolf-seo-term-title" name="coywolf_seo_term_title" value="<?php echo esc_attr( $title ); ?>" placeholder="<?php echo esc_attr( $term->name ); ?>" />
 				<p class="description"><?php esc_html_e( 'Used for the page title and the Open Graph title. Leave blank to use the name.', 'coywolf-seo' ); ?></p>
 			</td>
 		</tr>
@@ -147,7 +163,7 @@ final class Coywolf_SEO_Terms {
 		<img id="coywolf-seo-term-og-preview" src="<?php echo esc_url( (string) $src ); ?>" alt="" style="max-width:300px;height:auto;display:<?php echo $src ? 'block' : 'none'; ?>;margin-bottom:8px;border:1px solid #dcdcde;border-radius:2px;" />
 		<button type="button" class="button" id="coywolf-seo-term-og-select"><?php esc_html_e( 'Select image', 'coywolf-seo' ); ?></button>
 		<button type="button" class="button-link button-link-delete" id="coywolf-seo-term-og-remove" style="<?php echo $image_id ? '' : 'display:none'; ?>"><?php esc_html_e( 'Remove', 'coywolf-seo' ); ?></button>
-		<p class="description"><?php esc_html_e( 'Shown when this archive is shared. Falls back to the default Open Graph image.', 'coywolf-seo' ); ?></p>
+		<p class="description"><?php esc_html_e( 'Shown when this archive is shared. Recommended size: 1200 × 675 pixels. Falls back to the default Open Graph image.', 'coywolf-seo' ); ?></p>
 		<?php
 	}
 

@@ -1,6 +1,6 @@
 <?php
 /**
- * AI Schema enrichment for Coywolf SEO.
+ * AI enrichment for Coywolf SEO.
  *
  * When enabled (with the site owner's own Anthropic API key), published
  * posts and pages are analyzed in the background and the entities they

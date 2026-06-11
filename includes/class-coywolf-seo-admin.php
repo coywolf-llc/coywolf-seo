@@ -769,7 +769,7 @@ final class Coywolf_SEO_Admin {
 					</tr>
 				</table>
 
-				<h2><?php esc_html_e( 'AI Schema enrichment', 'coywolf-seo' ); ?></h2>
+				<h2><?php esc_html_e( 'AI enrichment', 'coywolf-seo' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Entity detection', 'coywolf-seo' ); ?></th>
@@ -781,6 +781,18 @@ final class Coywolf_SEO_Admin {
 							<p class="description"><?php esc_html_e( 'Main subjects become the about property and passing references become mentions. Every entity is grounded against Wikidata — Claude only extracts names, real items are looked up on Wikidata, and the chosen item is type-checked — so identifiers are never invented. Runs in the background after publishing.', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
+					<tbody id="coywolf-seo-ai-desc-row" <?php echo $o['exclude_meta_desc'] ? 'style="display:none"' : ''; ?>>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Meta descriptions', 'coywolf-seo' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" id="coywolf-seo-ai-descriptions" name="coywolf_seo[ai_descriptions]" value="1" <?php checked( $o['ai_descriptions'] ); ?> />
+								<?php esc_html_e( 'Automatically write a meta description when a post or page is published or updated', 'coywolf-seo' ); ?>
+							</label>
+							<p class="description"><?php esc_html_e( 'Claude summarizes the content in under 200 characters, using your API key below. The summary replaces the excerpt as the meta description, the Open Graph description, and the Article schema description. Nothing is generated while meta descriptions are excluded.', 'coywolf-seo' ); ?></p>
+						</td>
+					</tr>
+					</tbody>
 					<tbody id="coywolf-seo-ai-fields" <?php echo ( $o['ai_enabled'] || $o['ai_descriptions'] ) ? '' : 'style="display:none"'; ?>>
 					<tr>
 						<th scope="row"><label for="coywolf-seo-ai-key"><?php esc_html_e( 'Claude API key', 'coywolf-seo' ); ?></label></th>
@@ -799,18 +811,6 @@ final class Coywolf_SEO_Admin {
 								);
 								?>
 							</p>
-						</td>
-					</tr>
-					</tbody>
-					<tbody id="coywolf-seo-ai-desc-row" <?php echo $o['exclude_meta_desc'] ? 'style="display:none"' : ''; ?>>
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Meta descriptions', 'coywolf-seo' ); ?></th>
-						<td>
-							<label>
-								<input type="checkbox" id="coywolf-seo-ai-descriptions" name="coywolf_seo[ai_descriptions]" value="1" <?php checked( $o['ai_descriptions'] ); ?> />
-								<?php esc_html_e( 'Automatically write a meta description when a post or page is published or updated', 'coywolf-seo' ); ?>
-							</label>
-							<p class="description"><?php esc_html_e( 'Claude summarizes the content in under 200 characters, using your API key above. A manual excerpt always takes precedence, and nothing is generated while meta descriptions are excluded.', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
 					</tbody>

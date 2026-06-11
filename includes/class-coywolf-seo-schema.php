@@ -181,6 +181,9 @@ final class Coywolf_SEO_Schema {
 			if ( $image ) {
 				$article['image'] = $image;
 			}
+			if ( '' !== $desc ) {
+				$article['description'] = $desc;
+			}
 
 			// AI-grounded entities: main subjects as about, passing
 			// references as mentions.
