@@ -137,6 +137,10 @@ final class Coywolf_SEO_AI {
 					'remaining' => array_map( 'intval', $ids ),
 					'started'   => gmdate( 'c' ),
 					'finished'  => '',
+					'failed'    => 0,
+					'streak'    => 0,
+					'last_error' => '',
+					'paused_reason' => '',
 					'token'     => wp_generate_password( 64, false ),
 				),
 				false
@@ -214,8 +218,10 @@ final class Coywolf_SEO_AI {
 		if ( ! isset( $state['status'] ) || 'paused' !== $state['status'] || empty( $state['remaining'] ) ) {
 			return;
 		}
-		$state['status'] = 'running';
-		$state['token']  = wp_generate_password( 64, false );
+		$state['status']        = 'running';
+		$state['streak']        = 0;
+		$state['paused_reason'] = '';
+		$state['token']         = wp_generate_password( 64, false );
 		update_option( self::BULK_OPTION, $state, false );
 
 		$this->spawn_bulk_runners();
@@ -304,8 +310,13 @@ final class Coywolf_SEO_AI {
 			if ( ! $post_id ) {
 				break;
 			}
-			$this->analyze_post( $post_id );
-			$this->bulk_record_done();
+			$result = $this->analyze_post( $post_id );
+			$error  = '';
+			if ( 'error' === $result ) {
+				$meta  = get_post_meta( $post_id, self::META_KEY, true );
+				$error = ( is_array( $meta ) && ! empty( $meta['error'] ) ) ? (string) $meta['error'] : __( 'Analysis failed.', 'coywolf-seo' );
+			}
+			$this->bulk_record_done( $error );
 			$worked++;
 		}
 		return $worked;
@@ -336,9 +347,12 @@ final class Coywolf_SEO_AI {
 	}
 
 	/**
-	 * Count a processed post and close the run when the queue is empty.
+	 * Count a processed post, track failures, trip the circuit breaker on
+	 * a failure streak, and close the run when the queue is empty.
+	 *
+	 * @param string $error Error message when the post failed, '' otherwise.
 	 */
-	private function bulk_record_done() {
+	private function bulk_record_done( $error = '' ) {
 		global $wpdb;
 		$lock = 'coywolf_seo_bulk_' . get_current_blog_id();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- named lock for atomic state updates.
@@ -347,7 +361,25 @@ final class Coywolf_SEO_AI {
 		$state = $this->bulk_state_fresh();
 		if ( isset( $state['status'] ) && 'running' === $state['status'] ) {
 			$state['done'] = (int) $state['done'] + 1;
-			if ( empty( $state['remaining'] ) ) {
+			if ( '' !== $error ) {
+				$state['failed']     = (int) ( $state['failed'] ?? 0 ) + 1;
+				$state['streak']     = (int) ( $state['streak'] ?? 0 ) + 1;
+				$state['last_error'] = $error;
+			} else {
+				$state['streak'] = 0;
+			}
+
+			/**
+			 * Consecutive failures before a bulk run pauses itself —
+			 * e.g. an exhausted API credit balance fails every post.
+			 *
+			 * @param int $streak Default 3.
+			 */
+			$breaker = max( 1, (int) apply_filters( 'coywolf_seo_bulk_failure_streak', 3 ) );
+			if ( ! empty( $state['remaining'] ) && (int) ( $state['streak'] ?? 0 ) >= $breaker ) {
+				$state['status']        = 'paused';
+				$state['paused_reason'] = $error;
+			} elseif ( empty( $state['remaining'] ) ) {
 				$state['status']   = 'done';
 				$state['finished'] = gmdate( 'c' );
 			}
@@ -414,11 +446,14 @@ final class Coywolf_SEO_AI {
 		$done    = isset( $state['done'] ) ? (int) $state['done'] : 0;
 		$percent = $total > 0 ? (int) floor( ( $done / $total ) * 100 ) : 0;
 		return array(
-			'status'   => isset( $state['status'] ) ? (string) $state['status'] : '',
-			'total'    => $total,
-			'done'     => $done,
-			'percent'  => $percent,
-			'finished' => isset( $state['finished'] ) ? (string) $state['finished'] : '',
+			'status'        => isset( $state['status'] ) ? (string) $state['status'] : '',
+			'total'         => $total,
+			'done'          => $done,
+			'percent'       => $percent,
+			'finished'      => isset( $state['finished'] ) ? (string) $state['finished'] : '',
+			'failed'        => isset( $state['failed'] ) ? (int) $state['failed'] : 0,
+			'last_error'    => isset( $state['last_error'] ) ? (string) $state['last_error'] : '',
+			'paused_reason' => isset( $state['paused_reason'] ) ? (string) $state['paused_reason'] : '',
 		);
 	}
 
@@ -655,17 +690,19 @@ final class Coywolf_SEO_AI {
 	 * Runs on WP-Cron, so latency is invisible to editors and visitors.
 	 *
 	 * @param int $post_id Post ID.
+	 * @return string ok | error | skipped | disabled — bulk runs use this
+	 *                to track failures; other callers ignore it.
 	 */
 	public function analyze_post( $post_id ) {
 		$post = get_post( $post_id );
 		if ( ! $post || 'publish' !== $post->post_status || ( ! $this->enabled() && ! $this->descriptions_on() ) ) {
-			return;
+			return 'disabled';
 		}
 
 		$title   = get_the_title( $post );
 		$content = $this->plain_content( $post );
 		if ( '' === trim( $content ) ) {
-			return;
+			return 'skipped';
 		}
 
 		// Unchanged since the last successful run (with the same
@@ -673,7 +710,7 @@ final class Coywolf_SEO_AI {
 		$hash  = md5( $title . "\n" . $content . "\n" . $this->config_signature() );
 		$saved = get_post_meta( $post_id, self::META_KEY, true );
 		if ( is_array( $saved ) && isset( $saved['hash'] ) && $saved['hash'] === $hash ) {
-			return;
+			return 'skipped';
 		}
 
 		$previous      = ( is_array( $saved ) && isset( $saved['entities'] ) && is_array( $saved['entities'] ) ) ? $saved['entities'] : array();
@@ -706,7 +743,7 @@ final class Coywolf_SEO_AI {
 					'description' => $previous_desc,
 				)
 			);
-			return;
+			return 'error';
 		}
 
 		update_post_meta(
@@ -728,6 +765,7 @@ final class Coywolf_SEO_AI {
 		if ( wp_json_encode( $entities ) !== wp_json_encode( $previous ) || $description !== $previous_desc ) {
 			$this->purge_post_cache( $post_id );
 		}
+		return 'ok';
 	}
 
 	/**

@@ -824,14 +824,28 @@ final class Coywolf_SEO_Admin {
 							<?php $coywolf_seo_bulk = Coywolf_SEO::instance()->ai()->bulk_status(); ?>
 							<?php if ( 'paused' === $coywolf_seo_bulk['status'] ) : ?>
 								<div class="coywolf-seo-progress"><div class="coywolf-seo-progress-bar" style="width:<?php echo esc_attr( (string) $coywolf_seo_bulk['percent'] ); ?>%"></div></div>
+								<?php if ( '' !== $coywolf_seo_bulk['paused_reason'] ) : ?>
+									<p class="description" style="color:#b32d2e">
+										<strong><?php esc_html_e( 'Paused automatically after repeated failures.', 'coywolf-seo' ); ?></strong>
+										<?php
+										printf(
+											/* translators: %s: the error message from the last failed post. */
+											esc_html__( 'Last error: %s', 'coywolf-seo' ),
+											esc_html( $coywolf_seo_bulk['paused_reason'] )
+										);
+										?>
+										<?php esc_html_e( 'Fix the cause (for example, top up API credits), then Resume to continue where it left off.', 'coywolf-seo' ); ?>
+									</p>
+								<?php endif; ?>
 								<p class="description">
 									<?php
 									printf(
-										/* translators: 1: processed count, 2: total, 3: percent. */
-										esc_html__( 'Paused at %1$d of %2$d (%3$d%%). Posts already mid-analysis when you stopped may still finish.', 'coywolf-seo' ),
+										/* translators: 1: processed count, 2: total, 3: percent, 4: failed count. */
+										esc_html__( 'Paused at %1$d of %2$d (%3$d%%), %4$d failed. Posts already mid-analysis when you stopped may still finish.', 'coywolf-seo' ),
 										(int) $coywolf_seo_bulk['done'],
 										(int) $coywolf_seo_bulk['total'],
-										(int) $coywolf_seo_bulk['percent']
+										(int) $coywolf_seo_bulk['percent'],
+										(int) $coywolf_seo_bulk['failed']
 									);
 									?>
 								</p>
@@ -876,16 +890,30 @@ final class Coywolf_SEO_Admin {
 									<button type="submit" class="button"><?php esc_html_e( 'Enrich all posts and pages', 'coywolf-seo' ); ?></button>
 								</form>
 								<?php if ( 'done' === $coywolf_seo_bulk['status'] && '' !== $coywolf_seo_bulk['finished'] ) : ?>
-									<p class="description">
-										<?php
-										printf(
-											/* translators: 1: number processed, 2: date. */
-											esc_html__( 'Last run finished %2$s after processing %1$d items.', 'coywolf-seo' ),
-											(int) $coywolf_seo_bulk['done'],
-											esc_html( gmdate( 'M j, Y H:i', strtotime( $coywolf_seo_bulk['finished'] ) ) . ' UTC' )
-										);
-										?>
-									</p>
+									<?php if ( $coywolf_seo_bulk['failed'] > 0 ) : ?>
+										<p class="description" style="color:#b32d2e">
+											<?php
+											printf(
+												/* translators: 1: failed count, 2: total, 3: the last error message. */
+												esc_html__( 'Last run completed, but %1$d of %2$d items failed. Last error: %3$s — failed items retry on their next save, via Re-analyze, or in another run.', 'coywolf-seo' ),
+												(int) $coywolf_seo_bulk['failed'],
+												(int) $coywolf_seo_bulk['total'],
+												esc_html( $coywolf_seo_bulk['last_error'] )
+											);
+											?>
+										</p>
+									<?php else : ?>
+										<p class="description">
+											<?php
+											printf(
+												/* translators: 1: number processed, 2: date. */
+												esc_html__( 'Last run finished %2$s after processing %1$d items.', 'coywolf-seo' ),
+												(int) $coywolf_seo_bulk['done'],
+												esc_html( gmdate( 'M j, Y H:i', strtotime( $coywolf_seo_bulk['finished'] ) ) . ' UTC' )
+											);
+											?>
+										</p>
+									<?php endif; ?>
 								<?php endif; ?>
 							<?php endif; ?>
 							<p class="description"><strong><?php esc_html_e( 'Use sparingly:', 'coywolf-seo' ); ?></strong> <?php esc_html_e( 'this runs the enabled AI features over every published post and page in the background, several posts at a time. It can take a while and incurs API costs each time it runs — content already analyzed with the current settings is skipped automatically.', 'coywolf-seo' ); ?></p>
