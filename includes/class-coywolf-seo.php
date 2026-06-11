@@ -109,6 +109,20 @@ final class Coywolf_SEO {
 	private $news_sitemap;
 
 	/**
+	 * AI schema enrichment module.
+	 *
+	 * @var Coywolf_SEO_AI
+	 */
+	private $ai;
+
+	/**
+	 * Import/Export module.
+	 *
+	 * @var Coywolf_SEO_Import_Export
+	 */
+	private $import_export;
+
+	/**
 	 * Create (once) and return the plugin instance.
 	 *
 	 * @return Coywolf_SEO
@@ -151,6 +165,12 @@ final class Coywolf_SEO {
 		$this->news_sitemap = new Coywolf_SEO_News_Sitemap();
 		$this->news_sitemap->init();
 
+		$this->ai = new Coywolf_SEO_AI();
+		$this->ai->init();
+
+		$this->import_export = new Coywolf_SEO_Import_Export();
+		$this->import_export->init();
+
 		if ( is_admin() ) {
 			$this->admin = new Coywolf_SEO_Admin();
 			$this->admin->init();
@@ -188,6 +208,15 @@ final class Coywolf_SEO {
 	}
 
 	/**
+	 * Import/Export module accessor (the Settings page renders its section).
+	 *
+	 * @return Coywolf_SEO_Import_Export
+	 */
+	public function import_export() {
+		return $this->import_export;
+	}
+
+	/**
 	 * Activation hook: grant the admin capability per the saved setting and
 	 * regenerate rewrite rules (category prefix removal adds its own).
 	 */
@@ -197,12 +226,14 @@ final class Coywolf_SEO {
 	}
 
 	/**
-	 * Deactivation hook: drop this plugin's rewrite rules.
+	 * Deactivation hook: drop this plugin's rewrite rules and any queued
+	 * AI analysis events.
 	 *
 	 * Capabilities are left in place on deactivate; they are removed on
 	 * uninstall.
 	 */
 	public static function on_deactivate() {
 		flush_rewrite_rules();
+		wp_unschedule_hook( Coywolf_SEO_AI::CRON_HOOK );
 	}
 }

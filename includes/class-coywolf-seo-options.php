@@ -71,6 +71,9 @@ final class Coywolf_SEO_Options {
 			'news_include_pages'    => false,
 			'news_cat_mode'         => 'all', // all | include | exclude.
 			'news_cats'             => array(),
+			// AI schema enrichment.
+			'ai_enabled'            => false,
+			'ai_api_key'            => '',
 		);
 	}
 
@@ -139,6 +142,7 @@ final class Coywolf_SEO_Options {
 			'news_enabled',
 			'news_include_posts',
 			'news_include_pages',
+			'ai_enabled',
 		);
 		foreach ( $booleans as $key ) {
 			if ( array_key_exists( $key, $raw ) ) {
@@ -185,6 +189,9 @@ final class Coywolf_SEO_Options {
 
 		if ( isset( $raw['indexnow_key'] ) ) {
 			$out['indexnow_key'] = preg_replace( '/[^a-zA-Z0-9-]/', '', (string) $raw['indexnow_key'] );
+		}
+		if ( isset( $raw['ai_api_key'] ) ) {
+			$out['ai_api_key'] = preg_replace( '/\s+/', '', (string) $raw['ai_api_key'] );
 		}
 		if ( isset( $raw['news_cat_mode'] ) ) {
 			$out['news_cat_mode'] = in_array( $raw['news_cat_mode'], array( 'all', 'include', 'exclude' ), true ) ? $raw['news_cat_mode'] : 'all';

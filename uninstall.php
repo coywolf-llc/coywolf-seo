@@ -19,8 +19,12 @@ global $wpdb;
 delete_option( 'coywolf_seo_settings' );
 delete_option( 'coywolf_seo_authors' );
 
-// Per-post SEO meta.
+// Per-post SEO meta and AI-detected entities.
 delete_post_meta_by_key( '_coywolf_seo' );
+delete_post_meta_by_key( '_coywolf_seo_entities' );
+
+// Queued AI analysis events.
+wp_unschedule_hook( 'coywolf_seo_ai_analyze' );
 
 // The admin capability, from every role that has it.
 foreach ( wp_roles()->role_objects as $coywolf_seo_role ) {

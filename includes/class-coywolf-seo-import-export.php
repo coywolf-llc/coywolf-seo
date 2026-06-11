@@ -1,0 +1,148 @@
+<?php
+/**
+ * Settings import/export for Coywolf SEO.
+ *
+ * Exports the plugin settings and saved author properties as a JSON file,
+ * and imports the same file back — everything sanitized through the same
+ * whitelists as the admin forms. The Anthropic API key is never exported.
+ *
+ * @package CoywolfSEO
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Import/Export handlers and the Settings-page section.
+ */
+final class Coywolf_SEO_Import_Export {
+
+	/**
+	 * Hook everything up.
+	 */
+	public function init() {
+		add_action( 'admin_post_coywolf_seo_export', array( $this, 'export' ) );
+		add_action( 'admin_post_coywolf_seo_import', array( $this, 'import' ) );
+	}
+
+	/**
+	 * Stream the settings JSON download.
+	 */
+	public function export() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You are not allowed to export Coywolf SEO settings.', 'coywolf-seo' ) );
+		}
+		check_admin_referer( 'coywolf_seo_export' );
+
+		$settings = Coywolf_SEO_Options::all();
+		unset( $settings['ai_api_key'] ); // Secrets never leave the site.
+
+		$payload = array(
+			'plugin'   => 'coywolf-seo',
+			'version'  => Coywolf_SEO::VERSION,
+			'exported' => gmdate( 'c' ),
+			'settings' => $settings,
+			'authors'  => Coywolf_SEO_Options::authors_all(),
+		);
+
+		nocache_headers();
+		header( 'Content-Type: application/json; charset=utf-8' );
+		header( 'Content-Disposition: attachment; filename=coywolf-seo-settings-' . gmdate( 'Ymd' ) . '.json' );
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON file download built by wp_json_encode.
+		echo wp_json_encode( $payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
+		exit;
+	}
+
+	/**
+	 * Import a previously exported settings file.
+	 */
+	public function import() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You are not allowed to import Coywolf SEO settings.', 'coywolf-seo' ) );
+		}
+		check_admin_referer( 'coywolf_seo_import' );
+
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- tmp_name is a server-generated path, validated with is_uploaded_file().
+		$tmp = isset( $_FILES['coywolf_seo_import_file']['tmp_name'] ) ? (string) $_FILES['coywolf_seo_import_file']['tmp_name'] : '';
+		if ( '' === $tmp || ! is_uploaded_file( $tmp ) ) {
+			$this->redirect_back( 'import-error' );
+		}
+		if ( filesize( $tmp ) > MB_IN_BYTES ) {
+			$this->redirect_back( 'import-error' );
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading the just-uploaded temp file.
+		$decoded = json_decode( (string) file_get_contents( $tmp ), true );
+		if ( ! is_array( $decoded ) || ! isset( $decoded['plugin'] ) || 'coywolf-seo' !== $decoded['plugin'] ) {
+			$this->redirect_back( 'import-error' );
+		}
+
+		if ( isset( $decoded['settings'] ) && is_array( $decoded['settings'] ) ) {
+			Coywolf_SEO_Options::update( Coywolf_SEO_Options::sanitize( $decoded['settings'] ) );
+		}
+
+		if ( isset( $decoded['authors'] ) && is_array( $decoded['authors'] ) ) {
+			$authors = array();
+			foreach ( $decoded['authors'] as $user_id => $rows ) {
+				$user_id = absint( $user_id );
+				if ( ! $user_id || ! is_array( $rows ) ) {
+					continue;
+				}
+				$authors[ $user_id ] = Coywolf_SEO_Options::sanitize_properties( $rows, Coywolf_SEO_Options::person_properties() );
+			}
+			update_option( Coywolf_SEO_Options::AUTHORS_OPTION, $authors );
+		}
+
+		// Imported settings may change capabilities and URL shapes.
+		Coywolf_SEO_Admin::sync_capability( (string) Coywolf_SEO_Options::get( 'access_role' ) );
+		flush_rewrite_rules();
+
+		$this->redirect_back( 'import' );
+	}
+
+	/**
+	 * Back to the Settings page with a notice flag.
+	 *
+	 * @param string $what Notice key.
+	 */
+	private function redirect_back( $what ) {
+		wp_safe_redirect( add_query_arg( 'coywolf-seo-saved', $what, admin_url( 'admin.php?page=' . Coywolf_SEO_Admin::SLUG_SETTINGS ) ) );
+		exit;
+	}
+
+	/**
+	 * Render the Import/Export section (its own forms, outside the main
+	 * Settings form).
+	 */
+	public function render_section() {
+		?>
+		<h2><?php esc_html_e( 'Import/Export', 'coywolf-seo' ); ?></h2>
+		<table class="form-table" role="presentation">
+			<tr>
+				<th scope="row"><?php esc_html_e( 'Export', 'coywolf-seo' ); ?></th>
+				<td>
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+						<input type="hidden" name="action" value="coywolf_seo_export" />
+						<?php wp_nonce_field( 'coywolf_seo_export' ); ?>
+						<?php submit_button( __( 'Export settings', 'coywolf-seo' ), 'secondary', 'submit', false ); ?>
+					</form>
+					<p class="description"><?php esc_html_e( 'Downloads the plugin settings and saved author properties as a JSON file. The Anthropic API key is never exported.', 'coywolf-seo' ); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><?php esc_html_e( 'Import', 'coywolf-seo' ); ?></th>
+				<td>
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data">
+						<input type="hidden" name="action" value="coywolf_seo_import" />
+						<?php wp_nonce_field( 'coywolf_seo_import' ); ?>
+						<input type="file" name="coywolf_seo_import_file" accept=".json,application/json" required />
+						<?php submit_button( __( 'Import settings', 'coywolf-seo' ), 'secondary', 'submit', false ); ?>
+					</form>
+					<p class="description"><?php esc_html_e( 'Replaces the current settings and author properties with the contents of an export file.', 'coywolf-seo' ); ?></p>
+				</td>
+			</tr>
+		</table>
+		<?php
+	}
+}
