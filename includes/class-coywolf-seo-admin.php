@@ -864,7 +864,7 @@ final class Coywolf_SEO_Admin {
 									</p>
 								<?php endif; ?>
 							<?php endif; ?>
-							<p class="description"><strong><?php esc_html_e( 'Use sparingly:', 'coywolf-seo' ); ?></strong> <?php esc_html_e( 'this runs the enabled AI features over every published post and page in the background. It can take a while and incurs API costs each time it runs — content already analyzed with the current settings is skipped automatically.', 'coywolf-seo' ); ?></p>
+							<p class="description"><strong><?php esc_html_e( 'Use sparingly:', 'coywolf-seo' ); ?></strong> <?php esc_html_e( 'this runs the enabled AI features over every published post and page in the background, several posts at a time. It can take a while and incurs API costs each time it runs — content already analyzed with the current settings is skipped automatically.', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
 					</tbody>
