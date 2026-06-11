@@ -23,8 +23,17 @@ delete_option( 'coywolf_seo_authors' );
 delete_post_meta_by_key( '_coywolf_seo' );
 delete_post_meta_by_key( '_coywolf_seo_entities' );
 
-// Queued AI analysis events.
+// Queued AI analysis events and the redirect-log prune.
 wp_unschedule_hook( 'coywolf_seo_ai_analyze' );
+wp_unschedule_hook( 'coywolf_seo_redirects_prune' );
+
+// Redirect manager tables.
+delete_option( 'coywolf_seo_db_version' );
+foreach ( array( 'coywolf_seo_redirects', 'coywolf_seo_404s', 'coywolf_seo_deleted' ) as $coywolf_seo_redirect_table ) {
+	$coywolf_seo_table_name = $wpdb->prefix . $coywolf_seo_redirect_table;
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix and a literal; %i needs WP 6.2+.
+	$wpdb->query( "DROP TABLE IF EXISTS `{$coywolf_seo_table_name}`" );
+}
 
 // The admin capability, from every role that has it.
 foreach ( wp_roles()->role_objects as $coywolf_seo_role ) {

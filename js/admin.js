@@ -170,6 +170,23 @@
 			$( '#coywolf-seo-ai-fields' ).toggle( this.checked );
 		} );
 
+		// Redirects: quick-add extras, inline edit rows, delete confirm.
+		$( '#coywolf-seo-qa-more' ).on( 'click', function () {
+			$( '#coywolf-seo-qa-more-fields' ).slideToggle( 120 );
+		} );
+		$( document ).on( 'click', '.coywolf-seo-edit-toggle', function () {
+			$( '#coywolf-seo-edit-' + $( this ).data( 'rule' ) ).toggle();
+		} );
+		$( document ).on( 'submit', '.coywolf-seo-delete-form', function ( e ) {
+			if ( ! window.confirm( ( window.CoywolfSEOAdmin && CoywolfSEOAdmin.i18n.confirmDelete ) || 'Delete this redirect?' ) ) {
+				e.preventDefault();
+			}
+		} );
+		// A 404 "Redirect…" link pre-fills the quick-add bar; focus target.
+		if ( $( '#coywolf-seo-qa-source' ).length && $( '#coywolf-seo-qa-source' ).val() ) {
+			$( '#coywolf-seo-qa-target' ).trigger( 'focus' );
+		}
+
 		// Open Graph image picker.
 		var frame = null;
 		$( '#coywolf-seo-og-select' ).on( 'click', function ( e ) {

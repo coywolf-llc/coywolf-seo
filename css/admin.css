@@ -55,6 +55,123 @@
 	min-width: 360px;
 }
 
+/* Redirects screen. */
+
+.coywolf-seo-panel {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 2px;
+	padding: 12px 16px 16px;
+	margin: 16px 0;
+	max-width: 1100px;
+}
+
+.coywolf-seo-pending {
+	border-left: 4px solid #d63638;
+}
+
+.coywolf-seo-quick-row {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	flex-wrap: wrap;
+}
+
+.coywolf-seo-quick-row .coywolf-seo-arrow {
+	font-size: 18px;
+	color: #50575e;
+}
+
+.coywolf-seo-quick-more {
+	margin-top: 10px;
+	display: flex;
+	gap: 18px;
+	align-items: center;
+	flex-wrap: wrap;
+}
+
+.coywolf-seo-tester {
+	margin-top: 14px;
+	padding-top: 12px;
+	border-top: 1px solid #f0f0f1;
+}
+
+.coywolf-seo-test-result {
+	display: inline-block;
+	margin-left: 8px;
+	color: #50575e;
+}
+
+.coywolf-seo-rules {
+	max-width: 1100px;
+}
+
+.coywolf-seo-rules .coywolf-seo-col-on {
+	width: 36px;
+}
+
+.coywolf-seo-disabled td {
+	opacity: 0.5;
+}
+
+.coywolf-seo-badge {
+	display: inline-block;
+	padding: 1px 7px;
+	border-radius: 9px;
+	font-size: 11px;
+	font-weight: 600;
+	background: #f0f0f1;
+	color: #2c3338;
+}
+
+.coywolf-seo-badge-301,
+.coywolf-seo-badge-308 {
+	background: #d5e8d5;
+	color: #1d4f1d;
+}
+
+.coywolf-seo-badge-302,
+.coywolf-seo-badge-307 {
+	background: #d9e8f7;
+	color: #1d3f5f;
+}
+
+.coywolf-seo-badge-410 {
+	background: #f7d9d9;
+	color: #6e1a1a;
+}
+
+.coywolf-seo-badge-regex {
+	background: #f3e8fb;
+	color: #4a2070;
+}
+
+.coywolf-seo-inline-form {
+	display: inline-block;
+	margin-right: 6px;
+}
+
+.coywolf-seo-cell-actions {
+	white-space: nowrap;
+}
+
+.coywolf-seo-cell-grow {
+	width: 60%;
+}
+
+.coywolf-seo-toggle {
+	font-size: 16px;
+	text-decoration: none;
+}
+
+.coywolf-seo-edit-form {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	flex-wrap: wrap;
+	padding: 8px 0;
+}
+
 .coywolf-seo-cat-list {
 	max-height: 180px;
 	overflow-y: auto;
