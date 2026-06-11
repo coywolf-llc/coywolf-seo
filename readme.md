@@ -25,6 +25,8 @@ Coywolf SEO is built on a simple idea: an SEO plugin should give you exactly wha
 - **Authors** — pick a user and the plugin imports their account details as Schema.org Person properties; add anything from the full Person catalog. Used as the author in Article markup.
 - **Open Graph** — og: tags on the homepage, posts, pages, categories, and tags, with the featured image falling back to your default Open Graph image. No Twitter/X tags — X reads Open Graph.
 - **Access rights** — choose whether Editors can manage the plugin alongside Administrators.
+- **Takes over from other SEO plugins** — with Yoast SEO, Rank Math, All in One SEO, or The SEO Framework also active, their titles, descriptions, schema, Open Graph, robots, and canonical output is suppressed through each plugin's own switches, so nothing is duplicated while you migrate. Their sitemaps and redirects are left running.
+- **Hide the category prefix** — serve category archives at `/news/` instead of `/category/news/`, with 301 redirects from the old URLs.
 
 <!-- wporg-strip:start -->
 Updates are delivered straight from the project's GitHub releases via the bundled self-updater, so new versions show up on **Dashboard → Updates** like any other plugin.
