@@ -516,6 +516,61 @@ final class Coywolf_SEO_Redirects {
 	}
 
 	/**
+	 * Query rules for the admin table: search, filters, pagination.
+	 *
+	 * @param array $args s (search), type (HTTP code), status
+	 *                    (enabled|disabled|''), paged, per_page.
+	 * @return array { items: array, total: int }
+	 */
+	public function query_rules( array $args ) {
+		global $wpdb;
+		$rules_table = self::table( 'rules' );
+
+		$where  = array( '1=1' );
+		$values = array();
+
+		$search = trim( (string) ( $args['s'] ?? '' ) );
+		if ( '' !== $search ) {
+			$like     = '%' . $wpdb->esc_like( $search ) . '%';
+			$where[]  = '(source LIKE %s OR target LIKE %s OR note LIKE %s)';
+			$values[] = $like;
+			$values[] = $like;
+			$values[] = $like;
+		}
+		$type = (int) ( $args['type'] ?? 0 );
+		if ( isset( self::types()[ $type ] ) ) {
+			$where[]  = 'type = %d';
+			$values[] = $type;
+		}
+		$status = (string) ( $args['status'] ?? '' );
+		if ( in_array( $status, array( 'enabled', 'disabled' ), true ) ) {
+			$where[]  = 'enabled = %d';
+			$values[] = 'enabled' === $status ? 1 : 0;
+		}
+
+		$per_page = max( 1, (int) ( $args['per_page'] ?? 20 ) );
+		$paged    = max( 1, (int) ( $args['paged'] ?? 1 ) );
+		$offset   = ( $paged - 1 ) * $per_page;
+
+		$where_sql = implode( ' AND ', $where );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- purpose-built table; clauses are placeholder-built, table name from $wpdb->prefix.
+		if ( ! empty( $values ) ) {
+			$total = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$rules_table} WHERE {$where_sql}", $values ) );
+			$items = (array) $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$rules_table} WHERE {$where_sql} ORDER BY id DESC LIMIT %d OFFSET %d", array_merge( $values, array( $per_page, $offset ) ) ) );
+		} else {
+			$total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$rules_table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			$items = (array) $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$rules_table} ORDER BY id DESC LIMIT %d OFFSET %d", $per_page, $offset ) );
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return array(
+			'items' => $items,
+			'total' => $total,
+		);
+	}
+
+	/**
 	 * All rules, for the admin screen and export.
 	 *
 	 * @return array

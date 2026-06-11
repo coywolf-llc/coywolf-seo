@@ -43,6 +43,7 @@ final class Coywolf_SEO_Redirects_Admin {
 		add_action( 'admin_post_coywolf_seo_redirect_save', array( $this, 'handle_save' ) );
 		add_action( 'admin_post_coywolf_seo_redirect_row', array( $this, 'handle_row_action' ) );
 		add_action( 'admin_post_coywolf_seo_redirect_test', array( $this, 'handle_test' ) );
+		add_action( 'admin_post_coywolf_seo_redirect_bulk', array( $this, 'handle_bulk' ) );
 		add_action( 'admin_notices', array( $this, 'maybe_show_deletion_notice' ) );
 	}
 
@@ -200,6 +201,31 @@ final class Coywolf_SEO_Redirects_Admin {
 	}
 
 	/**
+	 * Bulk actions on selected rules: enable, disable, delete.
+	 */
+	public function handle_bulk() {
+		$this->guard( 'coywolf_seo_redirect_bulk' );
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce verified in guard() above.
+		$bulk = isset( $_POST['bulk_action'] ) ? sanitize_key( $_POST['bulk_action'] ) : '';
+		$ids  = isset( $_POST['rule_ids'] ) && is_array( $_POST['rule_ids'] ) ? array_filter( array_map( 'absint', wp_unslash( $_POST['rule_ids'] ) ) ) : array();
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		if ( ! empty( $ids ) && in_array( $bulk, array( 'enable', 'disable', 'delete' ), true ) ) {
+			global $wpdb;
+			foreach ( $ids as $id ) {
+				if ( 'delete' === $bulk ) {
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- purpose-built table.
+					$wpdb->delete( Coywolf_SEO_Redirects::table( 'rules' ), array( 'id' => $id ), array( '%d' ) );
+				} else {
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- purpose-built table.
+					$wpdb->update( Coywolf_SEO_Redirects::table( 'rules' ), array( 'enabled' => 'enable' === $bulk ? 1 : 0 ), array( 'id' => $id ), array( '%d' ), array( '%d' ) );
+				}
+			}
+		}
+		$this->back( array( 'redirect-saved' => 'updated' ) );
+	}
+
+	/**
 	 * The URL tester (no-JS fallback; the AJAX path uses the same engine).
 	 */
 	public function handle_test() {
@@ -259,9 +285,45 @@ final class Coywolf_SEO_Redirects_Admin {
 	 * Render the page.
 	 */
 	public function render() {
-		$rules    = $this->redirects->all_rules();
-		$pending  = $this->redirects->pending_deletions();
-		$types    = Coywolf_SEO_Redirects::types();
+		$pending = $this->redirects->pending_deletions();
+		$types   = Coywolf_SEO_Redirects::types();
+
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only list filters.
+		$search   = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
+		$f_type   = isset( $_GET['rtype'] ) ? absint( $_GET['rtype'] ) : 0;
+		$f_status = isset( $_GET['rstatus'] ) ? sanitize_key( $_GET['rstatus'] ) : '';
+		$paged    = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1;
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		$per_page = 20;
+		$query    = $this->redirects->query_rules(
+			array(
+				's'        => $search,
+				'type'     => $f_type,
+				'status'   => $f_status,
+				'paged'    => $paged,
+				'per_page' => $per_page,
+			)
+		);
+		$rules       = $query['items'];
+		$total_rules = $query['total'];
+		$total_pages = (int) ceil( $total_rules / $per_page );
+
+		$base_url = admin_url( 'admin.php?page=' . Coywolf_SEO_Redirects::SLUG );
+		$list_url = add_query_arg(
+			array_filter(
+				array(
+					's'       => $search,
+					'rtype'   => $f_type ? $f_type : null,
+					'rstatus' => '' !== $f_status ? $f_status : null,
+					'paged'   => $paged > 1 ? $paged : null,
+				),
+				static function ( $value ) {
+					return null !== $value && '' !== $value;
+				}
+			),
+			$base_url
+		);
 
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- read-only display flags set by our own redirects, each sanitized on read.
 		$saved_flag = isset( $_GET['redirect-saved'] ) ? sanitize_text_field( wp_unslash( $_GET['redirect-saved'] ) ) : '';
@@ -382,14 +444,51 @@ final class Coywolf_SEO_Redirects_Admin {
 				<?php
 				printf(
 					/* translators: %d: number of redirect rules. */
-					esc_html( _n( '%d rule', '%d rules', count( $rules ), 'coywolf-seo' ) ),
-					(int) count( $rules )
+					esc_html( _n( '%d rule', '%d rules', $total_rules, 'coywolf-seo' ) ),
+					(int) $total_rules
 				);
 				?>
 			</h2>
+
+			<div class="coywolf-seo-tablenav">
+				<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="coywolf-seo-filter-form">
+					<input type="hidden" name="page" value="<?php echo esc_attr( Coywolf_SEO_Redirects::SLUG ); ?>" />
+					<input type="search" name="s" value="<?php echo esc_attr( $search ); ?>" placeholder="<?php esc_attr_e( 'Search source, target, note…', 'coywolf-seo' ); ?>" />
+					<select name="rtype" aria-label="<?php esc_attr_e( 'Filter by type', 'coywolf-seo' ); ?>">
+						<option value=""><?php esc_html_e( 'All types', 'coywolf-seo' ); ?></option>
+						<?php foreach ( $types as $code => $label ) : ?>
+							<option value="<?php echo esc_attr( (string) $code ); ?>" <?php selected( $f_type, $code ); ?>><?php echo esc_html( (string) $code ); ?></option>
+						<?php endforeach; ?>
+					</select>
+					<select name="rstatus" aria-label="<?php esc_attr_e( 'Filter by status', 'coywolf-seo' ); ?>">
+						<option value=""><?php esc_html_e( 'All statuses', 'coywolf-seo' ); ?></option>
+						<option value="enabled" <?php selected( $f_status, 'enabled' ); ?>><?php esc_html_e( 'Enabled', 'coywolf-seo' ); ?></option>
+						<option value="disabled" <?php selected( $f_status, 'disabled' ); ?>><?php esc_html_e( 'Disabled', 'coywolf-seo' ); ?></option>
+					</select>
+					<button type="submit" class="button"><?php esc_html_e( 'Filter', 'coywolf-seo' ); ?></button>
+					<?php if ( '' !== $search || $f_type || '' !== $f_status ) : ?>
+						<a class="button-link" href="<?php echo esc_url( $base_url ); ?>"><?php esc_html_e( 'Clear', 'coywolf-seo' ); ?></a>
+					<?php endif; ?>
+				</form>
+
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="coywolf-seo-bulk" class="coywolf-seo-bulk-form">
+					<input type="hidden" name="action" value="coywolf_seo_redirect_bulk" />
+					<?php wp_nonce_field( 'coywolf_seo_redirect_bulk' ); ?>
+					<input type="hidden" name="return_to" value="<?php echo esc_attr( $list_url ); ?>" />
+					<select name="bulk_action" aria-label="<?php esc_attr_e( 'Bulk action', 'coywolf-seo' ); ?>">
+						<option value=""><?php esc_html_e( 'Bulk actions', 'coywolf-seo' ); ?></option>
+						<option value="enable"><?php esc_html_e( 'Enable', 'coywolf-seo' ); ?></option>
+						<option value="disable"><?php esc_html_e( 'Disable', 'coywolf-seo' ); ?></option>
+						<option value="delete"><?php esc_html_e( 'Delete', 'coywolf-seo' ); ?></option>
+					</select>
+					<button type="submit" class="button"><?php esc_html_e( 'Apply', 'coywolf-seo' ); ?></button>
+				</form>
+			</div>
+
 			<table class="widefat striped coywolf-seo-rules">
 				<thead>
 					<tr>
+						<th class="coywolf-seo-col-cb"><input type="checkbox" id="coywolf-seo-cb-all" aria-label="<?php esc_attr_e( 'Select all rules', 'coywolf-seo' ); ?>" /></th>
 						<th class="coywolf-seo-col-on"><?php esc_html_e( 'On', 'coywolf-seo' ); ?></th>
 						<th><?php esc_html_e( 'Source', 'coywolf-seo' ); ?></th>
 						<th><?php esc_html_e( 'Target', 'coywolf-seo' ); ?></th>
@@ -401,10 +500,11 @@ final class Coywolf_SEO_Redirects_Admin {
 				</thead>
 				<tbody>
 					<?php if ( empty( $rules ) ) : ?>
-						<tr><td colspan="7"><?php esc_html_e( 'No redirects yet — add the first one above.', 'coywolf-seo' ); ?></td></tr>
+						<tr><td colspan="8"><?php echo ( '' !== $search || $f_type || '' !== $f_status ) ? esc_html__( 'No rules match the current search or filters.', 'coywolf-seo' ) : esc_html__( 'No redirects yet — add the first one above.', 'coywolf-seo' ); ?></td></tr>
 					<?php endif; ?>
 					<?php foreach ( $rules as $rule ) : ?>
 						<tr class="<?php echo $rule->enabled ? '' : 'coywolf-seo-disabled'; ?>" id="coywolf-seo-rule-<?php echo esc_attr( (string) $rule->id ); ?>">
+							<td><input type="checkbox" class="coywolf-seo-cb" name="rule_ids[]" value="<?php echo esc_attr( (string) $rule->id ); ?>" form="coywolf-seo-bulk" aria-label="<?php esc_attr_e( 'Select rule', 'coywolf-seo' ); ?>" /></td>
 							<td>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form">
 									<input type="hidden" name="action" value="coywolf_seo_redirect_row" />
@@ -439,7 +539,7 @@ final class Coywolf_SEO_Redirects_Admin {
 							</td>
 						</tr>
 						<tr class="coywolf-seo-edit-row" id="coywolf-seo-edit-<?php echo esc_attr( (string) $rule->id ); ?>" style="display:none">
-							<td colspan="7">
+							<td colspan="8">
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-edit-form">
 									<input type="hidden" name="action" value="coywolf_seo_redirect_save" />
 									<?php wp_nonce_field( 'coywolf_seo_redirect_save' ); ?>
@@ -471,6 +571,25 @@ final class Coywolf_SEO_Redirects_Admin {
 					<?php endforeach; ?>
 				</tbody>
 			</table>
+
+			<?php if ( $total_pages > 1 ) : ?>
+				<div class="coywolf-seo-pagination">
+					<?php
+					echo wp_kses_post(
+						(string) paginate_links(
+							array(
+								'base'      => add_query_arg( 'paged', '%#%', $list_url ),
+								'format'    => '',
+								'current'   => $paged,
+								'total'     => $total_pages,
+								'prev_text' => __( '&laquo; Previous', 'coywolf-seo' ),
+								'next_text' => __( 'Next &raquo;', 'coywolf-seo' ),
+							)
+						)
+					);
+					?>
+				</div>
+			<?php endif; ?>
 
 		</div>
 		<?php

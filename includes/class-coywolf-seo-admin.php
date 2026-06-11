@@ -190,7 +190,8 @@ final class Coywolf_SEO_Admin {
 					'selectImage'    => __( 'Select image', 'coywolf-seo' ),
 					'pasteOrSelect'  => __( 'Paste an image URL or select one', 'coywolf-seo' ),
 					'removeProperty' => __( 'Remove property', 'coywolf-seo' ),
-					'confirmDelete'  => __( 'Delete this redirect?', 'coywolf-seo' ),
+					'confirmDelete'      => __( 'Delete this redirect?', 'coywolf-seo' ),
+					'confirmBulkDelete' => __( 'Delete the selected redirects?', 'coywolf-seo' ),
 				),
 			)
 		);

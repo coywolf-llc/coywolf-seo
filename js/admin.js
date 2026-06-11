@@ -182,6 +182,20 @@
 				e.preventDefault();
 			}
 		} );
+		// Bulk actions: select-all + a confirm before bulk delete.
+		$( '#coywolf-seo-cb-all' ).on( 'change', function () {
+			$( '.coywolf-seo-cb' ).prop( 'checked', this.checked );
+		} );
+		$( '#coywolf-seo-bulk' ).on( 'submit', function ( e ) {
+			var action = $( this ).find( '[name="bulk_action"]' ).val();
+			if ( ! action || ! $( '.coywolf-seo-cb:checked' ).length ) {
+				e.preventDefault();
+				return;
+			}
+			if ( 'delete' === action && ! window.confirm( ( window.CoywolfSEOAdmin && CoywolfSEOAdmin.i18n.confirmBulkDelete ) || 'Delete the selected redirects?' ) ) {
+				e.preventDefault();
+			}
+		} );
 		// A 404 "Redirect…" link pre-fills the quick-add bar; focus target.
 		if ( $( '#coywolf-seo-qa-source' ).length && $( '#coywolf-seo-qa-source' ).val() ) {
 			$( '#coywolf-seo-qa-target' ).trigger( 'focus' );
