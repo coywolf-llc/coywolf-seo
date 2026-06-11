@@ -176,6 +176,12 @@ final class Coywolf_SEO_Import_Export {
 				</td>
 			</tr>
 		</table>
+		<?php
+		$importers = Coywolf_SEO::instance()->redirects_import();
+		if ( $importers ) {
+			$importers->render_section();
+		}
+		?>
 		</div>
 		<?php
 	}
