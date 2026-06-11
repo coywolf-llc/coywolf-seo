@@ -32,6 +32,34 @@ final class Coywolf_SEO {
 	private static $instance = null;
 
 	/**
+	 * Admin screens module (admin only).
+	 *
+	 * @var Coywolf_SEO_Admin|null
+	 */
+	private $admin = null;
+
+	/**
+	 * Post/Page SEO meta box (admin only).
+	 *
+	 * @var Coywolf_SEO_Metabox|null
+	 */
+	private $metabox = null;
+
+	/**
+	 * Document titles module.
+	 *
+	 * @var Coywolf_SEO_Titles
+	 */
+	private $titles;
+
+	/**
+	 * Head output module (meta description, robots, canonical).
+	 *
+	 * @var Coywolf_SEO_Head
+	 */
+	private $head;
+
+	/**
 	 * Create (once) and return the plugin instance.
 	 *
 	 * @return Coywolf_SEO
@@ -45,24 +73,53 @@ final class Coywolf_SEO {
 
 	/**
 	 * Instantiate and wire feature modules.
-	 *
-	 * No modules yet — they are added here as the plugin grows.
 	 */
 	private function __construct() {
+		$this->titles = new Coywolf_SEO_Titles();
+		$this->titles->init();
+
+		$this->head = new Coywolf_SEO_Head();
+		$this->head->init();
+
+		if ( is_admin() ) {
+			$this->admin = new Coywolf_SEO_Admin();
+			$this->admin->init();
+
+			$this->metabox = new Coywolf_SEO_Metabox();
+			$this->metabox->init();
+		}
 	}
 
 	/**
-	 * Activation hook.
+	 * Titles module accessor (other modules read the managed title).
 	 *
-	 * Nothing to set up yet; module activation steps are added here.
+	 * @return Coywolf_SEO_Titles
+	 */
+	public function titles() {
+		return $this->titles;
+	}
+
+	/**
+	 * Head module accessor (other modules read the description/canonical).
+	 *
+	 * @return Coywolf_SEO_Head
+	 */
+	public function head() {
+		return $this->head;
+	}
+
+	/**
+	 * Activation hook: grant the admin capability per the saved setting.
 	 */
 	public static function on_activate() {
+		Coywolf_SEO_Admin::sync_capability( (string) Coywolf_SEO_Options::get( 'access_role' ) );
 	}
 
 	/**
 	 * Deactivation hook.
 	 *
-	 * Nothing to tear down yet; module deactivation steps are added here.
+	 * Capabilities are left in place on deactivate; they are removed on
+	 * uninstall.
 	 */
 	public static function on_deactivate() {
 	}
