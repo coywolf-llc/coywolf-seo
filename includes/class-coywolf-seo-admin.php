@@ -192,6 +192,21 @@ final class Coywolf_SEO_Admin {
 	 * @param string $hook Current admin page hook.
 	 */
 	public function enqueue_assets( $hook ) {
+		// Category/Tag screens get the media picker and the field script.
+		if ( in_array( $hook, array( 'edit-tags.php', 'term.php' ), true ) ) {
+			$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+			if ( $screen && in_array( $screen->taxonomy, array( 'category', 'post_tag' ), true ) ) {
+				wp_enqueue_media();
+				wp_enqueue_script(
+					'coywolf-seo-admin',
+					COYWOLF_SEO_URL . 'js/admin.js',
+					array( 'jquery' ),
+					Coywolf_SEO::VERSION,
+					true
+				);
+			}
+			return;
+		}
 		// The post-deletion decision notice on All Posts/Pages uses the
 		// plugin styles; everything else is plugin-screen only.
 		if ( 'edit.php' === $hook ) {
