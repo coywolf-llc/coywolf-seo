@@ -89,6 +89,9 @@ final class Coywolf_SEO_OpenGraph {
 	private function output_image( $post_id ) {
 		$thumb_id = $post_id ? get_post_thumbnail_id( $post_id ) : 0;
 		if ( ! $thumb_id ) {
+			$thumb_id = Coywolf_SEO_Terms::og_image_id(); // Category/tag image.
+		}
+		if ( ! $thumb_id ) {
 			$thumb_id = (int) Coywolf_SEO_Options::get( 'og_image_id' );
 		}
 		if ( ! $thumb_id ) {

@@ -64,7 +64,8 @@ final class Coywolf_SEO_Titles {
 			return (string) single_post_title( '', false );
 		}
 		if ( is_category() || is_tag() ) {
-			return (string) single_term_title( '', false );
+			$custom = Coywolf_SEO_Terms::custom_title();
+			return ( '' !== $custom ) ? $custom : (string) single_term_title( '', false );
 		}
 		return '';
 	}

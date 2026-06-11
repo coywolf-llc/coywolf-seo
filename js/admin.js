@@ -183,6 +183,51 @@
 			syncAiDescriptionRow();
 		}
 
+		// Category/Tag term fields: the form hooks can only append at the
+		// end, so move the rows where they belong — Page Title below Name
+		// (above Slug), the Open Graph image below Description.
+		if ( $( '#coywolf-seo-term-title-row' ).length ) {
+			$( '#coywolf-seo-term-title-row' ).insertAfter( $( '.form-field.term-name-wrap' ).first() );
+			$( '#coywolf-seo-term-og-row' ).insertAfter( $( '.form-field.term-description-wrap' ).first() );
+
+			var termFrame = null;
+			$( document ).on( 'click', '#coywolf-seo-term-og-select', function ( e ) {
+				e.preventDefault();
+				if ( ! termFrame ) {
+					termFrame = wp.media( {
+						title: config.i18n.selectImage || 'Select image',
+						library: { type: 'image' },
+						multiple: false
+					} );
+					termFrame.on( 'select', function () {
+						var attachment = termFrame.state().get( 'selection' ).first().toJSON();
+						var size = ( attachment.sizes && attachment.sizes.medium ) || attachment;
+						$( '#coywolf-seo-term-og-id' ).val( attachment.id );
+						$( '#coywolf-seo-term-og-preview' ).attr( 'src', size.url ).show();
+						$( '#coywolf-seo-term-og-remove' ).show();
+					} );
+				}
+				termFrame.open();
+			} );
+			$( document ).on( 'click', '#coywolf-seo-term-og-remove', function ( e ) {
+				e.preventDefault();
+				$( '#coywolf-seo-term-og-id' ).val( '' );
+				$( '#coywolf-seo-term-og-preview' ).hide().attr( 'src', '' );
+				$( this ).hide();
+			} );
+
+			// WordPress adds terms over AJAX and clears its own fields —
+			// clear ours too once the new term is in.
+			$( document ).ajaxComplete( function ( event, xhr, settings ) {
+				if ( settings.data && -1 !== String( settings.data ).indexOf( 'action=add-tag' ) && xhr.status === 200 ) {
+					$( '#coywolf-seo-term-title' ).val( '' );
+					$( '#coywolf-seo-term-og-id' ).val( '' );
+					$( '#coywolf-seo-term-og-preview' ).hide().attr( 'src', '' );
+					$( '#coywolf-seo-term-og-remove' ).hide();
+				}
+			} );
+		}
+
 		// Redirects: quick-add extras, inline edit rows, delete confirm.
 		$( '#coywolf-seo-qa-more' ).on( 'click', function () {
 			$( '#coywolf-seo-qa-more-fields' ).slideToggle( 120 );

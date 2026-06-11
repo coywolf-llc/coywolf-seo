@@ -82,6 +82,13 @@ final class Coywolf_SEO {
 	private $authors;
 
 	/**
+	 * Category/tag term fields module.
+	 *
+	 * @var Coywolf_SEO_Terms
+	 */
+	private $terms;
+
+	/**
 	 * Other-SEO-plugin suppression module.
 	 *
 	 * @var Coywolf_SEO_Compat
@@ -167,6 +174,9 @@ final class Coywolf_SEO {
 
 		$this->authors = new Coywolf_SEO_Authors();
 		$this->authors->init();
+
+		$this->terms = new Coywolf_SEO_Terms();
+		$this->terms->init();
 
 		$this->compat = new Coywolf_SEO_Compat();
 		$this->compat->init();
