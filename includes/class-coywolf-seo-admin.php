@@ -241,11 +241,14 @@ final class Coywolf_SEO_Admin {
 			'CoywolfSEOAdmin',
 			array(
 				'propertyInputs' => Coywolf_SEO_Options::property_inputs(),
+				'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
+				'bulkStatusNonce' => wp_create_nonce( 'coywolf_seo_bulk_status' ),
 				'i18n'           => array(
 					'selectImage'    => __( 'Select image', 'coywolf-seo' ),
 					'pasteOrSelect'  => __( 'Paste an image URL or select one', 'coywolf-seo' ),
 					'removeProperty' => __( 'Remove property', 'coywolf-seo' ),
 					'confirmDelete'      => __( 'Delete this redirect?', 'coywolf-seo' ),
+					'confirmBulkEnrich'  => __( 'Enrich ALL published posts and pages now? This runs in the background, can take a while, and incurs Anthropic API costs. Content already analyzed with the current settings is skipped.', 'coywolf-seo' ),
 					'confirmBulkDelete' => __( 'Delete the selected redirects?', 'coywolf-seo' ),
 				),
 			)
@@ -794,6 +797,58 @@ final class Coywolf_SEO_Admin {
 								<?php esc_html_e( 'Automatically write a meta description when a post or page is published or updated', 'coywolf-seo' ); ?>
 							</label>
 							<p class="description"><?php esc_html_e( 'Claude summarizes the content in under 200 characters, using your API key below. The summary replaces the excerpt as the meta description, the Open Graph description, and the Article schema description. Nothing is generated while meta descriptions are excluded.', 'coywolf-seo' ); ?></p>
+						</td>
+					</tr>
+					</tbody>
+					<tbody>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Enrich all content', 'coywolf-seo' ); ?></th>
+						<td>
+							<?php $coywolf_seo_bulk = Coywolf_SEO::instance()->ai()->bulk_status(); ?>
+							<?php if ( 'running' === $coywolf_seo_bulk['status'] ) : ?>
+								<div id="coywolf-seo-bulk-progress" data-running="1">
+									<div class="coywolf-seo-progress"><div class="coywolf-seo-progress-bar" style="width:<?php echo esc_attr( (string) $coywolf_seo_bulk['percent'] ); ?>%"></div></div>
+									<p class="description coywolf-seo-bulk-text">
+										<?php
+										printf(
+											/* translators: 1: processed count, 2: total, 3: percent. */
+											esc_html__( 'Enriching in the background: %1$d of %2$d (%3$d%%). Keeping this page open speeds it up.', 'coywolf-seo' ),
+											(int) $coywolf_seo_bulk['done'],
+											(int) $coywolf_seo_bulk['total'],
+											(int) $coywolf_seo_bulk['percent']
+										);
+										?>
+									</p>
+									<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+										<input type="hidden" name="action" value="coywolf_seo_bulk_stop" />
+										<?php wp_nonce_field( 'coywolf_seo_bulk_stop' ); ?>
+										<button type="submit" class="button"><?php esc_html_e( 'Stop', 'coywolf-seo' ); ?></button>
+									</form>
+								</div>
+							<?php else : ?>
+								<div id="coywolf-seo-bulk-progress" style="display:none" data-running="0">
+									<div class="coywolf-seo-progress"><div class="coywolf-seo-progress-bar" style="width:0"></div></div>
+									<p class="description coywolf-seo-bulk-text"></p>
+								</div>
+								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="coywolf-seo-bulk-form">
+									<input type="hidden" name="action" value="coywolf_seo_bulk_enrich" />
+									<?php wp_nonce_field( 'coywolf_seo_bulk_enrich' ); ?>
+									<button type="submit" class="button"><?php esc_html_e( 'Enrich all posts and pages', 'coywolf-seo' ); ?></button>
+								</form>
+								<?php if ( 'done' === $coywolf_seo_bulk['status'] && '' !== $coywolf_seo_bulk['finished'] ) : ?>
+									<p class="description">
+										<?php
+										printf(
+											/* translators: 1: number processed, 2: date. */
+											esc_html__( 'Last run finished %2$s after processing %1$d items.', 'coywolf-seo' ),
+											(int) $coywolf_seo_bulk['done'],
+											esc_html( gmdate( 'M j, Y H:i', strtotime( $coywolf_seo_bulk['finished'] ) ) . ' UTC' )
+										);
+										?>
+									</p>
+								<?php endif; ?>
+							<?php endif; ?>
+							<p class="description"><strong><?php esc_html_e( 'Use sparingly:', 'coywolf-seo' ); ?></strong> <?php esc_html_e( 'this runs the enabled AI features over every published post and page in the background. It can take a while and incurs API costs each time it runs — content already analyzed with the current settings is skipped automatically.', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
 					</tbody>

@@ -69,6 +69,23 @@
 	margin: 8px 0 8px 20px;
 }
 
+.coywolf-seo-progress {
+	width: 360px;
+	height: 16px;
+	background: #f0f0f1;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+	overflow: hidden;
+	margin-bottom: 6px;
+}
+
+.coywolf-seo-progress-bar {
+	height: 100%;
+	background: #2271b1;
+	border-radius: 8px;
+	transition: width 0.4s ease;
+}
+
 /* Redirects screen. */
 
 .coywolf-seo-panel {

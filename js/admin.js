@@ -173,6 +173,36 @@
 		}
 		$( '#coywolf-seo-ai-enabled, #coywolf-seo-ai-descriptions' ).on( 'change', syncAiKeyFields );
 
+		// Bulk enrichment: confirm before starting; poll progress while a
+		// run is active (each poll also gives WP-Cron a chance to fire).
+		$( '#coywolf-seo-bulk-form' ).on( 'submit', function ( e ) {
+			if ( ! window.confirm( config.i18n.confirmBulkEnrich || 'Enrich all posts and pages now?' ) ) {
+				e.preventDefault();
+			}
+		} );
+		var $bulkBox = $( '#coywolf-seo-bulk-progress' );
+		if ( $bulkBox.length && $bulkBox.data( 'running' ) ) {
+			var pollBulk = function () {
+				$.post( config.ajaxUrl, {
+					action: 'coywolf_seo_bulk_status',
+					_ajax_nonce: config.bulkStatusNonce
+				} ).done( function ( res ) {
+					if ( ! res || ! res.success ) {
+						return;
+					}
+					var d = res.data;
+					$bulkBox.find( '.coywolf-seo-progress-bar' ).css( 'width', d.percent + '%' );
+					$bulkBox.find( '.coywolf-seo-bulk-text' ).text( d.done + ' / ' + d.total + ' (' + d.percent + '%)' );
+					if ( 'running' === d.status ) {
+						window.setTimeout( pollBulk, 4000 );
+					} else {
+						window.location.reload();
+					}
+				} );
+			};
+			window.setTimeout( pollBulk, 4000 );
+		}
+
 		// Excluding meta descriptions hides the AI meta-description option
 		// immediately — and unchecking brings it right back.
 		function syncAiDescriptionRow() {

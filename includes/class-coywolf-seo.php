@@ -356,5 +356,6 @@ final class Coywolf_SEO {
 	public static function on_deactivate() {
 		flush_rewrite_rules();
 		wp_unschedule_hook( Coywolf_SEO_AI::CRON_HOOK );
+		wp_unschedule_hook( Coywolf_SEO_AI::BULK_HOOK );
 	}
 }

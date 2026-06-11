@@ -29,6 +29,8 @@ delete_metadata( 'term', 0, '_coywolf_seo_og_image_id', '', true );
 
 // Queued AI analysis events (plus the legacy 404-log prune, if scheduled).
 wp_unschedule_hook( 'coywolf_seo_ai_analyze' );
+wp_unschedule_hook( 'coywolf_seo_ai_bulk' );
+delete_option( 'coywolf_seo_bulk_enrich' );
 wp_unschedule_hook( 'coywolf_seo_redirects_prune' );
 
 // Redirect manager tables.
