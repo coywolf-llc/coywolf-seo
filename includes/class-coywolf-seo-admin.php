@@ -787,7 +787,7 @@ final class Coywolf_SEO_Admin {
 									<li><?php esc_html_e( 'Click + Create Credentials and select API key.', 'coywolf-seo' ); ?></li>
 									<li><?php esc_html_e( '(Optional but recommended) Click Restrict key and limit it to the “Knowledge Graph Search API” for security.', 'coywolf-seo' ); ?></li>
 								</ol>
-								<p><strong><?php esc_html_e( 'Important:', 'coywolf-seo' ); ?></strong> <?php esc_html_e( 'Restrict by API only — do not add a website (HTTP referrer) restriction. The lookups come from your server, not a browser, so a referrer-restricted key is rejected.', 'coywolf-seo' ); ?></p>
+								<p><strong><?php esc_html_e( 'Restrictions:', 'coywolf-seo' ); ?></strong> <?php esc_html_e( 'Restricting by API (“Knowledge Graph Search API”) always works. If you restrict by website (HTTP referrer) instead, include this site\'s domain — the plugin sends this site as the referer on its lookups.', 'coywolf-seo' ); ?></p>
 							</details>
 						</td>
 					</tr>

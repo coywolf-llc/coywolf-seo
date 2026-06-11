@@ -609,6 +609,10 @@ final class Coywolf_SEO_AI {
 				array(
 					'timeout'    => 10,
 					'user-agent' => $this->user_agent(),
+					// Sent so website-restricted (HTTP referrer) API keys
+					// work for these server-side lookups: the referer is
+					// this site, which is what such a key is locked to.
+					'headers'    => array( 'Referer' => home_url( '/' ) ),
 				)
 			);
 			if ( is_wp_error( $response ) ) {
