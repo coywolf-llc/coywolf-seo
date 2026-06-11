@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.8
+- **Version:** 1.0.9
 - **Requires WordPress:** 6.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -53,6 +53,9 @@ Updates are delivered straight from the project's GitHub releases via the bundle
 Privacy-first: this plugin includes no analytics, no tracking, and no data gathering — nothing about you, your site, or your visitors is ever collected. Outbound connections exist only for features you turn on: with IndexNow enabled, the changed URL is sent to Bing's IndexNow endpoint on publish, update, and delete; with AI Schema enrichment enabled, the published post's title and content are sent to Anthropic's API using your own API key, entity names are looked up on Wikidata's public API, and — only when you add a Google API key — entity names are looked up on Google's Knowledge Graph Search API. Nothing else, nowhere else.
 
 ## Changelog
+
+### 1.0.9
+- Wikipedia + Google Knowledge Graph entity enrichment, cache bust on entities, and editor panel polish (#10).
 
 ### 1.0.8
 - Raise the Anthropic request timeout past WordPress's 5-second default (#9).
