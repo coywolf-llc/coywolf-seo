@@ -78,6 +78,22 @@ final class Coywolf_SEO_Admin {
 	}
 
 	/**
+	 * The Coywolf logomark as a data-URI menu icon. WordPress's
+	 * svg-painter recolors the fill to match the admin color scheme and
+	 * the menu's hover/current states.
+	 *
+	 * @return string
+	 */
+	private function menu_icon() {
+		$svg = file_get_contents( COYWOLF_SEO_PATH . 'assets/menu-icon.svg' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- bundled plugin asset, local path.
+		if ( false === $svg ) {
+			return 'dashicons-search';
+		}
+		// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode -- data URI for add_menu_page, the documented SVG-icon mechanism.
+		return 'data:image/svg+xml;base64,' . base64_encode( $svg );
+	}
+
+	/**
 	 * Register the Coywolf SEO menu and its pages.
 	 */
 	public function register_menu() {
@@ -87,7 +103,7 @@ final class Coywolf_SEO_Admin {
 			self::CAPABILITY,
 			self::SLUG_SITE,
 			array( $this, 'render_site_details' ),
-			'dashicons-search',
+			$this->menu_icon(),
 			81
 		);
 		add_submenu_page(
