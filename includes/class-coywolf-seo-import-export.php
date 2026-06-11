@@ -43,12 +43,26 @@ final class Coywolf_SEO_Import_Export {
 		$settings = Coywolf_SEO_Options::all();
 		unset( $settings['ai_api_key'], $settings['kg_api_key'] ); // Secrets never leave the site.
 
+		$redirects = array();
+		foreach ( Coywolf_SEO::instance()->redirects()->all_rules() as $rule ) {
+			$redirects[] = array(
+				'source'     => $rule->source,
+				'target'     => $rule->target,
+				'type'       => (int) $rule->type,
+				'is_regex'   => (bool) $rule->is_regex,
+				'query_mode' => $rule->query_mode,
+				'enabled'    => (bool) $rule->enabled,
+				'note'       => $rule->note,
+			);
+		}
+
 		$payload = array(
-			'plugin'   => 'coywolf-seo',
-			'version'  => Coywolf_SEO::VERSION,
-			'exported' => gmdate( 'c' ),
-			'settings' => $settings,
-			'authors'  => Coywolf_SEO_Options::authors_all(),
+			'plugin'    => 'coywolf-seo',
+			'version'   => Coywolf_SEO::VERSION,
+			'exported'  => gmdate( 'c' ),
+			'settings'  => $settings,
+			'authors'   => Coywolf_SEO_Options::authors_all(),
+			'redirects' => $redirects,
 		);
 
 		nocache_headers();
@@ -97,6 +111,20 @@ final class Coywolf_SEO_Import_Export {
 				$authors[ $user_id ] = Coywolf_SEO_Options::sanitize_properties( $rows, Coywolf_SEO_Options::person_properties() );
 			}
 			update_option( Coywolf_SEO_Options::AUTHORS_OPTION, $authors );
+		}
+
+		if ( isset( $decoded['redirects'] ) && is_array( $decoded['redirects'] ) ) {
+			$redirects = Coywolf_SEO::instance()->redirects();
+			foreach ( $redirects->all_rules() as $existing ) {
+				global $wpdb;
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- import replaces the rule set.
+				$wpdb->delete( Coywolf_SEO_Redirects::table( 'rules' ), array( 'id' => (int) $existing->id ), array( '%d' ) );
+			}
+			foreach ( $decoded['redirects'] as $rule ) {
+				if ( is_array( $rule ) ) {
+					$redirects->save_rule( $rule );
+				}
+			}
 		}
 
 		// Imported settings may change capabilities and URL shapes.

@@ -124,6 +124,20 @@ final class Coywolf_SEO {
 	private $import_export;
 
 	/**
+	 * Redirect manager engine.
+	 *
+	 * @var Coywolf_SEO_Redirects
+	 */
+	private $redirects;
+
+	/**
+	 * Redirects admin screen (admin only).
+	 *
+	 * @var Coywolf_SEO_Redirects_Admin|null
+	 */
+	private $redirects_admin = null;
+
+	/**
 	 * Create (once) and return the plugin instance.
 	 *
 	 * @return Coywolf_SEO
@@ -172,6 +186,9 @@ final class Coywolf_SEO {
 		$this->import_export = new Coywolf_SEO_Import_Export();
 		$this->import_export->init();
 
+		$this->redirects = new Coywolf_SEO_Redirects();
+		$this->redirects->init();
+
 		// Not admin-gated: the block editor reads and saves the SEO meta
 		// through the REST API, where is_admin() is false — the meta must
 		// be registered on every request.
@@ -181,6 +198,9 @@ final class Coywolf_SEO {
 		if ( is_admin() ) {
 			$this->admin = new Coywolf_SEO_Admin();
 			$this->admin->init();
+
+			$this->redirects_admin = new Coywolf_SEO_Redirects_Admin( $this->redirects );
+			$this->redirects_admin->init();
 		}
 	}
 
@@ -230,6 +250,24 @@ final class Coywolf_SEO {
 	}
 
 	/**
+	 * Redirect engine accessor.
+	 *
+	 * @return Coywolf_SEO_Redirects
+	 */
+	public function redirects() {
+		return $this->redirects;
+	}
+
+	/**
+	 * Redirects admin accessor (the menu renders its page).
+	 *
+	 * @return Coywolf_SEO_Redirects_Admin|null
+	 */
+	public function redirects_admin() {
+		return $this->redirects_admin;
+	}
+
+	/**
 	 * Activation hook: grant the admin capability per the saved setting,
 	 * regenerate rewrite rules (category prefix removal adds its own), and
 	 * purge known page caches so the new head output is served immediately
@@ -237,6 +275,7 @@ final class Coywolf_SEO {
 	 */
 	public static function on_activate() {
 		Coywolf_SEO_Admin::sync_capability( (string) Coywolf_SEO_Options::get( 'access_role' ) );
+		Coywolf_SEO_Redirects::install();
 		flush_rewrite_rules();
 		self::purge_known_caches();
 		// One-time reminder for caches this plugin cannot purge itself.
@@ -277,5 +316,6 @@ final class Coywolf_SEO {
 	public static function on_deactivate() {
 		flush_rewrite_rules();
 		wp_unschedule_hook( Coywolf_SEO_AI::CRON_HOOK );
+		wp_unschedule_hook( Coywolf_SEO_Redirects::CRON_PRUNE );
 	}
 }

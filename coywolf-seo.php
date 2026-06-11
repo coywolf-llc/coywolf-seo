@@ -58,6 +58,8 @@ require_once __DIR__ . '/includes/class-coywolf-seo-indexnow.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-news-sitemap.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-ai.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-import-export.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-redirects.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-redirects-admin.php';
 require_once __DIR__ . '/includes/class-coywolf-seo.php';
 
 register_activation_hook( __FILE__, array( 'Coywolf_SEO', 'on_activate' ) );

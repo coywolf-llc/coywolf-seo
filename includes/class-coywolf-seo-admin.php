@@ -106,6 +106,16 @@ final class Coywolf_SEO_Admin {
 			Coywolf_SEO_Authors::SLUG,
 			array( Coywolf_SEO::instance()->authors(), 'render' )
 		);
+		$pending      = Coywolf_SEO::instance()->redirects()->pending_count();
+		$bubble       = $pending > 0 ? ' <span class="awaiting-mod">' . esc_html( (string) $pending ) . '</span>' : '';
+		add_submenu_page(
+			self::SLUG_SITE,
+			__( 'Redirects', 'coywolf-seo' ),
+			__( 'Redirects', 'coywolf-seo' ) . $bubble,
+			self::CAPABILITY,
+			Coywolf_SEO_Redirects::SLUG,
+			array( Coywolf_SEO::instance()->redirects_admin(), 'render' )
+		);
 		add_submenu_page(
 			self::SLUG_SITE,
 			__( 'Import/Export', 'coywolf-seo' ),
@@ -181,6 +191,7 @@ final class Coywolf_SEO_Admin {
 					'selectImage'    => __( 'Select image', 'coywolf-seo' ),
 					'pasteOrSelect'  => __( 'Paste an image URL or select one', 'coywolf-seo' ),
 					'removeProperty' => __( 'Remove property', 'coywolf-seo' ),
+					'confirmDelete'  => __( 'Delete this redirect?', 'coywolf-seo' ),
 				),
 			)
 		);
