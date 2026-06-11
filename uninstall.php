@@ -23,7 +23,7 @@ delete_option( 'coywolf_seo_authors' );
 delete_post_meta_by_key( '_coywolf_seo' );
 delete_post_meta_by_key( '_coywolf_seo_entities' );
 
-// Queued AI analysis events and the redirect-log prune.
+// Queued AI analysis events (plus the legacy 404-log prune, if scheduled).
 wp_unschedule_hook( 'coywolf_seo_ai_analyze' );
 wp_unschedule_hook( 'coywolf_seo_redirects_prune' );
 

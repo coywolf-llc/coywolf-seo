@@ -9,14 +9,12 @@
  *   order; each rule carries a query mode (ignore / exact / pass), an
  *   HTTP action (301, 302, 307, 308, 410), an enabled flag, and hit
  *   counts.
- * - {prefix}coywolf_seo_404s — recent 404s, deduped by path, capped by a
- *   daily prune, each one a click away from becoming a redirect.
  * - {prefix}coywolf_seo_deleted — published posts/pages that were trashed
  *   or deleted, awaiting a decision: serve 410, redirect somewhere, or
  *   dismiss.
  *
- * Matching runs at template_redirect priority 0 — before any other output
- * — and 404 logging at priority 99 once is_404() is known. Slug changes
+ * Matching runs at template_redirect priority 0 — before any other
+ * output. Slug changes
  * are deliberately not tracked: WordPress core already 301s old post
  * slugs via its own old-slug redirect.
  *
@@ -38,16 +36,6 @@ final class Coywolf_SEO_Redirects {
 	const SLUG = 'coywolf-seo-redirects';
 
 	/**
-	 * Daily prune cron hook.
-	 */
-	const CRON_PRUNE = 'coywolf_seo_redirects_prune';
-
-	/**
-	 * Rows kept in the 404 log.
-	 */
-	const LOG_404_CAP = 500;
-
-	/**
 	 * Supported HTTP actions.
 	 *
 	 * @return array Code => label.
@@ -65,7 +53,7 @@ final class Coywolf_SEO_Redirects {
 	/**
 	 * Current database schema version.
 	 */
-	const DB_VERSION = 1;
+	const DB_VERSION = 2;
 
 	/**
 	 * Hook everything up.
@@ -76,29 +64,23 @@ final class Coywolf_SEO_Redirects {
 		add_action( 'admin_init', array( $this, 'maybe_upgrade' ) );
 
 		add_action( 'template_redirect', array( $this, 'maybe_redirect' ), 0 );
-		add_action( 'template_redirect', array( $this, 'maybe_log_404' ), 99 );
 
 		add_action( 'wp_trash_post', array( $this, 'capture_removed_post' ) );
 		add_action( 'before_delete_post', array( $this, 'capture_removed_post' ) );
 		add_action( 'untrashed_post', array( $this, 'forget_removed_post' ) );
 
-		add_action( self::CRON_PRUNE, array( $this, 'prune' ) );
-		if ( ! wp_next_scheduled( self::CRON_PRUNE ) ) {
-			wp_schedule_event( time() + DAY_IN_SECONDS, 'daily', self::CRON_PRUNE );
-		}
 	}
 
 	/**
 	 * Table names.
 	 *
-	 * @param string $which rules | log404 | deleted.
+	 * @param string $which rules | deleted.
 	 * @return string
 	 */
 	public static function table( $which ) {
 		global $wpdb;
 		$map = array(
 			'rules'   => $wpdb->prefix . 'coywolf_seo_redirects',
-			'log404'  => $wpdb->prefix . 'coywolf_seo_404s',
 			'deleted' => $wpdb->prefix . 'coywolf_seo_deleted',
 		);
 		return $map[ $which ];
@@ -108,9 +90,19 @@ final class Coywolf_SEO_Redirects {
 	 * Create the tables on update if activation never ran for this version.
 	 */
 	public function maybe_upgrade() {
-		if ( (int) get_option( 'coywolf_seo_db_version', 0 ) < self::DB_VERSION ) {
-			self::install();
+		$installed = (int) get_option( 'coywolf_seo_db_version', 0 );
+		if ( $installed >= self::DB_VERSION ) {
+			return;
 		}
+		if ( 1 === $installed ) {
+			// v2 removed the 404 log: drop its table and stop its cron.
+			global $wpdb;
+			$log_table = $wpdb->prefix . 'coywolf_seo_404s';
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix; feature removal.
+			$wpdb->query( "DROP TABLE IF EXISTS `{$log_table}`" );
+			wp_unschedule_hook( 'coywolf_seo_redirects_prune' );
+		}
+		self::install();
 	}
 
 	/**
@@ -141,18 +133,6 @@ final class Coywolf_SEO_Redirects {
 			) $charset;"
 		);
 
-		dbDelta(
-			'CREATE TABLE ' . self::table( 'log404' ) . " (
-				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-				path varchar(191) NOT NULL,
-				hits bigint(20) unsigned NOT NULL DEFAULT 1,
-				referrer varchar(255) NOT NULL DEFAULT '',
-				first_seen datetime NOT NULL,
-				last_seen datetime NOT NULL,
-				PRIMARY KEY  (id),
-				UNIQUE KEY path (path)
-			) $charset;"
-		);
 
 		dbDelta(
 			'CREATE TABLE ' . self::table( 'deleted' ) . " (
@@ -410,40 +390,6 @@ final class Coywolf_SEO_Redirects {
 		);
 	}
 
-	/**
-	 * Log a 404, deduped by path. Static assets are skipped so the log
-	 * stays about content.
-	 */
-	public function maybe_log_404() {
-		if ( ! is_404() || is_admin() ) {
-			return;
-		}
-		$request = $this->current_request();
-		$path    = $request['path'] . ( '' !== $request['query'] ? '?' . $request['query'] : '' );
-		$path    = substr( $path, 0, 191 );
-
-		if ( preg_match( '/\.(?:jpe?g|png|gif|webp|avif|svg|ico|css|js|map|woff2?|ttf|eot|txt|xml|pdf|zip|mp4|webm)$/i', $request['path'] ) ) {
-			return;
-		}
-
-		$referrer = isset( $_SERVER['HTTP_REFERER'] ) ? esc_url_raw( wp_unslash( $_SERVER['HTTP_REFERER'] ) ) : '';
-		$now      = gmdate( 'Y-m-d H:i:s' );
-
-		global $wpdb;
-		$log_table = self::table( 'log404' );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- purpose-built log table.
-		$wpdb->query(
-			$wpdb->prepare(
-				"INSERT INTO {$log_table} (path, hits, referrer, first_seen, last_seen) VALUES (%s, 1, %s, %s, %s) ON DUPLICATE KEY UPDATE hits = hits + 1, last_seen = %s, referrer = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix.
-				$path,
-				substr( $referrer, 0, 255 ),
-				$now,
-				$now,
-				$now,
-				substr( $referrer, 0, 255 )
-			)
-		);
-	}
 
 	/**
 	 * Record a published post/page heading for the trash or deletion, so
@@ -494,27 +440,6 @@ final class Coywolf_SEO_Redirects {
 		$wpdb->delete( self::table( 'deleted' ), array( 'post_id' => (int) $post_id ), array( '%d' ) );
 	}
 
-	/**
-	 * Keep the 404 log capped and drop entries older than 30 days.
-	 */
-	public function prune() {
-		global $wpdb;
-		$log_table = self::table( 'log404' );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- maintenance of the purpose-built log table.
-		$wpdb->query(
-			$wpdb->prepare(
-				"DELETE FROM {$log_table} WHERE last_seen < %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix.
-				gmdate( 'Y-m-d H:i:s', time() - 30 * DAY_IN_SECONDS )
-			)
-		);
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- maintenance of the purpose-built log table.
-		$wpdb->query(
-			$wpdb->prepare(
-				"DELETE FROM {$log_table} WHERE id NOT IN ( SELECT id FROM ( SELECT id FROM {$log_table} ORDER BY last_seen DESC LIMIT %d ) keepers )", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix.
-				self::LOG_404_CAP
-			)
-		);
-	}
 
 	/**
 	 * Create or update a rule from sanitized input.
@@ -603,6 +528,24 @@ final class Coywolf_SEO_Redirects {
 	}
 
 	/**
+	 * Pending decisions for specific posts (the All Posts/Pages notice).
+	 *
+	 * @param int[] $post_ids Post IDs just removed.
+	 * @return array
+	 */
+	public function pending_for_posts( array $post_ids ) {
+		$post_ids = array_values( array_filter( array_map( 'absint', $post_ids ) ) );
+		if ( empty( $post_ids ) ) {
+			return array();
+		}
+		global $wpdb;
+		$deleted_table = self::table( 'deleted' );
+		$placeholders  = implode( ',', array_fill( 0, count( $post_ids ), '%d' ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix; placeholders built to count.
+		return (array) $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$deleted_table} WHERE post_id IN ({$placeholders}) ORDER BY deleted DESC", $post_ids ) );
+	}
+
+	/**
 	 * Pending deleted-content decisions.
 	 *
 	 * @return array
@@ -614,23 +557,6 @@ final class Coywolf_SEO_Redirects {
 		return (array) $wpdb->get_results( "SELECT * FROM {$deleted_table} ORDER BY deleted DESC" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix, no user input.
 	}
 
-	/**
-	 * Recent 404s.
-	 *
-	 * @param int $limit Max rows.
-	 * @return array
-	 */
-	public function recent_404s( $limit = 50 ) {
-		global $wpdb;
-		$log_table = self::table( 'log404' );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- purpose-built table; admin screen.
-		return (array) $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT * FROM {$log_table} ORDER BY last_seen DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix.
-				$limit
-			)
-		);
-	}
 
 	/**
 	 * Test a URL against the rules without redirecting — the admin
