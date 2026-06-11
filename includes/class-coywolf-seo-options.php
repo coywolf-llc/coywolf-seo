@@ -71,7 +71,6 @@ final class Coywolf_SEO_Options {
 			// AI schema enrichment.
 			'ai_enabled'           => false,
 			'ai_api_key'           => '',
-			'kg_api_key'           => '',
 		);
 	}
 
@@ -200,9 +199,6 @@ final class Coywolf_SEO_Options {
 		}
 		if ( isset( $raw['ai_api_key'] ) ) {
 			$out['ai_api_key'] = preg_replace( '/\s+/', '', (string) $raw['ai_api_key'] );
-		}
-		if ( isset( $raw['kg_api_key'] ) ) {
-			$out['kg_api_key'] = preg_replace( '/\s+/', '', (string) $raw['kg_api_key'] );
 		}
 		if ( isset( $raw['news_cat_mode'] ) ) {
 			$out['news_cat_mode'] = in_array( $raw['news_cat_mode'], array( 'all', 'include', 'exclude' ), true ) ? $raw['news_cat_mode'] : 'all';
