@@ -117,6 +117,13 @@ final class Coywolf_SEO {
 	private $news_sitemap;
 
 	/**
+	 * Native sitemap exclusions module.
+	 *
+	 * @var Coywolf_SEO_Sitemaps
+	 */
+	private $sitemaps;
+
+	/**
 	 * AI schema enrichment module.
 	 *
 	 * @var Coywolf_SEO_AI
@@ -196,6 +203,9 @@ final class Coywolf_SEO {
 
 		$this->news_sitemap = new Coywolf_SEO_News_Sitemap();
 		$this->news_sitemap->init();
+
+		$this->sitemaps = new Coywolf_SEO_Sitemaps();
+		$this->sitemaps->init();
 
 		$this->ai = new Coywolf_SEO_AI();
 		$this->ai->init();

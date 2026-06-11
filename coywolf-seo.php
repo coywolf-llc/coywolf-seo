@@ -58,6 +58,7 @@ require_once __DIR__ . '/includes/class-coywolf-seo-compat.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-category-base.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-indexnow.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-news-sitemap.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-sitemaps.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-ai.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-import-export.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-redirects.php';

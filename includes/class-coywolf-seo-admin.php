@@ -357,7 +357,7 @@ final class Coywolf_SEO_Admin {
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized field-by-field in Coywolf_SEO_Options::sanitize().
 		$raw = isset( $_POST['coywolf_seo'] ) && is_array( $_POST['coywolf_seo'] ) ? wp_unslash( $_POST['coywolf_seo'] ) : array();
 
-		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'news_enabled', 'news_include_posts', 'news_include_pages', 'ai_enabled', 'ai_descriptions' ) as $key ) {
+		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'sitemap_exclude_posts', 'sitemap_exclude_pages', 'sitemap_exclude_categories', 'sitemap_exclude_users', 'news_enabled', 'news_include_posts', 'news_include_pages', 'ai_enabled', 'ai_descriptions' ) as $key ) {
 			$raw[ $key ] = ! empty( $raw[ $key ] );
 		}
 		if ( empty( $raw['news_cats'] ) ) {
@@ -840,6 +840,26 @@ final class Coywolf_SEO_Admin {
 
 				<h2><?php esc_html_e( 'Sitemaps', 'coywolf-seo' ); ?></h2>
 				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Native XML sitemap', 'coywolf-seo' ); ?></th>
+						<td>
+							<fieldset>
+								<label><input type="checkbox" name="coywolf_seo[sitemap_exclude_posts]" value="1" <?php checked( $o['sitemap_exclude_posts'] ); ?> /> <?php esc_html_e( 'Exclude the Posts sitemap', 'coywolf-seo' ); ?></label><br />
+								<label><input type="checkbox" name="coywolf_seo[sitemap_exclude_pages]" value="1" <?php checked( $o['sitemap_exclude_pages'] ); ?> /> <?php esc_html_e( 'Exclude the Pages sitemap', 'coywolf-seo' ); ?></label><br />
+								<label><input type="checkbox" name="coywolf_seo[sitemap_exclude_categories]" value="1" <?php checked( $o['sitemap_exclude_categories'] ); ?> /> <?php esc_html_e( 'Exclude the Categories sitemap', 'coywolf-seo' ); ?></label><br />
+								<label><input type="checkbox" name="coywolf_seo[sitemap_exclude_users]" value="1" <?php checked( $o['sitemap_exclude_users'] ); ?> /> <?php esc_html_e( 'Exclude the Users sitemap', 'coywolf-seo' ); ?></label>
+							</fieldset>
+							<p class="description">
+								<?php
+								printf(
+									/* translators: %s: the sitemap file name. */
+									esc_html__( 'WordPress serves its own sitemap at %s. Anything excluded here disappears from it; everything else stays exactly as WordPress generates it.', 'coywolf-seo' ),
+									'<code>/wp-sitemap.xml</code>'
+								);
+								?>
+							</p>
+						</td>
+					</tr>
 					<tr>
 						<th scope="row"><?php esc_html_e( 'News', 'coywolf-seo' ); ?></th>
 						<td>
