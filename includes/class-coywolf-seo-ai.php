@@ -116,7 +116,18 @@ final class Coywolf_SEO_AI {
 			wp_die( esc_html__( 'You are not allowed to run bulk enrichment.', 'coywolf-seo' ) );
 		}
 		check_admin_referer( 'coywolf_seo_bulk_enrich' );
+		$this->start_bulk();
 
+		wp_safe_redirect( admin_url( 'admin.php?page=coywolf-seo-settings&bulk-started=1' ) );
+		exit;
+	}
+
+	/**
+	 * Start a fresh bulk run: clean up any live run (including its remote
+	 * batch), pre-screen the content, seed the state machine, and submit
+	 * the first batch.
+	 */
+	public function start_bulk() {
 		// A stale tab or double-submit must not orphan an in-flight run:
 		// clean up (including the remote batch) before starting fresh.
 		$existing = $this->bulk_state_fresh();
@@ -191,9 +202,6 @@ final class Coywolf_SEO_AI {
 				spawn_cron();
 			}
 		}
-
-		wp_safe_redirect( admin_url( 'admin.php?page=coywolf-seo-settings&bulk-started=1' ) );
-		exit;
 	}
 
 	/**

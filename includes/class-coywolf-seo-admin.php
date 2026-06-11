@@ -36,6 +36,7 @@ final class Coywolf_SEO_Admin {
 		add_action( 'admin_post_coywolf_seo_save_site', array( $this, 'save_site_details' ) );
 		add_action( 'admin_post_coywolf_seo_save_settings', array( $this, 'save_settings' ) );
 		add_action( 'admin_post_coywolf_seo_remove_ai_key', array( $this, 'remove_ai_key' ) );
+		add_action( 'wp_ajax_coywolf_seo_bulk_action', array( $this, 'ajax_bulk_action' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_notices', array( $this, 'maybe_show_saved_notice' ) );
 		add_action( 'admin_notices', array( $this, 'maybe_show_activation_notice' ) );
@@ -91,6 +92,153 @@ final class Coywolf_SEO_Admin {
 		}
 		// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode -- data URI for add_menu_page, the documented SVG-icon mechanism.
 		return 'data:image/svg+xml;base64,' . base64_encode( $svg );
+	}
+
+
+	/**
+	 * The bulk-run controls (idle / running / paused), rendered server-side
+	 * so the page load and every AJAX state change share one template.
+	 */
+	public function render_bulk_controls() {
+		$coywolf_seo_bulk = Coywolf_SEO::instance()->ai()->bulk_status();
+		?>
+		<?php if ( 'paused' === $coywolf_seo_bulk['status'] ) : ?>
+			<div class="coywolf-seo-progress"><div class="coywolf-seo-progress-bar" style="width:<?php echo esc_attr( (string) $coywolf_seo_bulk['percent'] ); ?>%"></div></div>
+			<?php if ( '' !== $coywolf_seo_bulk['paused_reason'] ) : ?>
+				<p class="description" style="color:#b32d2e">
+					<strong><?php esc_html_e( 'Paused automatically after repeated failures.', 'coywolf-seo' ); ?></strong>
+					<?php
+					printf(
+						/* translators: %s: the error message from the last failed post. */
+						esc_html__( 'Last error: %s', 'coywolf-seo' ),
+						esc_html( $coywolf_seo_bulk['paused_reason'] )
+					);
+					?>
+					<?php esc_html_e( 'Fix the cause (for example, top up API credits), then Resume to continue where it left off.', 'coywolf-seo' ); ?>
+					<?php if ( false !== stripos( $coywolf_seo_bulk['paused_reason'], 'credit balance' ) ) : ?>
+						<br />
+						<?php esc_html_e( 'Note: Anthropic checks a batch\'s maximum possible cost up front — not what it will actually spend — so this can trigger even with a healthy balance. Resume submits smaller batches with tighter token allowances, which usually clears it. If it persists, check the Model setting: legacy Opus models cost several times more than the default.', 'coywolf-seo' ); ?>
+					<?php endif; ?>
+				</p>
+			<?php endif; ?>
+			<p class="description">
+				<?php
+				printf(
+					/* translators: 1: processed count, 2: total, 3: percent, 4: failed count. */
+					esc_html__( 'Paused at %1$d of %2$d (%3$d%%), %4$d failed. Posts already mid-analysis when you stopped may still finish.', 'coywolf-seo' ),
+					(int) $coywolf_seo_bulk['done'],
+					(int) $coywolf_seo_bulk['total'],
+					(int) $coywolf_seo_bulk['percent'],
+					(int) $coywolf_seo_bulk['failed']
+				);
+				?>
+			</p>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form coywolf-seo-bulk-op" data-op="resume">
+				<input type="hidden" name="action" value="coywolf_seo_bulk_resume" />
+				<?php wp_nonce_field( 'coywolf_seo_bulk_resume' ); ?>
+				<button type="submit" class="button button-primary"><?php esc_html_e( 'Resume', 'coywolf-seo' ); ?></button>
+			</form>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form coywolf-seo-bulk-op" data-op="cancel">
+				<input type="hidden" name="action" value="coywolf_seo_bulk_cancel" />
+				<?php wp_nonce_field( 'coywolf_seo_bulk_cancel' ); ?>
+				<button type="submit" class="button coywolf-seo-button-danger"><?php esc_html_e( 'Cancel', 'coywolf-seo' ); ?></button>
+			</form>
+		<?php elseif ( 'running' === $coywolf_seo_bulk['status'] ) : ?>
+			<div id="coywolf-seo-bulk-progress" data-running="1">
+				<div class="coywolf-seo-progress"><div class="coywolf-seo-progress-bar" style="width:<?php echo esc_attr( (string) $coywolf_seo_bulk['percent'] ); ?>%"></div></div>
+				<p class="description coywolf-seo-bulk-text">
+					<?php
+					printf(
+						/* translators: 1: processed count, 2: total, 3: percent, 4: current stage. */
+						esc_html__( '%1$d of %2$d (%3$d%%) — %4$s Keeping this page open speeds it up.', 'coywolf-seo' ),
+						(int) $coywolf_seo_bulk['done'],
+						(int) $coywolf_seo_bulk['total'],
+						(int) $coywolf_seo_bulk['percent'],
+						esc_html( $coywolf_seo_bulk['stage_label'] )
+					);
+					?>
+				</p>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-bulk-op" data-op="stop">
+					<input type="hidden" name="action" value="coywolf_seo_bulk_stop" />
+					<?php wp_nonce_field( 'coywolf_seo_bulk_stop' ); ?>
+					<button type="submit" class="button"><?php esc_html_e( 'Stop', 'coywolf-seo' ); ?></button>
+				</form>
+			</div>
+		<?php else : ?>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-bulk-op" data-op="start">
+				<input type="hidden" name="action" value="coywolf_seo_bulk_enrich" />
+				<?php wp_nonce_field( 'coywolf_seo_bulk_enrich' ); ?>
+				<button type="submit" class="button"><?php esc_html_e( 'Enrich all posts and pages', 'coywolf-seo' ); ?></button>
+			</form>
+			<?php if ( 'done' === $coywolf_seo_bulk['status'] && '' !== $coywolf_seo_bulk['finished'] ) : ?>
+				<?php if ( $coywolf_seo_bulk['failed'] > 0 ) : ?>
+					<p class="description" style="color:#b32d2e">
+						<?php
+						printf(
+							/* translators: 1: failed count, 2: total, 3: the last error message. */
+							esc_html__( 'Last run completed, but %1$d of %2$d items failed. Last error: %3$s — failed items retry on their next save, via Re-analyze, or in another run.', 'coywolf-seo' ),
+							(int) $coywolf_seo_bulk['failed'],
+							(int) $coywolf_seo_bulk['total'],
+							esc_html( $coywolf_seo_bulk['last_error'] )
+						);
+						?>
+					</p>
+				<?php else : ?>
+					<p class="description">
+						<?php
+						printf(
+							/* translators: 1: number processed, 2: date. */
+							esc_html__( 'Last run finished %2$s after processing %1$d items.', 'coywolf-seo' ),
+							(int) $coywolf_seo_bulk['done'],
+							esc_html( gmdate( 'M j, Y H:i', strtotime( $coywolf_seo_bulk['finished'] ) ) . ' UTC' )
+						);
+						?>
+					</p>
+				<?php endif; ?>
+			<?php endif; ?>
+		<?php endif; ?>
+		<?php
+	}
+
+	/**
+	 * Bulk-run controls over AJAX: start, stop, resume, cancel — the page
+	 * updates in place; the plain forms remain the no-JS fallback.
+	 */
+	public function ajax_bulk_action() {
+		check_ajax_referer( 'coywolf_seo_bulk_action' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array(), 403 );
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce checked above.
+		$op = isset( $_POST['op'] ) ? sanitize_key( $_POST['op'] ) : '';
+		$ai = Coywolf_SEO::instance()->ai();
+		switch ( $op ) {
+			case 'start':
+				$ai->start_bulk();
+				break;
+			case 'stop':
+				$ai->pause_bulk();
+				break;
+			case 'resume':
+				$ai->resume_bulk();
+				break;
+			case 'cancel':
+				$ai->cancel_bulk();
+				break;
+			case 'refresh':
+				break;
+			default:
+				wp_send_json_error( array(), 400 );
+		}
+
+		ob_start();
+		$this->render_bulk_controls();
+		wp_send_json_success(
+			array(
+				'html'   => ob_get_clean(),
+				'status' => $ai->bulk_status()['status'],
+			)
+		);
 	}
 
 	/**
@@ -259,6 +407,7 @@ final class Coywolf_SEO_Admin {
 				'propertyInputs' => Coywolf_SEO_Options::property_inputs(),
 				'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
 				'bulkStatusNonce' => wp_create_nonce( 'coywolf_seo_bulk_status' ),
+				'bulkActionNonce' => wp_create_nonce( 'coywolf_seo_bulk_action' ),
 				'i18n'           => array(
 					'selectImage'    => __( 'Select image', 'coywolf-seo' ),
 					'pasteOrSelect'  => __( 'Paste an image URL or select one', 'coywolf-seo' ),
@@ -829,106 +978,9 @@ final class Coywolf_SEO_Admin {
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Enrich all content', 'coywolf-seo' ); ?></th>
 						<td>
-							<?php $coywolf_seo_bulk = Coywolf_SEO::instance()->ai()->bulk_status(); ?>
-							<?php if ( 'paused' === $coywolf_seo_bulk['status'] ) : ?>
-								<div class="coywolf-seo-progress"><div class="coywolf-seo-progress-bar" style="width:<?php echo esc_attr( (string) $coywolf_seo_bulk['percent'] ); ?>%"></div></div>
-								<?php if ( '' !== $coywolf_seo_bulk['paused_reason'] ) : ?>
-									<p class="description" style="color:#b32d2e">
-										<strong><?php esc_html_e( 'Paused automatically after repeated failures.', 'coywolf-seo' ); ?></strong>
-										<?php
-										printf(
-											/* translators: %s: the error message from the last failed post. */
-											esc_html__( 'Last error: %s', 'coywolf-seo' ),
-											esc_html( $coywolf_seo_bulk['paused_reason'] )
-										);
-										?>
-										<?php esc_html_e( 'Fix the cause (for example, top up API credits), then Resume to continue where it left off.', 'coywolf-seo' ); ?>
-										<?php if ( false !== stripos( $coywolf_seo_bulk['paused_reason'], 'credit balance' ) ) : ?>
-											<br />
-											<?php esc_html_e( 'Note: Anthropic checks a batch\'s maximum possible cost up front — not what it will actually spend — so this can trigger even with a healthy balance. Resume submits smaller batches with tighter token allowances, which usually clears it. If it persists, check the Model setting: legacy Opus models cost several times more than the default.', 'coywolf-seo' ); ?>
-										<?php endif; ?>
-									</p>
-								<?php endif; ?>
-								<p class="description">
-									<?php
-									printf(
-										/* translators: 1: processed count, 2: total, 3: percent, 4: failed count. */
-										esc_html__( 'Paused at %1$d of %2$d (%3$d%%), %4$d failed. Posts already mid-analysis when you stopped may still finish.', 'coywolf-seo' ),
-										(int) $coywolf_seo_bulk['done'],
-										(int) $coywolf_seo_bulk['total'],
-										(int) $coywolf_seo_bulk['percent'],
-										(int) $coywolf_seo_bulk['failed']
-									);
-									?>
-								</p>
-								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form">
-									<input type="hidden" name="action" value="coywolf_seo_bulk_resume" />
-									<?php wp_nonce_field( 'coywolf_seo_bulk_resume' ); ?>
-									<button type="submit" class="button button-primary"><?php esc_html_e( 'Resume', 'coywolf-seo' ); ?></button>
-								</form>
-								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form" id="coywolf-seo-bulk-cancel-form">
-									<input type="hidden" name="action" value="coywolf_seo_bulk_cancel" />
-									<?php wp_nonce_field( 'coywolf_seo_bulk_cancel' ); ?>
-									<button type="submit" class="button coywolf-seo-button-danger"><?php esc_html_e( 'Cancel', 'coywolf-seo' ); ?></button>
-								</form>
-							<?php elseif ( 'running' === $coywolf_seo_bulk['status'] ) : ?>
-								<div id="coywolf-seo-bulk-progress" data-running="1">
-									<div class="coywolf-seo-progress"><div class="coywolf-seo-progress-bar" style="width:<?php echo esc_attr( (string) $coywolf_seo_bulk['percent'] ); ?>%"></div></div>
-									<p class="description coywolf-seo-bulk-text">
-										<?php
-										printf(
-											/* translators: 1: processed count, 2: total, 3: percent, 4: current stage. */
-											esc_html__( '%1$d of %2$d (%3$d%%) — %4$s Keeping this page open speeds it up.', 'coywolf-seo' ),
-											(int) $coywolf_seo_bulk['done'],
-											(int) $coywolf_seo_bulk['total'],
-											(int) $coywolf_seo_bulk['percent'],
-											esc_html( $coywolf_seo_bulk['stage_label'] )
-										);
-										?>
-									</p>
-									<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-										<input type="hidden" name="action" value="coywolf_seo_bulk_stop" />
-										<?php wp_nonce_field( 'coywolf_seo_bulk_stop' ); ?>
-										<button type="submit" class="button"><?php esc_html_e( 'Stop', 'coywolf-seo' ); ?></button>
-									</form>
-								</div>
-							<?php else : ?>
-								<div id="coywolf-seo-bulk-progress" style="display:none" data-running="0">
-									<div class="coywolf-seo-progress"><div class="coywolf-seo-progress-bar" style="width:0"></div></div>
-									<p class="description coywolf-seo-bulk-text"></p>
-								</div>
-								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="coywolf-seo-bulk-form">
-									<input type="hidden" name="action" value="coywolf_seo_bulk_enrich" />
-									<?php wp_nonce_field( 'coywolf_seo_bulk_enrich' ); ?>
-									<button type="submit" class="button"><?php esc_html_e( 'Enrich all posts and pages', 'coywolf-seo' ); ?></button>
-								</form>
-								<?php if ( 'done' === $coywolf_seo_bulk['status'] && '' !== $coywolf_seo_bulk['finished'] ) : ?>
-									<?php if ( $coywolf_seo_bulk['failed'] > 0 ) : ?>
-										<p class="description" style="color:#b32d2e">
-											<?php
-											printf(
-												/* translators: 1: failed count, 2: total, 3: the last error message. */
-												esc_html__( 'Last run completed, but %1$d of %2$d items failed. Last error: %3$s — failed items retry on their next save, via Re-analyze, or in another run.', 'coywolf-seo' ),
-												(int) $coywolf_seo_bulk['failed'],
-												(int) $coywolf_seo_bulk['total'],
-												esc_html( $coywolf_seo_bulk['last_error'] )
-											);
-											?>
-										</p>
-									<?php else : ?>
-										<p class="description">
-											<?php
-											printf(
-												/* translators: 1: number processed, 2: date. */
-												esc_html__( 'Last run finished %2$s after processing %1$d items.', 'coywolf-seo' ),
-												(int) $coywolf_seo_bulk['done'],
-												esc_html( gmdate( 'M j, Y H:i', strtotime( $coywolf_seo_bulk['finished'] ) ) . ' UTC' )
-											);
-											?>
-										</p>
-									<?php endif; ?>
-								<?php endif; ?>
-							<?php endif; ?>
+							<div id="coywolf-seo-bulk-area" data-status="<?php echo esc_attr( Coywolf_SEO::instance()->ai()->bulk_status()['status'] ); ?>">
+								<?php $this->render_bulk_controls(); ?>
+							</div>
 							<p class="description" id="coywolf-seo-bulk-estimate" data-loading="<?php esc_attr_e( 'Calculating the estimated cost…', 'coywolf-seo' ); ?>"><em><?php esc_html_e( 'Calculating the estimated cost…', 'coywolf-seo' ); ?></em></p>
 							<p>
 								<button type="button" class="button" id="coywolf-seo-ai-test"><?php esc_html_e( 'Test API access', 'coywolf-seo' ); ?></button>
