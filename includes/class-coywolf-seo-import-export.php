@@ -41,7 +41,7 @@ final class Coywolf_SEO_Import_Export {
 		check_admin_referer( 'coywolf_seo_export' );
 
 		$settings = Coywolf_SEO_Options::all();
-		unset( $settings['ai_api_key'], $settings['kg_api_key'] ); // Secrets never leave the site.
+		unset( $settings['ai_api_key'] ); // Secrets never leave the site.
 
 		$redirects = array();
 		foreach ( Coywolf_SEO::instance()->redirects()->all_rules() as $rule ) {

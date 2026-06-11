@@ -70,13 +70,6 @@ final class Coywolf_SEO_AI {
 	 */
 	private $post_types = array( 'post', 'page' );
 
-	/**
-	 * The first Knowledge Graph lookup failure of the current run, for the
-	 * editor's status line.
-	 *
-	 * @var string
-	 */
-	private $last_kg_error = '';
 
 	/**
 	 * Hook everything up.
@@ -122,14 +115,13 @@ final class Coywolf_SEO_AI {
 	/**
 	 * A fingerprint of the configuration that shapes analysis results.
 	 * Folding it into the content hash means changing the configuration
-	 * (adding the Knowledge Graph key, switching models) re-analyzes posts
+	 * (switching models) re-analyzes posts
 	 * on their next save instead of being skipped as "unchanged".
 	 *
 	 * @return string
 	 */
 	private function config_signature() {
-		return 'kg:' . ( '' !== (string) Coywolf_SEO_Options::get( 'kg_api_key' ) ? '1' : '0' )
-			. '|model:' . apply_filters( 'coywolf_seo_ai_model', self::DEFAULT_MODEL );
+		return 'model:' . apply_filters( 'coywolf_seo_ai_model', self::DEFAULT_MODEL );
 	}
 
 	/**
@@ -281,7 +273,6 @@ final class Coywolf_SEO_AI {
 				'time'     => gmdate( 'c' ),
 				'status'   => 'ok',
 				'error'    => '',
-				'kg_error' => $this->last_kg_error,
 				'entities' => $entities,
 			)
 		);
@@ -363,9 +354,6 @@ final class Coywolf_SEO_AI {
 			$about,
 			$mentions
 		);
-		if ( ! empty( $saved['kg_error'] ) ) {
-			$text .= ' ' . (string) $saved['kg_error'];
-		}
 		return $text;
 	}
 
@@ -392,24 +380,13 @@ final class Coywolf_SEO_AI {
 			if ( ! empty( $entity['wikipedia'] ) ) {
 				$same_as[] = (string) $entity['wikipedia'];
 			}
-			if ( ! empty( $entity['kg_mid'] ) ) {
-				$same_as[] = 'https://g.co/kg' . $entity['kg_mid'];
-			}
 			$node = array(
 				'@type'  => isset( $entity['type'] ) && in_array( $entity['type'], array( 'Person', 'Organization', 'Place' ), true ) ? $entity['type'] : 'Thing',
 				'name'   => (string) $entity['name'],
 				'sameAs' => count( $same_as ) > 1 ? $same_as : $same_as[0],
 			);
-			if ( ! empty( $entity['kg_description'] ) ) {
-				$node['description'] = (string) $entity['kg_description'];
-			} elseif ( ! empty( $entity['description'] ) ) {
+			if ( ! empty( $entity['description'] ) ) {
 				$node['description'] = (string) $entity['description'];
-			}
-			if ( ! empty( $entity['kg_url'] ) ) {
-				$node['url'] = (string) $entity['kg_url'];
-			}
-			if ( ! empty( $entity['kg_image'] ) ) {
-				$node['image'] = (string) $entity['kg_image'];
 			}
 			if ( ! empty( $entity['primary'] ) ) {
 				$out['about'][] = $node;
@@ -570,100 +547,9 @@ final class Coywolf_SEO_AI {
 			);
 		}
 
-		// Stage 5 (optional): enrich from the Google Knowledge Graph
-		// Search API when a key is configured.
-		return $this->kg_enrich( $final );
+		return $final;
 	}
 
-	/**
-	 * Enrich grounded entities with Google Knowledge Graph details:
-	 * the KG id (as a g.co/kg sameAs), Google's entity description, the
-	 * official website, and an image. Lookup is by name with a type
-	 * filter, and a result is only trusted when its name matches the
-	 * entity — identifiers are still never invented.
-	 *
-	 * @param array $entities Grounded entities.
-	 * @return array
-	 */
-	private function kg_enrich( array $entities ) {
-		$this->last_kg_error = '';
-
-		$key = (string) Coywolf_SEO_Options::get( 'kg_api_key' );
-		if ( '' === $key || empty( $entities ) ) {
-			return $entities;
-		}
-		$language = substr( (string) get_locale(), 0, 2 );
-
-		foreach ( $entities as $i => $entity ) {
-			$query_args = array(
-				'query'     => rawurlencode( $entity['name'] ),
-				'key'       => rawurlencode( $key ),
-				'limit'     => 3,
-				'languages' => $language ? $language : 'en',
-			);
-			if ( in_array( $entity['type'], array( 'Person', 'Organization', 'Place' ), true ) ) {
-				$query_args['types'] = $entity['type'];
-			}
-			$response = wp_remote_get(
-				add_query_arg( $query_args, 'https://kgsearch.googleapis.com/v1/entities:search' ),
-				array(
-					'timeout'    => 10,
-					'user-agent' => $this->user_agent(),
-					// Sent so website-restricted (HTTP referrer) API keys
-					// work for these server-side lookups: the referer is
-					// this site, which is what such a key is locked to.
-					'headers'    => array( 'Referer' => home_url( '/' ) ),
-				)
-			);
-			if ( is_wp_error( $response ) ) {
-				$this->last_kg_error = $response->get_error_message();
-				continue;
-			}
-			$code = (int) wp_remote_retrieve_response_code( $response );
-			if ( 200 !== $code ) {
-				// Surface Google's own explanation (a referrer-restricted
-				// key, the API not enabled, quota) so the failure is
-				// diagnosable from the editor instead of silent.
-				$body_error = json_decode( wp_remote_retrieve_body( $response ), true );
-				$message    = isset( $body_error['error']['message'] ) ? (string) $body_error['error']['message'] : '';
-				/* translators: 1: HTTP status code, 2: error message from Google. */
-				$this->last_kg_error = sprintf( __( 'Google Knowledge Graph returned HTTP %1$d%2$s', 'coywolf-seo' ), $code, '' !== $message ? ': ' . $message : '' );
-				continue;
-			}
-			$body = json_decode( wp_remote_retrieve_body( $response ), true );
-			if ( ! is_array( $body ) || empty( $body['itemListElement'] ) || ! is_array( $body['itemListElement'] ) ) {
-				continue;
-			}
-
-			foreach ( $body['itemListElement'] as $item ) {
-				$result = isset( $item['result'] ) && is_array( $item['result'] ) ? $item['result'] : array();
-				$name   = isset( $result['name'] ) ? (string) $result['name'] : '';
-				// Trust only a clear name match — no fuzzy adoption.
-				if ( '' === $name || ( 0 !== strcasecmp( $name, $entity['name'] ) && false === stripos( $name, $entity['name'] ) && false === stripos( $entity['name'], $name ) ) ) {
-					continue;
-				}
-				if ( isset( $result['@id'] ) && 0 === strpos( (string) $result['@id'], 'kg:' ) ) {
-					$entities[ $i ]['kg_mid'] = substr( (string) $result['@id'], 3 );
-				}
-				if ( isset( $result['detailedDescription']['articleBody'] ) ) {
-					$entities[ $i ]['kg_description'] = sanitize_text_field( (string) $result['detailedDescription']['articleBody'] );
-				}
-				if ( isset( $result['url'] ) ) {
-					$entities[ $i ]['kg_url'] = esc_url_raw( (string) $result['url'] );
-				}
-				if ( isset( $result['image']['contentUrl'] ) ) {
-					$entities[ $i ]['kg_image'] = esc_url_raw( (string) $result['image']['contentUrl'] );
-				}
-				// A Wikipedia detailedDescription source fills the gap when
-				// Wikidata had no sitelink.
-				if ( empty( $entities[ $i ]['wikipedia'] ) && isset( $result['detailedDescription']['url'] ) && false !== strpos( (string) $result['detailedDescription']['url'], 'wikipedia.org' ) ) {
-					$entities[ $i ]['wikipedia'] = esc_url_raw( (string) $result['detailedDescription']['url'] );
-				}
-				break;
-			}
-		}
-		return $entities;
-	}
 
 	/**
 	 * Stage 3 prompt — choose among real Wikidata candidates.
