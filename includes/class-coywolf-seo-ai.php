@@ -121,7 +121,9 @@ final class Coywolf_SEO_AI {
 	 * @return string
 	 */
 	private function config_signature() {
-		return 'model:' . apply_filters( 'coywolf_seo_ai_model', self::DEFAULT_MODEL );
+		return 'model:' . apply_filters( 'coywolf_seo_ai_model', self::DEFAULT_MODEL )
+			. '|ent:' . ( $this->enabled() ? '1' : '0' )
+			. '|desc:' . ( $this->descriptions_on() ? '1' : '0' );
 	}
 
 	/**
@@ -169,6 +171,32 @@ final class Coywolf_SEO_AI {
 	}
 
 	/**
+	 * Whether AI meta descriptions are on: the option is enabled, meta
+	 * descriptions are not excluded site-wide, and a key is available.
+	 *
+	 * @return bool
+	 */
+	public function descriptions_on() {
+		return (bool) Coywolf_SEO_Options::get( 'ai_descriptions' )
+			&& ! (bool) Coywolf_SEO_Options::get( 'exclude_meta_desc' )
+			&& '' !== $this->api_key();
+	}
+
+	/**
+	 * The stored AI-written meta description for a post.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return string '' when the feature is off or nothing is stored.
+	 */
+	public function description_for( $post_id ) {
+		if ( ! $this->descriptions_on() ) {
+			return '';
+		}
+		$saved = get_post_meta( $post_id, self::META_KEY, true );
+		return ( is_array( $saved ) && isset( $saved['description'] ) ) ? (string) $saved['description'] : '';
+	}
+
+	/**
 	 * The Anthropic API key: the saved setting, or the ANTHROPIC_API_KEY
 	 * constant/environment as a wp-config-style fallback.
 	 *
@@ -195,7 +223,7 @@ final class Coywolf_SEO_AI {
 	 */
 	public function maybe_queue( $new_status, $old_status, $post ) {
 		unset( $old_status );
-		if ( 'publish' !== $new_status || ! $this->enabled() ) {
+		if ( 'publish' !== $new_status || ( ! $this->enabled() && ! $this->descriptions_on() ) ) {
 			return;
 		}
 		if ( ! in_array( $post->post_type, $this->post_types, true ) || wp_is_post_revision( $post->ID ) ) {
@@ -221,7 +249,7 @@ final class Coywolf_SEO_AI {
 	 */
 	public function analyze_post( $post_id ) {
 		$post = get_post( $post_id );
-		if ( ! $post || 'publish' !== $post->post_status || ! $this->enabled() ) {
+		if ( ! $post || 'publish' !== $post->post_status || ( ! $this->enabled() && ! $this->descriptions_on() ) ) {
 			return;
 		}
 
@@ -239,9 +267,17 @@ final class Coywolf_SEO_AI {
 			return;
 		}
 
+		$previous      = ( is_array( $saved ) && isset( $saved['entities'] ) && is_array( $saved['entities'] ) ) ? $saved['entities'] : array();
+		$previous_desc = ( is_array( $saved ) && isset( $saved['description'] ) ) ? (string) $saved['description'] : '';
+
 		try {
-			$mentions = $this->extract_mentions( $title, $content );
-			$entities = empty( $mentions ) ? array() : $this->ground_mentions( $mentions, $title, $content );
+			if ( $this->enabled() ) {
+				$mentions = $this->extract_mentions( $title, $content );
+				$entities = empty( $mentions ) ? array() : $this->ground_mentions( $mentions, $title, $content );
+			} else {
+				$entities = $previous; // Entity detection off: keep what's stored.
+			}
+			$description = $this->descriptions_on() ? $this->write_description( $title, $content ) : '';
 		} catch ( \Throwable $e ) {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- debug-mode only.
@@ -253,33 +289,34 @@ final class Coywolf_SEO_AI {
 				$post_id,
 				self::META_KEY,
 				array(
-					'hash'     => '',
-					'time'     => gmdate( 'c' ),
-					'status'   => 'error',
-					'error'    => $e->getMessage(),
-					'entities' => array(),
+					'hash'        => '',
+					'time'        => gmdate( 'c' ),
+					'status'      => 'error',
+					'error'       => $e->getMessage(),
+					'entities'    => $previous,
+					'description' => $previous_desc,
 				)
 			);
 			return;
 		}
 
-		$previous = ( is_array( $saved ) && isset( $saved['entities'] ) && is_array( $saved['entities'] ) ) ? $saved['entities'] : array();
-
 		update_post_meta(
 			$post_id,
 			self::META_KEY,
 			array(
-				'hash'     => $hash,
-				'time'     => gmdate( 'c' ),
-				'status'   => 'ok',
-				'error'    => '',
-				'entities' => $entities,
+				'hash'        => $hash,
+				'time'        => gmdate( 'c' ),
+				'status'      => 'ok',
+				'error'       => '',
+				'entities'    => $entities,
+				'description' => $description,
 			)
 		);
 
 		// The page was (re)cached before this background run finished:
-		// when the schema changed, purge it so the entities are served.
-		if ( wp_json_encode( $entities ) !== wp_json_encode( $previous ) ) {
+		// when the schema or description changed, purge it so the new
+		// output is served.
+		if ( wp_json_encode( $entities ) !== wp_json_encode( $previous ) || $description !== $previous_desc ) {
 			$this->purge_post_cache( $post_id );
 		}
 	}
@@ -326,12 +363,14 @@ final class Coywolf_SEO_AI {
 	 * @return string '' when enrichment is disabled.
 	 */
 	public function status_text( $post_id ) {
-		if ( ! $this->enabled() ) {
+		if ( ! $this->enabled() && ! $this->descriptions_on() ) {
 			return '';
 		}
 		$saved = get_post_meta( $post_id, self::META_KEY, true );
 		if ( ! is_array( $saved ) ) {
-			return __( 'Entities: analyzed in the background after publishing.', 'coywolf-seo' );
+			return $this->enabled()
+				? __( 'Entities: analyzed in the background after publishing.', 'coywolf-seo' )
+				: __( 'Meta description: written in the background after publishing.', 'coywolf-seo' );
 		}
 		if ( isset( $saved['status'] ) && 'error' === $saved['status'] ) {
 			/* translators: %s: error message. */
@@ -348,12 +387,15 @@ final class Coywolf_SEO_AI {
 				}
 			}
 		}
-		$text = sprintf(
+		$text = $this->enabled() ? sprintf(
 			/* translators: 1: number of about entities, 2: number of mention entities. */
 			__( 'Entities in schema: %1$d about, %2$d mentions.', 'coywolf-seo' ),
 			$about,
 			$mentions
-		);
+		) : '';
+		if ( $this->descriptions_on() && ! empty( $saved['description'] ) ) {
+			$text = trim( $text . ' ' . __( 'Meta description written.', 'coywolf-seo' ) );
+		}
 		return $text;
 	}
 
@@ -413,6 +455,37 @@ final class Coywolf_SEO_AI {
 			return mb_substr( $content, 0, 24000 );
 		}
 		return substr( $content, 0, 24000 );
+	}
+
+	/**
+	 * Claude writes the meta description: a faithful summary of the
+	 * content in under 200 characters.
+	 *
+	 * @param string $title   Post title.
+	 * @param string $content Plain post content.
+	 * @return string '' when generation produced nothing usable.
+	 */
+	private function write_description( $title, $content ) {
+		$system = 'You write the meta description for a web article. '
+			. 'Respond with ONLY the meta description itself — plain text, a single line, no quotation marks around it, no markdown, no preamble, no explanation. '
+			. 'It must be a faithful summary of the article content in one or two sentences, written for a search result snippet, '
+			. 'and it must be STRICTLY UNDER 200 characters.';
+
+		$text = (string) $this->generate( $system, 'Title: ' . $title . "\n\n" . $content );
+		$text = trim( wp_strip_all_tags( $text, true ) );
+		// Strip wrapping quotes the model might add (Unicode-aware — a
+		// byte-based trim would corrupt multibyte characters).
+		$text = (string) preg_replace( '/^["\'\x{201C}\x{2018}]+|["\'\x{201D}\x{2019}]+$/u', '', $text );
+		$text = (string) preg_replace( '/\s+/u', ' ', $text );
+		$text = trim( $text );
+
+		// Hard cap: never longer than 200 characters, cut on a word.
+		if ( function_exists( 'mb_strlen' ) && mb_strlen( $text ) > 200 ) {
+			$text = wp_html_excerpt( $text, 199, '…' );
+		} elseif ( strlen( $text ) > 200 && ! function_exists( 'mb_strlen' ) ) {
+			$text = wp_html_excerpt( $text, 199, '…' );
+		}
+		return sanitize_text_field( $text );
 	}
 
 	/**

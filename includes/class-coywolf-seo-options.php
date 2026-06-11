@@ -70,6 +70,7 @@ final class Coywolf_SEO_Options {
 			'news_cats'            => array(),
 			// AI schema enrichment.
 			'ai_enabled'           => false,
+			'ai_descriptions'      => false,
 			'ai_api_key'           => '',
 		);
 	}
@@ -150,6 +151,7 @@ final class Coywolf_SEO_Options {
 			'news_include_posts',
 			'news_include_pages',
 			'ai_enabled',
+			'ai_descriptions',
 		);
 		foreach ( $booleans as $key ) {
 			if ( array_key_exists( $key, $raw ) ) {

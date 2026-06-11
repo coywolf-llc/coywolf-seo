@@ -165,10 +165,23 @@
 			$( '#coywolf-seo-news-cats' ).toggle( $( this ).val() !== 'all' );
 		} );
 
-		// AI enrichment: only show the API key once entity detection is on.
-		$( '#coywolf-seo-ai-enabled' ).on( 'change', function () {
-			$( '#coywolf-seo-ai-fields' ).toggle( this.checked );
-		} );
+		// AI enrichment: show the API key when either AI feature is on.
+		function syncAiKeyFields() {
+			$( '#coywolf-seo-ai-fields' ).toggle(
+				$( '#coywolf-seo-ai-enabled' ).prop( 'checked' ) || $( '#coywolf-seo-ai-descriptions' ).prop( 'checked' )
+			);
+		}
+		$( '#coywolf-seo-ai-enabled, #coywolf-seo-ai-descriptions' ).on( 'change', syncAiKeyFields );
+
+		// Excluding meta descriptions hides the AI meta-description option
+		// immediately — and unchecking brings it right back.
+		function syncAiDescriptionRow() {
+			$( '#coywolf-seo-ai-desc-row' ).toggle( ! $( '#coywolf-seo-exclude-desc' ).prop( 'checked' ) );
+		}
+		if ( $( '#coywolf-seo-exclude-desc' ).length && $( '#coywolf-seo-ai-desc-row' ).length ) {
+			$( '#coywolf-seo-exclude-desc' ).on( 'change', syncAiDescriptionRow );
+			syncAiDescriptionRow();
+		}
 
 		// Redirects: quick-add extras, inline edit rows, delete confirm.
 		$( '#coywolf-seo-qa-more' ).on( 'click', function () {
