@@ -865,11 +865,12 @@ final class Coywolf_SEO_Admin {
 									<p class="description coywolf-seo-bulk-text">
 										<?php
 										printf(
-											/* translators: 1: processed count, 2: total, 3: percent. */
-											esc_html__( 'Enriching in the background: %1$d of %2$d (%3$d%%). Keeping this page open speeds it up.', 'coywolf-seo' ),
+											/* translators: 1: processed count, 2: total, 3: percent, 4: current stage. */
+											esc_html__( '%1$d of %2$d (%3$d%%) — %4$s Keeping this page open speeds it up.', 'coywolf-seo' ),
 											(int) $coywolf_seo_bulk['done'],
 											(int) $coywolf_seo_bulk['total'],
-											(int) $coywolf_seo_bulk['percent']
+											(int) $coywolf_seo_bulk['percent'],
+											esc_html( $coywolf_seo_bulk['stage_label'] )
 										);
 										?>
 									</p>
@@ -916,7 +917,32 @@ final class Coywolf_SEO_Admin {
 									<?php endif; ?>
 								<?php endif; ?>
 							<?php endif; ?>
-							<p class="description"><strong><?php esc_html_e( 'Use sparingly:', 'coywolf-seo' ); ?></strong> <?php esc_html_e( 'this runs the enabled AI features over every published post and page in the background, several posts at a time. It can take a while and incurs API costs each time it runs — content already analyzed with the current settings is skipped automatically.', 'coywolf-seo' ); ?></p>
+							<p class="description"><strong><?php esc_html_e( 'Use sparingly:', 'coywolf-seo' ); ?></strong> <?php esc_html_e( 'this runs the enabled AI features over every published post and page through Anthropic\'s Batches API at 50% of standard token prices. Results can take up to an hour (occasionally longer) and incur API costs each run — content already analyzed with the current settings is skipped automatically.', 'coywolf-seo' ); ?></p>
+							<?php $coywolf_seo_usage = Coywolf_SEO_AI_Batch::usage_summary( Coywolf_SEO::instance()->ai()->model() ); ?>
+							<?php if ( ! empty( $coywolf_seo_usage ) ) : ?>
+								<p class="description">
+									<?php
+									if ( $coywolf_seo_usage['avg_cost'] > 0 ) {
+										printf(
+											/* translators: 1: posts enriched, 2: avg input tokens, 3: avg output tokens, 4: estimated dollars. */
+											esc_html__( 'Lifetime: %1$d posts enriched · average %2$s input + %3$s output tokens ≈ $%4$s per post at batch rates (estimate).', 'coywolf-seo' ),
+											(int) $coywolf_seo_usage['posts'],
+											esc_html( number_format_i18n( $coywolf_seo_usage['avg_input'] ) ),
+											esc_html( number_format_i18n( $coywolf_seo_usage['avg_output'] ) ),
+											esc_html( number_format( $coywolf_seo_usage['avg_cost'], 4 ) )
+										);
+									} else {
+										printf(
+											/* translators: 1: posts enriched, 2: avg input tokens, 3: avg output tokens. */
+											esc_html__( 'Lifetime: %1$d posts enriched · average %2$s input + %3$s output tokens per post (no price data for this model).', 'coywolf-seo' ),
+											(int) $coywolf_seo_usage['posts'],
+											esc_html( number_format_i18n( $coywolf_seo_usage['avg_input'] ) ),
+											esc_html( number_format_i18n( $coywolf_seo_usage['avg_output'] ) )
+										);
+									}
+									?>
+								</p>
+							<?php endif; ?>
 						</td>
 					</tr>
 					</tbody>

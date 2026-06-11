@@ -198,6 +198,9 @@
 					var d = res.data;
 					$bulkBox.find( '.coywolf-seo-progress-bar' ).css( 'width', d.percent + '%' );
 					var bulkText = d.done + ' / ' + d.total + ' (' + d.percent + '%)';
+					if ( d.stage_label ) {
+						bulkText += ' — ' + d.stage_label;
+					}
 					if ( d.failed > 0 ) {
 						bulkText += ' — ' + d.failed + ' failed';
 					}

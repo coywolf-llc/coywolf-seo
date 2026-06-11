@@ -64,9 +64,9 @@ final class Coywolf_SEO_AI {
 	const BULK_OPTION = 'coywolf_seo_bulk_enrich';
 
 	/**
-	 * AJAX action for the parallel loopback runners.
+	 * Per-post staging meta during a batch run (cleaned at finalize).
 	 */
-	const BULK_RUNNER = 'coywolf_seo_bulk_runner';
+	const BULK_META = '_coywolf_seo_bulk_data';
 
 	/**
 	 * Default Claude model. Filterable via coywolf_seo_ai_model.
@@ -96,8 +96,6 @@ final class Coywolf_SEO_AI {
 		add_action( 'wp_ajax_coywolf_seo_reanalyze', array( $this, 'ajax_reanalyze' ) );
 
 		add_action( self::BULK_HOOK, array( $this, 'bulk_worker' ) );
-		add_action( 'wp_ajax_' . self::BULK_RUNNER, array( $this, 'bulk_runner' ) );
-		add_action( 'wp_ajax_nopriv_' . self::BULK_RUNNER, array( $this, 'bulk_runner' ) );
 		add_action( 'admin_post_coywolf_seo_bulk_enrich', array( $this, 'handle_bulk_start' ) );
 		add_action( 'admin_post_coywolf_seo_bulk_stop', array( $this, 'handle_bulk_stop' ) );
 		add_action( 'admin_post_coywolf_seo_bulk_resume', array( $this, 'handle_bulk_resume' ) );
@@ -117,6 +115,13 @@ final class Coywolf_SEO_AI {
 		}
 		check_admin_referer( 'coywolf_seo_bulk_enrich' );
 
+		// A stale tab or double-submit must not orphan an in-flight run:
+		// clean up (including the remote batch) before starting fresh.
+		$existing = $this->bulk_state_fresh();
+		if ( isset( $existing['status'] ) && in_array( $existing['status'], array( 'running', 'paused' ), true ) ) {
+			$this->cancel_bulk();
+		}
+
 		if ( $this->enabled() || $this->descriptions_on() ) {
 			$ids = get_posts(
 				array(
@@ -128,30 +133,61 @@ final class Coywolf_SEO_AI {
 					'order'          => 'ASC',
 				)
 			);
+
+			// Pre-screen: posts already analyzed with the current content
+			// and configuration never enter the batch at all.
+			$queue   = array();
+			$skipped = 0;
+			foreach ( $ids as $post_id ) {
+				$post = get_post( $post_id );
+				if ( ! $post ) {
+					continue;
+				}
+				$content = $this->plain_content( $post );
+				if ( '' === trim( $content ) ) {
+					$skipped++;
+					continue;
+				}
+				$hash  = md5( get_the_title( $post ) . "\n" . $content . "\n" . $this->config_signature() );
+				$saved = get_post_meta( $post_id, self::META_KEY, true );
+				if ( is_array( $saved ) && isset( $saved['hash'] ) && $saved['hash'] === $hash ) {
+					$skipped++;
+					continue;
+				}
+				$queue[] = (int) $post_id;
+			}
+
 			update_option(
 				self::BULK_OPTION,
 				array(
-					'status'    => 'running',
-					'total'     => count( $ids ),
-					'done'      => 0,
-					'remaining' => array_map( 'intval', $ids ),
-					'started'   => gmdate( 'c' ),
-					'finished'  => '',
-					'failed'    => 0,
-					'streak'    => 0,
-					'last_error' => '',
+					'status'        => empty( $queue ) ? 'done' : 'running',
+					'stage'         => $this->enabled() ? 'extract_submit' : 'describe_submit',
+					'total'         => count( $queue ),
+					'done'          => 0,
+					'failed'        => 0,
+					'skipped'       => $skipped,
+					'pipeline'      => $queue,
+					'queue'         => array(),
+					'batch_id'      => '',
+					'usage_in'      => 0,
+					'usage_out'     => 0,
+					'last_error'    => '',
 					'paused_reason' => '',
-					'token'     => wp_generate_password( 64, false ),
+					'started'       => gmdate( 'c' ),
+					'finished'      => empty( $queue ) ? gmdate( 'c' ) : '',
 				),
 				false
 			);
-			// Parallel loopback workers do the heavy lifting; the cron
-			// chain stays as a watchdog for hosts that block loopbacks.
-			$this->spawn_bulk_runners();
-			if ( ! wp_next_scheduled( self::BULK_HOOK ) ) {
-				wp_schedule_single_event( time() + 30, self::BULK_HOOK );
+
+			if ( ! empty( $queue ) ) {
+				// Submit the first batch right away, then let cron and the
+				// status polling advance the run.
+				$this->bulk_advance( 15 );
+				if ( ! wp_next_scheduled( self::BULK_HOOK ) ) {
+					wp_schedule_single_event( time() + 30, self::BULK_HOOK );
+				}
+				spawn_cron();
 			}
-			spawn_cron();
 		}
 
 		wp_safe_redirect( admin_url( 'admin.php?page=coywolf-seo-settings&bulk-started=1' ) );
@@ -215,16 +251,14 @@ final class Coywolf_SEO_AI {
 	 */
 	public function resume_bulk() {
 		$state = $this->bulk_state_fresh();
-		if ( ! isset( $state['status'] ) || 'paused' !== $state['status'] || empty( $state['remaining'] ) ) {
+		if ( ! isset( $state['status'] ) || 'paused' !== $state['status'] || empty( $state['pipeline'] ) ) {
 			return;
 		}
 		$state['status']        = 'running';
-		$state['streak']        = 0;
 		$state['paused_reason'] = '';
-		$state['token']         = wp_generate_password( 64, false );
 		update_option( self::BULK_OPTION, $state, false );
 
-		$this->spawn_bulk_runners();
+		$this->bulk_advance( 10 );
 		if ( ! wp_next_scheduled( self::BULK_HOOK ) ) {
 			wp_schedule_single_event( time() + 30, self::BULK_HOOK );
 		}
@@ -238,6 +272,16 @@ final class Coywolf_SEO_AI {
 	 * live worker still lands.
 	 */
 	public function cancel_bulk() {
+		$state = $this->bulk_state_fresh();
+		if ( ! empty( $state['batch_id'] ) ) {
+			$this->batch()->cancel( (string) $state['batch_id'] );
+		}
+		// Tokens already billed stay in the lifetime telemetry.
+		$cancel_successes = max( 0, (int) ( $state['done'] ?? 0 ) - (int) ( $state['failed'] ?? 0 ) );
+		if ( $cancel_successes > 0 && ( (int) ( $state['usage_in'] ?? 0 ) > 0 || (int) ( $state['usage_out'] ?? 0 ) > 0 ) ) {
+			Coywolf_SEO_AI_Batch::record_usage( (int) $state['usage_in'], (int) $state['usage_out'], $cancel_successes );
+		}
+		delete_metadata( 'post', 0, self::BULK_META, '', true );
 		delete_option( self::BULK_OPTION );
 		wp_unschedule_hook( self::BULK_HOOK );
 	}
@@ -248,146 +292,433 @@ final class Coywolf_SEO_AI {
 	 * so progress continues while the page is open.
 	 */
 	public function bulk_worker() {
-		$state = $this->bulk_state_fresh();
-		if ( ! isset( $state['status'] ) || 'running' !== $state['status'] ) {
-			return;
-		}
-
-		// Watchdog: make sure the parallel runners are alive, then drain
-		// what we can in this tick too.
-		$this->spawn_bulk_runners();
-		$this->bulk_drain( 25 );
-
+		$this->bulk_advance( 25 );
 		$state = $this->bulk_state_fresh();
 		if ( isset( $state['status'] ) && 'running' === $state['status'] && ! wp_next_scheduled( self::BULK_HOOK ) ) {
 			wp_schedule_single_event( time() + 30, self::BULK_HOOK );
 		}
 	}
 
+
+
+
+
 	/**
-	 * A parallel loopback runner: claims and analyzes posts within a time
-	 * budget, then chains a fresh runner and exits. Authenticated by the
-	 * run's token, not a user — the loopback request carries no cookies.
+	 * The Batches client for the current key and model.
+	 *
+	 * @return Coywolf_SEO_AI_Batch
 	 */
-	public function bulk_runner() {
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- token-authenticated below; loopback requests have no user/nonce context.
-		$token = isset( $_POST['token'] ) ? (string) wp_unslash( $_POST['token'] ) : '';
-		$state = $this->bulk_state_fresh();
-		if ( '' === $token || empty( $state['token'] ) || ! hash_equals( (string) $state['token'], $token ) ) {
-			wp_die( '', '', array( 'response' => 403 ) );
-		}
-		if ( ! isset( $state['status'] ) || 'running' !== $state['status'] ) {
-			wp_die( '', '', array( 'response' => 200 ) );
-		}
-
-		// Let the runner outlive the HTTP client that spawned it.
-		ignore_user_abort( true );
-		if ( function_exists( 'set_time_limit' ) ) {
-			@set_time_limit( 120 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- best effort on restricted hosts.
-		}
-
-		$worked = $this->bulk_drain( 40 );
-
-		// More to do and we actually processed something: chain a runner.
-		$state = $this->bulk_state_fresh();
-		if ( $worked > 0 && isset( $state['status'] ) && 'running' === $state['status'] && ! empty( $state['remaining'] ) ) {
-			$this->spawn_bulk_runners( 1 );
-		}
-		wp_die( '', '', array( 'response' => 200 ) );
+	private function batch() {
+		return new Coywolf_SEO_AI_Batch( $this->api_key(), $this->model() );
 	}
 
 	/**
-	 * Claim and analyze posts until the queue or the time budget runs out.
+	 * Advance the staged batch state machine inside a time budget. A
+	 * non-blocking named lock keeps cron ticks and status polls from
+	 * advancing concurrently.
+	 *
+	 * Stages: extract_submit → extract_wait → ground → disambig_submit →
+	 * disambig_wait → verify → describe_submit → describe_wait → finalize.
+	 * Entities-only runs skip the describe stages; descriptions-only runs
+	 * start at describe_submit.
 	 *
 	 * @param int $budget Seconds to work.
-	 * @return int Posts processed.
 	 */
-	private function bulk_drain( $budget ) {
-		$deadline = time() + max( 5, (int) $budget );
-		$worked   = 0;
+	public function bulk_advance( $budget ) {
+		global $wpdb;
+		$lock = 'coywolf_seo_bulk_' . get_current_blog_id();
+		// Advisory: on MySQL an explicit 0 means another process is
+		// advancing; non-MySQL backends return other values and proceed.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- non-blocking named lock; one advancer at a time.
+		if ( '0' === (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 0)', $lock ) ) ) {
+			return;
+		}
+
+		$deadline = time() + max( 3, (int) $budget );
 		while ( time() < $deadline ) {
-			$post_id = $this->bulk_claim();
-			if ( ! $post_id ) {
+			$state = $this->bulk_state_fresh();
+			if ( ! isset( $state['status'] ) || 'running' !== $state['status'] ) {
 				break;
 			}
-			$result = $this->analyze_post( $post_id );
-			$error  = '';
-			if ( 'error' === $result ) {
-				$meta  = get_post_meta( $post_id, self::META_KEY, true );
-				$error = ( is_array( $meta ) && ! empty( $meta['error'] ) ) ? (string) $meta['error'] : __( 'Analysis failed.', 'coywolf-seo' );
+			if ( ! isset( $state['stage'] ) ) {
+				// A run left over from a pre-batch plugin version: its
+				// state shape is unknown to this machine. Clear it.
+				delete_option( self::BULK_OPTION );
+				wp_unschedule_hook( self::BULK_HOOK );
+				break;
 			}
-			$this->bulk_record_done( $error );
-			$worked++;
-		}
-		return $worked;
-	}
-
-	/**
-	 * Atomically claim the next queued post. A MySQL named lock guards
-	 * the read-modify-write so parallel runners never claim the same ID.
-	 *
-	 * @return int Post ID, 0 when the queue is empty or the run stopped.
-	 */
-	private function bulk_claim() {
-		global $wpdb;
-		$lock = 'coywolf_seo_bulk_' . get_current_blog_id();
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- named lock for atomic queue claims.
-		$wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 10)', $lock ) );
-
-		$post_id = 0;
-		$state   = $this->bulk_state_fresh();
-		if ( isset( $state['status'] ) && 'running' === $state['status'] && ! empty( $state['remaining'] ) ) {
-			$post_id = (int) array_shift( $state['remaining'] );
-			update_option( self::BULK_OPTION, $state, false );
+			if ( ! $this->bulk_step( $state, $deadline ) ) {
+				break; // Waiting on Anthropic, paused, or finished.
+			}
 		}
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- releases the named lock above.
 		$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
-		return $post_id;
 	}
 
 	/**
-	 * Count a processed post, track failures, trip the circuit breaker on
-	 * a failure streak, and close the run when the queue is empty.
+	 * One state-machine step.
 	 *
-	 * @param string $error Error message when the post failed, '' otherwise.
+	 * @param array $state    Fresh run state.
+	 * @param int   $deadline Unix time budget limit for drains.
+	 * @return bool Whether another step can run immediately.
 	 */
-	private function bulk_record_done( $error = '' ) {
-		global $wpdb;
-		$lock = 'coywolf_seo_bulk_' . get_current_blog_id();
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- named lock for atomic state updates.
-		$wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 10)', $lock ) );
+	private function bulk_step( array $state, $deadline ) {
+		switch ( $state['stage'] ) {
+			case 'extract_submit':
+				return $this->bulk_submit_stage( $state, 'extract_wait', $this->extract_system(), false );
 
-		$state = $this->bulk_state_fresh();
-		if ( isset( $state['status'] ) && 'running' === $state['status'] ) {
-			$state['done'] = (int) $state['done'] + 1;
-			if ( '' !== $error ) {
-				$state['failed']     = (int) ( $state['failed'] ?? 0 ) + 1;
-				$state['streak']     = (int) ( $state['streak'] ?? 0 ) + 1;
-				$state['last_error'] = $error;
+			case 'describe_submit':
+				return $this->bulk_submit_stage( $state, 'describe_wait', $this->describe_system(), false );
+
+			case 'disambig_submit':
+				return $this->bulk_submit_stage( $state, 'disambig_wait', $this->disambiguate_system(), true );
+
+
+			case 'extract_wait':
+				return $this->bulk_collect_stage(
+					$state,
+					function ( $post_id, $text, &$row ) {
+						$row['mentions'] = $this->parse_mentions( $text );
+					},
+					'ground'
+				);
+
+			case 'disambig_wait':
+				return $this->bulk_collect_stage(
+					$state,
+					function ( $post_id, $text, &$row ) {
+						$decoded        = $this->decode_json( $text );
+						$row['choices'] = is_array( $decoded ) ? $decoded : array();
+					},
+					'verify'
+				);
+
+			case 'describe_wait':
+				return $this->bulk_collect_stage(
+					$state,
+					function ( $post_id, $text, &$row ) {
+						$row['description'] = $this->clean_description( $text );
+					},
+					'finalize'
+				);
+
+			case 'ground':
+				while ( time() < $deadline && ! empty( $state['queue'] ) ) {
+					$post_id = (int) array_shift( $state['queue'] );
+					$row     = (array) get_post_meta( $post_id, self::BULK_META, true );
+					$result  = $this->ground_candidates( isset( $row['mentions'] ) ? (array) $row['mentions'] : array() );
+					$row['mentions']  = $result[0];
+					$row['ambiguous'] = $result[1];
+					update_post_meta( $post_id, self::BULK_META, $row );
+					if ( ! $this->bulk_persist( $state ) ) {
+						return false;
+					}
+				}
+				if ( empty( $state['queue'] ) ) {
+					$needs_model = array();
+					foreach ( (array) $state['pipeline'] as $post_id ) {
+						$row = (array) get_post_meta( (int) $post_id, self::BULK_META, true );
+						if ( ! empty( $row['ambiguous'] ) ) {
+							$needs_model[] = (int) $post_id;
+						}
+					}
+					$state['queue'] = $needs_model;
+					$state['stage'] = ! empty( $needs_model ) ? 'disambig_submit' : 'verify';
+					if ( 'verify' === $state['stage'] ) {
+						$state['queue'] = array_values( (array) $state['pipeline'] );
+					}
+					return $this->bulk_persist( $state );
+				}
+				return true;
+
+			case 'verify':
+				while ( time() < $deadline && ! empty( $state['queue'] ) ) {
+					$post_id  = (int) array_shift( $state['queue'] );
+					$row      = (array) get_post_meta( $post_id, self::BULK_META, true );
+					$mentions = isset( $row['mentions'] ) ? (array) $row['mentions'] : array();
+					if ( ! empty( $row['ambiguous'] ) && ! empty( $row['choices'] ) ) {
+						$mentions = $this->apply_choices( $mentions, (array) $row['ambiguous'], (array) $row['choices'] );
+					}
+					$row['entities'] = $this->verify_resolved( $mentions );
+					update_post_meta( $post_id, self::BULK_META, $row );
+					if ( ! $this->bulk_persist( $state ) ) {
+						return false;
+					}
+				}
+				if ( empty( $state['queue'] ) ) {
+					$state['stage'] = $this->descriptions_on() ? 'describe_submit' : 'finalize';
+					$state['queue'] = array_values( (array) $state['pipeline'] );
+					return $this->bulk_persist( $state );
+				}
+				return true;
+
+			case 'finalize':
+				while ( time() < $deadline && ! empty( $state['queue'] ) ) {
+					$post_id = (int) array_shift( $state['queue'] );
+					$this->bulk_finalize_post( $post_id );
+					$state['done'] = (int) $state['done'] + 1;
+					if ( ! $this->bulk_persist( $state ) ) {
+						return false;
+					}
+				}
+				if ( empty( $state['queue'] ) ) {
+					$state['status']   = 'done';
+					$state['finished'] = gmdate( 'c' );
+					if ( ! $this->bulk_persist( $state ) ) {
+						return false;
+					}
+					$successes = max( 0, (int) $state['done'] - (int) $state['failed'] );
+					if ( $successes > 0 ) {
+						Coywolf_SEO_AI_Batch::record_usage( (int) $state['usage_in'], (int) $state['usage_out'], $successes );
+					}
+					return false;
+				}
+				return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Submit a model batch for the current pipeline (or the queued
+	 * subset for disambiguation).
+	 *
+	 * @param array  $state      Run state.
+	 * @param string $next_stage Wait stage on success.
+	 * @param string $system     System prompt for every request.
+	 * @param bool   $queued     Build from state.queue (disambiguation)
+	 *                           instead of the whole pipeline.
+	 * @return bool
+	 */
+	private function bulk_submit_stage( array $state, $next_stage, $system, $queued ) {
+		// First entry into the stage seeds its submission queue.
+		if ( ! isset( $state['stage_queue'] ) || ! is_array( $state['stage_queue'] ) ) {
+			$state['stage_queue'] = $queued ? array_values( (array) $state['queue'] ) : array_values( (array) $state['pipeline'] );
+		}
+
+		/**
+		 * Posts per submitted batch — Anthropic caps batches at 100k
+		 * requests / 256 MB; chunking keeps payloads well clear.
+		 *
+		 * @param int $size Default 500.
+		 */
+		$chunk_size = max( 1, (int) apply_filters( 'coywolf_seo_bulk_batch_size', 500 ) );
+		$batch      = $this->batch();
+		$requests   = array();
+		$bytes      = 0;
+		while ( ! empty( $state['stage_queue'] ) && count( $requests ) < $chunk_size && $bytes < 32 * MB_IN_BYTES ) {
+			$post_id = (int) array_shift( $state['stage_queue'] );
+			$post    = get_post( $post_id );
+			if ( ! $post ) {
+				continue;
+			}
+			$title   = get_the_title( $post );
+			$content = $this->plain_content( $post );
+			if ( $queued ) {
+				$row  = (array) get_post_meta( $post_id, self::BULK_META, true );
+				$user = $this->disambiguate_user( (array) ( $row['ambiguous'] ?? array() ), $title, $content );
 			} else {
-				$state['streak'] = 0;
+				$user = $this->prompt_user( $title, $content );
 			}
-
-			/**
-			 * Consecutive failures before a bulk run pauses itself —
-			 * e.g. an exhausted API credit balance fails every post.
-			 *
-			 * @param int $streak Default 3.
-			 */
-			$breaker = max( 1, (int) apply_filters( 'coywolf_seo_bulk_failure_streak', 3 ) );
-			if ( ! empty( $state['remaining'] ) && (int) ( $state['streak'] ?? 0 ) >= $breaker ) {
-				$state['status']        = 'paused';
-				$state['paused_reason'] = $error;
-			} elseif ( empty( $state['remaining'] ) ) {
-				$state['status']   = 'done';
-				$state['finished'] = gmdate( 'c' );
-			}
-			update_option( self::BULK_OPTION, $state, false );
+			$bytes     += strlen( $user );
+			$requests[] = $batch->request( 'p' . $post_id, $system, $user );
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- releases the named lock above.
-		$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
+		if ( empty( $requests ) ) {
+			// Nothing left to ask the model in this stage.
+			$state['stage']       = $next_stage;
+			$state['batch_id']    = '';
+			$state['stage_queue'] = null;
+			return $this->bulk_persist( $state );
+		}
+
+		$batch_id = $batch->submit( $requests );
+		if ( is_wp_error( $batch_id ) ) {
+			$this->bulk_pause_with( $state, $batch_id->get_error_message() );
+			return false;
+		}
+		$state['stage']    = $next_stage;
+		$state['batch_id'] = $batch_id;
+		$this->bulk_persist( $state );
+		return false; // Wait for Anthropic.
+	}
+
+	/**
+	 * Poll the in-flight batch; when it has ended, hand each post's text
+	 * to the collector and move to the next stage.
+	 *
+	 * @param array    $state     Run state.
+	 * @param callable $collector function( $post_id, $text, &$row ).
+	 * @param string   $next_stage Stage once collected.
+	 * @return bool
+	 */
+	private function bulk_collect_stage( array $state, $collector, $next_stage ) {
+		if ( '' === (string) $state['batch_id'] ) {
+			// The submit stage had nothing to send.
+			$state['stage'] = $next_stage;
+			$state['queue'] = array_values( (array) $state['pipeline'] );
+			return $this->bulk_persist( $state );
+		}
+
+		$batch = $this->batch();
+		$poll  = $batch->poll( (string) $state['batch_id'] );
+		if ( is_wp_error( $poll ) ) {
+			$this->bulk_pause_with( $state, $poll->get_error_message() );
+			return false;
+		}
+		if ( empty( $poll['ended'] ) ) {
+			return false; // Still processing at Anthropic.
+		}
+
+		$results = $batch->results( (string) $poll['results_url'] );
+		if ( is_wp_error( $results ) ) {
+			$this->bulk_pause_with( $state, $results->get_error_message() );
+			return false;
+		}
+
+		$survivors = array();
+		foreach ( (array) $state['pipeline'] as $post_id ) {
+			$post_id = (int) $post_id;
+			$key     = 'p' . $post_id;
+			if ( ! isset( $results[ $key ] ) ) {
+				$survivors[] = $post_id; // Not part of this batch (e.g. unambiguous posts during disambiguation).
+				continue;
+			}
+			$result               = $results[ $key ];
+			$state['usage_in']    = (int) $state['usage_in'] + (int) $result['input'];
+			$state['usage_out']   = (int) $state['usage_out'] + (int) $result['output'];
+			if ( empty( $result['ok'] ) ) {
+				$this->bulk_fail_post( $post_id, (string) $result['error'], $state );
+				continue;
+			}
+			$row = (array) get_post_meta( $post_id, self::BULK_META, true );
+			call_user_func_array( $collector, array( $post_id, (string) $result['text'], &$row ) );
+			update_post_meta( $post_id, self::BULK_META, $row );
+			$survivors[] = $post_id;
+		}
+
+		$state['pipeline'] = $survivors;
+		$state['batch_id'] = '';
+		if ( ! empty( $state['stage_queue'] ) ) {
+			// More chunks to submit in this stage.
+			$state['stage'] = str_replace( '_wait', '_submit', (string) $state['stage'] );
+		} else {
+			$state['stage']       = $next_stage;
+			$state['queue']       = array_values( $survivors );
+			$state['stage_queue'] = null;
+		}
+		return $this->bulk_persist( $state );
+	}
+
+	/**
+	 * Store the final analysis for one post and clean its staging meta.
+	 *
+	 * @param int $post_id Post ID.
+	 */
+	private function bulk_finalize_post( $post_id ) {
+		$post = get_post( $post_id );
+		$raw  = get_post_meta( $post_id, self::BULK_META, true );
+		if ( ! $post || ! is_array( $raw ) || array() === $raw ) {
+			// No staging data (already finalized, or the post vanished):
+			// never overwrite a stored analysis with an empty one. The
+			// staging row is only deleted after the final write below, so
+			// a crashed finalize simply repeats safely.
+			delete_post_meta( $post_id, self::BULK_META );
+			return;
+		}
+		$row = (array) $raw;
+
+		$saved         = get_post_meta( $post_id, self::META_KEY, true );
+		$previous      = ( is_array( $saved ) && isset( $saved['entities'] ) && is_array( $saved['entities'] ) ) ? $saved['entities'] : array();
+		$previous_desc = ( is_array( $saved ) && isset( $saved['description'] ) ) ? (string) $saved['description'] : '';
+
+		$entities    = $this->enabled() ? ( isset( $row['entities'] ) ? (array) $row['entities'] : array() ) : $previous;
+		$description = $this->descriptions_on() ? ( isset( $row['description'] ) ? (string) $row['description'] : '' ) : '';
+
+		$title   = get_the_title( $post );
+		$content = $this->plain_content( $post );
+		update_post_meta(
+			$post_id,
+			self::META_KEY,
+			array(
+				'hash'        => md5( $title . "\n" . $content . "\n" . $this->config_signature() ),
+				'time'        => gmdate( 'c' ),
+				'status'      => 'ok',
+				'error'       => '',
+				'entities'    => $entities,
+				'description' => $description,
+			)
+		);
+		if ( wp_json_encode( $entities ) !== wp_json_encode( $previous ) || $description !== $previous_desc ) {
+			$this->purge_post_cache( $post_id );
+		}
+		delete_post_meta( $post_id, self::BULK_META );
+	}
+
+	/**
+	 * Drop a post from the run with its error recorded (mirrors the
+	 * real-time error path: empty hash retries on the next save).
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $error   Error message.
+	 * @param array  $state   Run state, mutated in place.
+	 */
+	private function bulk_fail_post( $post_id, $error, array &$state ) {
+		$row           = (array) get_post_meta( $post_id, self::BULK_META, true );
+		delete_post_meta( $post_id, self::BULK_META );
+		$saved         = get_post_meta( $post_id, self::META_KEY, true );
+		$previous      = ( is_array( $saved ) && isset( $saved['entities'] ) && is_array( $saved['entities'] ) ) ? $saved['entities'] : array();
+		$previous_desc = ( is_array( $saved ) && isset( $saved['description'] ) ) ? (string) $saved['description'] : '';
+		// Salvage work this run already paid for: entities verified in an
+		// earlier stage survive even when a later call failed.
+		$entities = ( ! empty( $row['entities'] ) && is_array( $row['entities'] ) ) ? $row['entities'] : $previous;
+		update_post_meta(
+			$post_id,
+			self::META_KEY,
+			array(
+				'hash'        => '',
+				'time'        => gmdate( 'c' ),
+				'status'      => 'error',
+				'error'       => $error,
+				'entities'    => $entities,
+				'description' => $previous_desc,
+			)
+		);
+		$state['failed']     = (int) $state['failed'] + 1;
+		$state['done']       = (int) $state['done'] + 1;
+		$state['last_error'] = $error;
+	}
+
+	/**
+	 * Pause the run with a reason (batch-level failures: submit, poll,
+	 * results fetch). Resume retries the same stage.
+	 *
+	 * @param array  $state  Run state.
+	 * @param string $reason Error message.
+	 */
+	private function bulk_pause_with( array $state, $reason ) {
+		$state['status']        = 'paused';
+		$state['paused_reason'] = $reason;
+		$state['last_error']    = $reason;
+		update_option( self::BULK_OPTION, $state, false );
+		wp_unschedule_hook( self::BULK_HOOK );
+	}
+
+	/**
+	 * Persist worker progress ONLY while the run is still running: a
+	 * Stop/Cancel that landed since our last read always wins, instead of
+	 * being clobbered by a stale in-memory state.
+	 *
+	 * @param array $state Worker state to persist.
+	 * @return bool False when the run was paused/cancelled meanwhile.
+	 */
+	private function bulk_persist( array $state ) {
+		$fresh = $this->bulk_state_fresh();
+		if ( ! isset( $fresh['status'] ) || 'running' !== $fresh['status'] ) {
+			return false; // Paused or cancelled: drop our stale write.
+		}
+		update_option( self::BULK_OPTION, $state, false );
+		return true;
 	}
 
 	/**
@@ -401,39 +732,6 @@ final class Coywolf_SEO_AI {
 		return (array) get_option( self::BULK_OPTION, array() );
 	}
 
-	/**
-	 * Fire-and-forget loopback requests that become parallel runners.
-	 *
-	 * @param int $count Runners to spawn; 0 = the configured concurrency.
-	 */
-	private function spawn_bulk_runners( $count = 0 ) {
-		$state = $this->bulk_state_fresh();
-		if ( empty( $state['token'] ) || empty( $state['remaining'] ) || ! isset( $state['status'] ) || 'running' !== $state['status'] ) {
-			return;
-		}
-		if ( $count < 1 ) {
-			/**
-			 * How many posts are enriched in parallel during a bulk run.
-			 *
-			 * @param int $concurrency Default 3.
-			 */
-			$count = max( 1, min( 10, (int) apply_filters( 'coywolf_seo_bulk_concurrency', 3 ) ) );
-		}
-		for ( $i = 0; $i < $count; $i++ ) {
-			wp_remote_post(
-				admin_url( 'admin-ajax.php' ),
-				array(
-					'timeout'   => 0.01,
-					'blocking'  => false,
-					'sslverify' => apply_filters( 'https_local_ssl_verify', false ),
-					'body'      => array(
-						'action' => self::BULK_RUNNER,
-						'token'  => (string) $state['token'],
-					),
-				)
-			);
-		}
-	}
 
 	/**
 	 * The bulk run's state, for the settings page and its polling.
@@ -445,11 +743,25 @@ final class Coywolf_SEO_AI {
 		$total   = isset( $state['total'] ) ? (int) $state['total'] : 0;
 		$done    = isset( $state['done'] ) ? (int) $state['done'] : 0;
 		$percent = $total > 0 ? (int) floor( ( $done / $total ) * 100 ) : 0;
+		$labels = array(
+			'extract_submit'  => __( 'Submitting the entity-extraction batch…', 'coywolf-seo' ),
+			'extract_wait'    => __( 'Entity extraction processing at Anthropic (batch rates)…', 'coywolf-seo' ),
+			'ground'          => __( 'Grounding entities against Wikidata…', 'coywolf-seo' ),
+			'disambig_submit' => __( 'Submitting the disambiguation batch…', 'coywolf-seo' ),
+			'disambig_wait'   => __( 'Disambiguation processing at Anthropic (batch rates)…', 'coywolf-seo' ),
+			'verify'          => __( 'Verifying entities…', 'coywolf-seo' ),
+			'describe_submit' => __( 'Submitting the meta-description batch…', 'coywolf-seo' ),
+			'describe_wait'   => __( 'Meta descriptions processing at Anthropic (batch rates)…', 'coywolf-seo' ),
+			'finalize'        => __( 'Saving results…', 'coywolf-seo' ),
+		);
+		$stage  = isset( $state['stage'] ) ? (string) $state['stage'] : '';
 		return array(
 			'status'        => isset( $state['status'] ) ? (string) $state['status'] : '',
 			'total'         => $total,
 			'done'          => $done,
 			'percent'       => $percent,
+			'stage_label'   => isset( $labels[ $stage ] ) ? $labels[ $stage ] : '',
+			'skipped'       => isset( $state['skipped'] ) ? (int) $state['skipped'] : 0,
 			'finished'      => isset( $state['finished'] ) ? (string) $state['finished'] : '',
 			'failed'        => isset( $state['failed'] ) ? (int) $state['failed'] : 0,
 			'last_error'    => isset( $state['last_error'] ) ? (string) $state['last_error'] : '',
@@ -465,6 +777,9 @@ final class Coywolf_SEO_AI {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( array(), 403 );
 		}
+		// Each poll gives the state machine a brief push, so progress
+		// continues while the settings page is open.
+		$this->bulk_advance( 4 );
 		wp_send_json_success( $this->bulk_status() );
 	}
 
@@ -918,13 +1233,42 @@ final class Coywolf_SEO_AI {
 	 * @return string '' when generation produced nothing usable.
 	 */
 	private function write_description( $title, $content ) {
-		$system = 'You write the meta description for a web article. '
+		$text = (string) $this->generate( $this->describe_system(), $this->prompt_user( $title, $content ) );
+		return $this->clean_description( $text );
+	}
+
+	/**
+	 * The meta-description system prompt (shared by the real-time and
+	 * batch paths).
+	 *
+	 * @return string
+	 */
+	private function describe_system() {
+		return 'You write the meta description for a web article. '
 			. 'Respond with ONLY the meta description itself — plain text, a single line, no quotation marks around it, no markdown, no preamble, no explanation. '
 			. 'It must be a faithful summary of the article content in one or two sentences, written for a search result snippet, '
 			. 'and it must be STRICTLY UNDER 200 characters.';
+	}
 
-		$text = (string) $this->generate( $system, 'Title: ' . $title . "\n\n" . $content );
-		$text = trim( wp_strip_all_tags( $text, true ) );
+	/**
+	 * The title + content user prompt (extraction and description).
+	 *
+	 * @param string $title   Post title.
+	 * @param string $content Plain content.
+	 * @return string
+	 */
+	private function prompt_user( $title, $content ) {
+		return 'Title: ' . $title . "\n\n" . $content;
+	}
+
+	/**
+	 * Normalize and cap a generated meta description.
+	 *
+	 * @param string $text Raw model output.
+	 * @return string
+	 */
+	private function clean_description( $text ) {
+		$text = trim( wp_strip_all_tags( (string) $text, true ) );
 		// Strip wrapping quotes the model might add (Unicode-aware — a
 		// byte-based trim would corrupt multibyte characters).
 		$text = (string) preg_replace( '/^["\'\x{201C}\x{2018}]+|["\'\x{201D}\x{2019}]+$/u', '', $text );
@@ -948,7 +1292,18 @@ final class Coywolf_SEO_AI {
 	 * @return array Rows of surface/name/type/description/primary.
 	 */
 	private function extract_mentions( $title, $content ) {
-		$system = 'You extract named entities from an article for SEO schema markup. '
+		$text = $this->generate( $this->extract_system(), $this->prompt_user( $title, $content ) );
+		return $this->parse_mentions( $text );
+	}
+
+	/**
+	 * The extraction system prompt (shared by the real-time and batch
+	 * paths).
+	 *
+	 * @return string
+	 */
+	private function extract_system() {
+		return 'You extract named entities from an article for SEO schema markup. '
 			. 'Respond with ONLY a JSON array — no prose, no code fences. Each element is an object with exactly these keys: '
 			. '"surface" (the entity exactly as written in the article), '
 			. '"name" (the canonical, normalized name), '
@@ -958,8 +1313,15 @@ final class Coywolf_SEO_AI {
 			. 'Rules: never output identifiers, QIDs, database IDs, or URLs of any kind. '
 			. 'Only include real-world entities a reader could look up — people, organizations, places, products, published works, well-defined concepts. '
 			. 'Skip the article author and the publishing website itself. At most 12 entities. If there are none, return [].';
+	}
 
-		$text = $this->generate( $system, 'Title: ' . $title . "\n\n" . $content );
+	/**
+	 * Parse and sanitize the extraction response.
+	 *
+	 * @param string $text Raw model output.
+	 * @return array Rows of surface/name/type/description/primary.
+	 */
+	private function parse_mentions( $text ) {
 		$rows = $this->decode_json( $text );
 		if ( ! is_array( $rows ) ) {
 			return array();
@@ -997,7 +1359,26 @@ final class Coywolf_SEO_AI {
 	 * @return array Grounded entities (name/type/description/qid/primary).
 	 */
 	private function ground_mentions( array $mentions, $title, $content ) {
-		// Stage 2: deterministic candidate lookup per mention.
+		list( $mentions, $ambiguous ) = $this->ground_candidates( $mentions );
+
+		// Stage 3: the model chooses among the real candidates.
+		if ( ! empty( $ambiguous ) ) {
+			$choices  = $this->disambiguate( $ambiguous, $title, $content );
+			$mentions = $this->apply_choices( $mentions, $ambiguous, $choices );
+		}
+
+		return $this->verify_resolved( $mentions );
+	}
+
+	/**
+	 * Stage 2 — deterministic candidate lookup per mention. Single
+	 * candidates resolve immediately; multiple candidates queue for
+	 * disambiguation.
+	 *
+	 * @param array $mentions Extracted mentions.
+	 * @return array { mentions with qid/candidates, ambiguous subset }
+	 */
+	private function ground_candidates( array $mentions ) {
 		$ambiguous = array();
 		foreach ( $mentions as $i => $mention ) {
 			$candidates                  = $this->wikidata_search( $mention['name'] );
@@ -1012,26 +1393,43 @@ final class Coywolf_SEO_AI {
 				$ambiguous[ $i ] = $mentions[ $i ];
 			}
 		}
+		return array( $mentions, $ambiguous );
+	}
 
-		// Stage 3: the model chooses among the real candidates.
-		if ( ! empty( $ambiguous ) ) {
-			$choices = $this->disambiguate( $ambiguous, $title, $content );
-			foreach ( $ambiguous as $i => $mention ) {
-				$name = $mention['name'];
-				if ( ! isset( $choices[ $name ] ) || ! is_string( $choices[ $name ] ) ) {
-					continue;
-				}
-				$chosen = strtoupper( trim( $choices[ $name ] ) );
-				// Trust the choice only if it is one of the real candidates.
-				foreach ( $mention['candidates'] as $candidate ) {
-					if ( $candidate['id'] === $chosen ) {
-						$mentions[ $i ]['qid'] = $chosen;
-						break;
-					}
+	/**
+	 * Stage 3 application — trust a choice only when it is one of the
+	 * real candidates.
+	 *
+	 * @param array $mentions  All mentions (with candidates).
+	 * @param array $ambiguous The subset that was disambiguated, by index.
+	 * @param array $choices   Name => QID map from the model.
+	 * @return array Mentions with chosen qids filled in.
+	 */
+	private function apply_choices( array $mentions, array $ambiguous, array $choices ) {
+		foreach ( $ambiguous as $i => $mention ) {
+			$name = $mention['name'];
+			if ( ! isset( $choices[ $name ] ) || ! is_string( $choices[ $name ] ) ) {
+				continue;
+			}
+			$chosen = strtoupper( trim( $choices[ $name ] ) );
+			foreach ( $mention['candidates'] as $candidate ) {
+				if ( $candidate['id'] === $chosen ) {
+					$mentions[ $i ]['qid'] = $chosen;
+					break;
 				}
 			}
 		}
+		return $mentions;
+	}
 
+	/**
+	 * Stage 4 — P31 type verification plus the Wikipedia sitelink, for
+	 * every mention that resolved to a QID.
+	 *
+	 * @param array $mentions Mentions, some with qids.
+	 * @return array Final entity rows.
+	 */
+	private function verify_resolved( array $mentions ) {
 		$resolved = array();
 		foreach ( $mentions as $mention ) {
 			if ( '' !== $mention['qid'] ) {
@@ -1042,8 +1440,6 @@ final class Coywolf_SEO_AI {
 			return array();
 		}
 
-		// Stage 4: rough P31 (instance of) type verification, plus the
-		// Wikipedia sitelink that rides along in the same call.
 		$details = $this->wikidata_details( wp_list_pluck( $resolved, 'qid' ) );
 		$final   = array();
 		foreach ( $resolved as $mention ) {
@@ -1085,11 +1481,34 @@ final class Coywolf_SEO_AI {
 	 * @return array Map of entity name => QID string or null.
 	 */
 	private function disambiguate( array $ambiguous, $title, $content ) {
-		$system = 'You match entities from an article to Wikidata items. '
+		$text    = $this->generate( $this->disambiguate_system(), $this->disambiguate_user( $ambiguous, $title, $content ) );
+		$decoded = $this->decode_json( $text );
+		return is_array( $decoded ) ? $decoded : array();
+	}
+
+	/**
+	 * The disambiguation system prompt (shared by the real-time and batch
+	 * paths).
+	 *
+	 * @return string
+	 */
+	private function disambiguate_system() {
+		return 'You match entities from an article to Wikidata items. '
 			. 'Respond with ONLY a JSON object — no prose, no code fences — mapping each entity name to the QID string of the best-matching candidate, or null when no candidate clearly matches. '
 			. 'Choose strictly among the provided candidates. Never produce a QID that is not listed. '
 			. 'Use the article context, the entity type, and each candidate\'s Wikidata description to decide. If the choice is unclear, use null.';
+	}
 
+	/**
+	 * The disambiguation user prompt: article context plus each entity's
+	 * real candidates.
+	 *
+	 * @param array  $ambiguous Mentions with their candidate lists.
+	 * @param string $title     Post title.
+	 * @param string $content   Plain content.
+	 * @return string
+	 */
+	private function disambiguate_user( array $ambiguous, $title, $content ) {
 		$context = function_exists( 'mb_substr' ) ? mb_substr( $content, 0, 600 ) : substr( $content, 0, 600 );
 		$lines   = array( 'Article: ' . $title . ' — ' . $context, '', 'Entities and their candidates:' );
 		foreach ( $ambiguous as $mention ) {
@@ -1098,10 +1517,7 @@ final class Coywolf_SEO_AI {
 				$lines[] = '  ' . $candidate['id'] . ': ' . $candidate['label'] . ( '' !== $candidate['description'] ? ' — ' . $candidate['description'] : '' );
 			}
 		}
-
-		$text    = $this->generate( $system, implode( "\n", $lines ) );
-		$decoded = $this->decode_json( $text );
-		return is_array( $decoded ) ? $decoded : array();
+		return implode( "\n", $lines );
 	}
 
 	/**
