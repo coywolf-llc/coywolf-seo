@@ -282,6 +282,48 @@ final class Coywolf_SEO_Redirects_Admin {
 	}
 
 	/**
+	 * The item count and page links, in core list-table markup.
+	 *
+	 * @param int    $total       Total rules.
+	 * @param int    $total_pages Total pages.
+	 * @param int    $paged       Current page.
+	 * @param string $list_url    Current list URL with filters.
+	 */
+	private function render_pagination( $total, $total_pages, $paged, $list_url ) {
+		?>
+		<div class="tablenav-pages<?php echo $total_pages <= 1 ? ' one-page' : ''; ?>">
+			<span class="displaying-num">
+				<?php
+				printf(
+					/* translators: %d: number of redirect rules. */
+					esc_html( _n( '%d rule', '%d rules', $total, 'coywolf-seo' ) ),
+					(int) $total
+				);
+				?>
+			</span>
+			<?php if ( $total_pages > 1 ) : ?>
+				<span class="pagination-links">
+					<?php
+					echo wp_kses_post(
+						(string) paginate_links(
+							array(
+								'base'      => add_query_arg( 'paged', '%#%', $list_url ),
+								'format'    => '',
+								'current'   => $paged,
+								'total'     => $total_pages,
+								'prev_text' => __( '&lsaquo;', 'coywolf-seo' ),
+								'next_text' => __( '&rsaquo;', 'coywolf-seo' ),
+							)
+						)
+					);
+					?>
+				</span>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Render the page.
 	 */
 	public function render() {
@@ -462,49 +504,63 @@ final class Coywolf_SEO_Redirects_Admin {
 				</form>
 			</div>
 
-			<h2 class="coywolf-seo-rules-heading">
-				<?php
-				printf(
-					/* translators: %d: number of redirect rules. */
-					esc_html( _n( '%d rule', '%d rules', $total_rules, 'coywolf-seo' ) ),
-					(int) $total_rules
-				);
-				?>
-			</h2>
+			<div class="coywolf-seo-rules-list">
 
-			<div class="coywolf-seo-tablenav">
-				<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="coywolf-seo-filter-form">
-					<input type="hidden" name="page" value="<?php echo esc_attr( Coywolf_SEO_Redirects::SLUG ); ?>" />
-					<input type="search" name="s" value="<?php echo esc_attr( $search ); ?>" placeholder="<?php esc_attr_e( 'Search source, target, note…', 'coywolf-seo' ); ?>" />
-					<select name="rtype" aria-label="<?php esc_attr_e( 'Filter by type', 'coywolf-seo' ); ?>">
-						<option value=""><?php esc_html_e( 'All types', 'coywolf-seo' ); ?></option>
-						<?php foreach ( $types as $code => $label ) : ?>
-							<option value="<?php echo esc_attr( (string) $code ); ?>" <?php selected( $f_type, $code ); ?>><?php echo esc_html( (string) $code ); ?></option>
-						<?php endforeach; ?>
-					</select>
-					<select name="rstatus" aria-label="<?php esc_attr_e( 'Filter by status', 'coywolf-seo' ); ?>">
-						<option value=""><?php esc_html_e( 'All statuses', 'coywolf-seo' ); ?></option>
-						<option value="enabled" <?php selected( $f_status, 'enabled' ); ?>><?php esc_html_e( 'Enabled', 'coywolf-seo' ); ?></option>
-						<option value="disabled" <?php selected( $f_status, 'disabled' ); ?>><?php esc_html_e( 'Disabled', 'coywolf-seo' ); ?></option>
-					</select>
-					<button type="submit" class="button"><?php esc_html_e( 'Filter', 'coywolf-seo' ); ?></button>
-					<?php if ( '' !== $search || $f_type || '' !== $f_status ) : ?>
-						<a class="button-link" href="<?php echo esc_url( $base_url ); ?>"><?php esc_html_e( 'Clear', 'coywolf-seo' ); ?></a>
-					<?php endif; ?>
-				</form>
+			<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>">
+				<input type="hidden" name="page" value="<?php echo esc_attr( Coywolf_SEO_Redirects::SLUG ); ?>" />
+				<?php if ( $f_type ) : ?>
+					<input type="hidden" name="rtype" value="<?php echo esc_attr( (string) $f_type ); ?>" />
+				<?php endif; ?>
+				<?php if ( '' !== $f_status ) : ?>
+					<input type="hidden" name="rstatus" value="<?php echo esc_attr( $f_status ); ?>" />
+				<?php endif; ?>
+				<p class="search-box">
+					<label class="screen-reader-text" for="coywolf-seo-rule-search"><?php esc_html_e( 'Search rules', 'coywolf-seo' ); ?></label>
+					<input type="search" id="coywolf-seo-rule-search" name="s" value="<?php echo esc_attr( $search ); ?>" placeholder="<?php esc_attr_e( 'Source, target, note…', 'coywolf-seo' ); ?>" />
+					<input type="submit" class="button" value="<?php esc_attr_e( 'Search rules', 'coywolf-seo' ); ?>" />
+				</p>
+			</form>
 
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="coywolf-seo-bulk" class="coywolf-seo-bulk-form">
-					<input type="hidden" name="action" value="coywolf_seo_redirect_bulk" />
-					<?php wp_nonce_field( 'coywolf_seo_redirect_bulk' ); ?>
-					<input type="hidden" name="return_to" value="<?php echo esc_attr( $list_url ); ?>" />
-					<select name="bulk_action" aria-label="<?php esc_attr_e( 'Bulk action', 'coywolf-seo' ); ?>">
-						<option value=""><?php esc_html_e( 'Bulk actions', 'coywolf-seo' ); ?></option>
-						<option value="enable"><?php esc_html_e( 'Enable', 'coywolf-seo' ); ?></option>
-						<option value="disable"><?php esc_html_e( 'Disable', 'coywolf-seo' ); ?></option>
-						<option value="delete"><?php esc_html_e( 'Delete', 'coywolf-seo' ); ?></option>
-					</select>
-					<button type="submit" class="button"><?php esc_html_e( 'Apply', 'coywolf-seo' ); ?></button>
-				</form>
+			<div class="tablenav top">
+				<div class="alignleft actions bulkactions">
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="coywolf-seo-bulk">
+						<input type="hidden" name="action" value="coywolf_seo_redirect_bulk" />
+						<?php wp_nonce_field( 'coywolf_seo_redirect_bulk' ); ?>
+						<input type="hidden" name="return_to" value="<?php echo esc_attr( $list_url ); ?>" />
+						<select name="bulk_action" aria-label="<?php esc_attr_e( 'Bulk action', 'coywolf-seo' ); ?>">
+							<option value=""><?php esc_html_e( 'Bulk actions', 'coywolf-seo' ); ?></option>
+							<option value="enable"><?php esc_html_e( 'Enable', 'coywolf-seo' ); ?></option>
+							<option value="disable"><?php esc_html_e( 'Disable', 'coywolf-seo' ); ?></option>
+							<option value="delete"><?php esc_html_e( 'Delete', 'coywolf-seo' ); ?></option>
+						</select>
+						<button type="submit" class="button action"><?php esc_html_e( 'Apply', 'coywolf-seo' ); ?></button>
+					</form>
+				</div>
+				<div class="alignleft actions">
+					<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>">
+						<input type="hidden" name="page" value="<?php echo esc_attr( Coywolf_SEO_Redirects::SLUG ); ?>" />
+						<?php if ( '' !== $search ) : ?>
+							<input type="hidden" name="s" value="<?php echo esc_attr( $search ); ?>" />
+						<?php endif; ?>
+						<select name="rtype" aria-label="<?php esc_attr_e( 'Filter by type', 'coywolf-seo' ); ?>">
+							<option value=""><?php esc_html_e( 'All types', 'coywolf-seo' ); ?></option>
+							<?php foreach ( $types as $code => $label ) : ?>
+								<option value="<?php echo esc_attr( (string) $code ); ?>" <?php selected( $f_type, $code ); ?>><?php echo esc_html( (string) $code ); ?></option>
+							<?php endforeach; ?>
+						</select>
+						<select name="rstatus" aria-label="<?php esc_attr_e( 'Filter by status', 'coywolf-seo' ); ?>">
+							<option value=""><?php esc_html_e( 'All statuses', 'coywolf-seo' ); ?></option>
+							<option value="enabled" <?php selected( $f_status, 'enabled' ); ?>><?php esc_html_e( 'Enabled', 'coywolf-seo' ); ?></option>
+							<option value="disabled" <?php selected( $f_status, 'disabled' ); ?>><?php esc_html_e( 'Disabled', 'coywolf-seo' ); ?></option>
+						</select>
+						<button type="submit" class="button"><?php esc_html_e( 'Filter', 'coywolf-seo' ); ?></button>
+						<?php if ( '' !== $search || $f_type || '' !== $f_status ) : ?>
+							<a class="button-link" href="<?php echo esc_url( $base_url ); ?>"><?php esc_html_e( 'Clear', 'coywolf-seo' ); ?></a>
+						<?php endif; ?>
+					</form>
+				</div>
+				<?php $this->render_pagination( $total_rules, $total_pages, $paged, $list_url ); ?>
+				<br class="clear" />
 			</div>
 
 			<table class="widefat striped coywolf-seo-rules">
@@ -594,24 +650,12 @@ final class Coywolf_SEO_Redirects_Admin {
 				</tbody>
 			</table>
 
-			<?php if ( $total_pages > 1 ) : ?>
-				<div class="coywolf-seo-pagination">
-					<?php
-					echo wp_kses_post(
-						(string) paginate_links(
-							array(
-								'base'      => add_query_arg( 'paged', '%#%', $list_url ),
-								'format'    => '',
-								'current'   => $paged,
-								'total'     => $total_pages,
-								'prev_text' => __( '&laquo; Previous', 'coywolf-seo' ),
-								'next_text' => __( 'Next &raquo;', 'coywolf-seo' ),
-							)
-						)
-					);
-					?>
-				</div>
-			<?php endif; ?>
+			<div class="tablenav bottom">
+				<?php $this->render_pagination( $total_rules, $total_pages, $paged, $list_url ); ?>
+				<br class="clear" />
+			</div>
+
+			</div><!-- .coywolf-seo-rules-list -->
 
 		</div>
 		<?php

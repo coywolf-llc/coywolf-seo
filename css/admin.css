@@ -187,47 +187,36 @@
 	width: 28px;
 }
 
-.coywolf-seo-tablenav {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	gap: 16px;
-	flex-wrap: wrap;
+/* The rules list mirrors the Posts list table; one container keeps the
+   search box, tablenav, and table on a shared width. */
+.coywolf-seo-rules-list {
 	max-width: 1100px;
-	margin: 12px 0 8px;
 }
 
-.coywolf-seo-filter-form,
-.coywolf-seo-bulk-form {
-	display: flex;
-	align-items: center;
-	gap: 8px;
+.coywolf-seo-rules-list .tablenav form {
+	display: inline;
 }
 
-.coywolf-seo-filter-form input[type='search'] {
-	min-width: 240px;
+.coywolf-seo-rules-list .search-box input[type='search'] {
+	min-width: 220px;
 }
 
-.coywolf-seo-pagination {
-	margin: 12px 0;
-	max-width: 1100px;
-	text-align: right;
-}
-
-.coywolf-seo-pagination .page-numbers {
+.coywolf-seo-rules-list .tablenav-pages .page-numbers {
 	display: inline-block;
-	padding: 4px 9px;
-	margin-left: 2px;
+	min-width: 17px;
+	padding: 3px 5px 7px;
+	background: #f6f7f7;
 	border: 1px solid #dcdcde;
-	border-radius: 2px;
-	background: #fff;
+	text-align: center;
 	text-decoration: none;
+	font-size: 16px;
+	line-height: 1;
 }
 
-.coywolf-seo-pagination .page-numbers.current {
-	background: #2271b1;
-	border-color: #2271b1;
-	color: #fff;
+.coywolf-seo-rules-list .tablenav-pages .page-numbers.current {
+	background: #fff;
+	border-color: #8c8f94;
+	color: #2c3338;
 }
 
 .coywolf-seo-disabled td {
