@@ -21,6 +21,9 @@ Coywolf SEO is built on a simple idea: an SEO plugin should give you exactly wha
 - **Robots meta** — `index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1` by default, each directive toggleable.
 - **Canonical links** — on the homepage, posts, pages, categories, and tags, with pagination handled and a per-post canonical override.
 - **SEO section on posts and pages** — override the schema page/article type, set Noindex/Nofollow, or replace the canonical link.
+- **Schema markup** — one JSON-LD graph per page: WebSite, your Organization (with every property you added) or Person as the publisher, the typed WebPage, the typed Article with its author, and CollectionPage on category and tag archives.
+- **Authors** — pick a user and the plugin imports their account details as Schema.org Person properties; add anything from the full Person catalog. Used as the author in Article markup.
+- **Open Graph** — og: tags on the homepage, posts, pages, categories, and tags, with the featured image falling back to your default Open Graph image. No Twitter/X tags — X reads Open Graph.
 - **Access rights** — choose whether Editors can manage the plugin alongside Administrators.
 
 <!-- wporg-strip:start -->

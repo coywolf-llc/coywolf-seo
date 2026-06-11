@@ -60,6 +60,27 @@ final class Coywolf_SEO {
 	private $head;
 
 	/**
+	 * Schema markup module.
+	 *
+	 * @var Coywolf_SEO_Schema
+	 */
+	private $schema;
+
+	/**
+	 * Open Graph module.
+	 *
+	 * @var Coywolf_SEO_OpenGraph
+	 */
+	private $opengraph;
+
+	/**
+	 * Authors page module.
+	 *
+	 * @var Coywolf_SEO_Authors
+	 */
+	private $authors;
+
+	/**
 	 * Create (once) and return the plugin instance.
 	 *
 	 * @return Coywolf_SEO
@@ -80,6 +101,15 @@ final class Coywolf_SEO {
 
 		$this->head = new Coywolf_SEO_Head();
 		$this->head->init();
+
+		$this->schema = new Coywolf_SEO_Schema();
+		$this->schema->init();
+
+		$this->opengraph = new Coywolf_SEO_OpenGraph();
+		$this->opengraph->init();
+
+		$this->authors = new Coywolf_SEO_Authors();
+		$this->authors->init();
 
 		if ( is_admin() ) {
 			$this->admin = new Coywolf_SEO_Admin();
@@ -106,6 +136,15 @@ final class Coywolf_SEO {
 	 */
 	public function head() {
 		return $this->head;
+	}
+
+	/**
+	 * Authors module accessor (the Admin menu renders its page).
+	 *
+	 * @return Coywolf_SEO_Authors
+	 */
+	public function authors() {
+		return $this->authors;
 	}
 
 	/**

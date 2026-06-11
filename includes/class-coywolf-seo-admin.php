@@ -97,6 +97,14 @@ final class Coywolf_SEO_Admin {
 		);
 		add_submenu_page(
 			self::SLUG_SITE,
+			__( 'Authors', 'coywolf-seo' ),
+			__( 'Authors', 'coywolf-seo' ),
+			self::CAPABILITY,
+			Coywolf_SEO_Authors::SLUG,
+			array( Coywolf_SEO::instance()->authors(), 'render' )
+		);
+		add_submenu_page(
+			self::SLUG_SITE,
 			__( 'Settings', 'coywolf-seo' ),
 			__( 'Settings', 'coywolf-seo' ),
 			'manage_options',
@@ -140,9 +148,13 @@ final class Coywolf_SEO_Admin {
 		if ( ! $saved || ! $screen || strpos( (string) $screen->id, self::SLUG_SITE ) === false ) {
 			return;
 		}
-		$message = ( 'settings' === $saved )
-			? __( 'Settings saved.', 'coywolf-seo' )
-			: __( 'Site details saved.', 'coywolf-seo' );
+		if ( 'settings' === $saved ) {
+			$message = __( 'Settings saved.', 'coywolf-seo' );
+		} elseif ( 'author' === $saved ) {
+			$message = __( 'The author details have been saved.', 'coywolf-seo' );
+		} else {
+			$message = __( 'Site details saved.', 'coywolf-seo' );
+		}
 		printf( '<div class="notice notice-success is-dismissible"><p>%s</p></div>', esc_html( $message ) );
 	}
 
@@ -359,7 +371,7 @@ final class Coywolf_SEO_Admin {
 									<?php endforeach; ?>
 								</tbody>
 							</table>
-							<button type="button" class="button" id="coywolf-seo-add-prop"><?php esc_html_e( 'Add property', 'coywolf-seo' ); ?></button>
+							<button type="button" class="button coywolf-seo-add-row" data-target="coywolf-seo-org-props"><?php esc_html_e( 'Add property', 'coywolf-seo' ); ?></button>
 							<p class="description"><?php esc_html_e( 'Schema.org Organization properties. Add a property more than once (sameAs, for example) to output multiple values. Empty rows are not saved.', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
