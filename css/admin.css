@@ -85,11 +85,12 @@
 }
 
 .coywolf-seo-deletion-notice {
-	padding: 8px 16px 12px;
+	padding: 4px 12px 8px;
 }
 
 .coywolf-seo-deletion-notice h3 {
-	margin: 6px 0 8px;
+	margin: 6px 0 4px;
+	font-size: 13px;
 }
 
 .coywolf-seo-decision-table {
@@ -98,7 +99,7 @@
 }
 
 .coywolf-seo-decision-table td {
-	padding: 6px 12px 6px 0;
+	padding: 2px 12px 2px 0;
 	vertical-align: middle;
 }
 
@@ -107,13 +108,18 @@
 }
 
 /* Decision rows: the 410 button, the redirect field/button pair, and the
-   dismiss link sit on one centered line instead of wobbling on the text
-   baseline. */
+   dismiss link sit on one centered line — never stacked. */
 .coywolf-seo-pending .coywolf-seo-cell-actions {
 	display: flex;
 	align-items: center;
 	gap: 10px;
-	flex-wrap: wrap;
+	flex-wrap: nowrap;
+	justify-content: flex-end;
+	white-space: nowrap;
+}
+
+.coywolf-seo-pending .coywolf-seo-inline-form input.regular-text {
+	width: 220px;
 }
 
 .coywolf-seo-pending .coywolf-seo-inline-form {
@@ -166,6 +172,53 @@
 
 .coywolf-seo-rules .coywolf-seo-col-on {
 	width: 36px;
+}
+
+.coywolf-seo-rules .coywolf-seo-col-cb {
+	width: 28px;
+}
+
+.coywolf-seo-tablenav {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 16px;
+	flex-wrap: wrap;
+	max-width: 1100px;
+	margin: 12px 0 8px;
+}
+
+.coywolf-seo-filter-form,
+.coywolf-seo-bulk-form {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.coywolf-seo-filter-form input[type='search'] {
+	min-width: 240px;
+}
+
+.coywolf-seo-pagination {
+	margin: 12px 0;
+	max-width: 1100px;
+	text-align: right;
+}
+
+.coywolf-seo-pagination .page-numbers {
+	display: inline-block;
+	padding: 4px 9px;
+	margin-left: 2px;
+	border: 1px solid #dcdcde;
+	border-radius: 2px;
+	background: #fff;
+	text-decoration: none;
+}
+
+.coywolf-seo-pagination .page-numbers.current {
+	background: #2271b1;
+	border-color: #2271b1;
+	color: #fff;
 }
 
 .coywolf-seo-disabled td {
