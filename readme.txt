@@ -4,7 +4,7 @@ Tags: seo
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.9
+Stable tag: 1.0.10
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -55,6 +55,9 @@ Updates are delivered straight from the project's GitHub releases via the bundle
 Privacy-first: this plugin includes no analytics, no tracking, and no data gathering — nothing about you, your site, or your visitors is ever collected. Outbound connections exist only for features you turn on: with IndexNow enabled, the changed URL is sent to Bing's IndexNow endpoint on publish, update, and delete; with AI Schema enrichment enabled, the published post's title and content are sent to Anthropic's API (https://www.anthropic.com/legal/privacy) using your own API key, entity names are looked up on Wikidata's public API (https://foundation.wikimedia.org/wiki/Policy:Privacy_policy), and — only when you add a Google API key — entity names are looked up on Google's Knowledge Graph Search API (https://policies.google.com/privacy). Nothing else, nowhere else.
 
 == Changelog ==
+
+= 1.0.10 =
+* Add the redirect manager: rules engine, deleted-content decisions, 404 log, and a single-screen UI (#11).
 
 = 1.0.9 =
 * Wikipedia + Google Knowledge Graph entity enrichment, cache bust on entities, and editor panel polish (#10).
