@@ -1,0 +1,311 @@
+name: Release on PR merge
+
+# After a PR merges to main:
+# 1. If the PR did not change the plugin version itself, bump the patch
+#    version (header + const + readme Stable tag) and prepend a changelog
+#    entry crediting the PR; push that bump back to main.
+# 2. Build a plugin zip and publish it as a GitHub Release tagged "vX.Y.Z".
+#    The release zip is what the in-plugin updater downloads.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+env:
+  # Run the bundled JS actions (checkout/setup-node/upload-artifact) on the
+  # Node 24 runtime instead of the deprecated Node 20 (GitHub default 2026-06-16).
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  release:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Decide whether to bump or release at the current version
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Read the version currently committed on main. That is the source
+          # of truth for "what version are we trying to ship?".
+          # The class constant lives in includes/class-coywolf-seo.php,
+          # so read the plugin-header "Version:" line in the main file instead.
+          CURR=$(grep -oE "^[[:space:]]*\*[[:space:]]*Version:[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+" \
+            coywolf-seo.php \
+            | grep -oE "[0-9]+\.[0-9]+\.[0-9]+" | head -1)
+          echo "curr=$CURR" >> "$GITHUB_OUTPUT"
+
+          # If a release for the current version already exists, the PR
+          # didn't include its own version bump — auto-bump the patch.
+          # Otherwise the PR set the version explicitly; release at it.
+          if gh release view "v$CURR" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "Release v$CURR already exists; will auto-bump the patch."
+            echo "needs_bump=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No release for v$CURR yet; releasing at the current version."
+            echo "needs_bump=false" >> "$GITHUB_OUTPUT"
+            echo "release_version=$CURR" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compute next patch version
+        if: steps.check.outputs.needs_bump == 'true'
+        id: ver
+        env:
+          CURR: ${{ steps.check.outputs.curr }}
+        run: |
+          set -euo pipefail
+          IFS='.' read -r MAJ MIN PAT <<< "$CURR"
+          NEW="$MAJ.$MIN.$((PAT + 1))"
+          echo "new=$NEW" >> "$GITHUB_OUTPUT"
+          echo "Bumping $CURR -> $NEW"
+
+      - name: Apply bump to files
+        if: steps.check.outputs.needs_bump == 'true'
+        env:
+          CURR: ${{ steps.check.outputs.curr }}
+          NEW:  ${{ steps.ver.outputs.new }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          sed -i -E "s|(Version:[[:space:]]+)${CURR//./\\.}\b|\1${NEW}|" coywolf-seo.php
+          sed -i -E "s|(const VERSION[[:space:]]*=[[:space:]]*')${CURR//./\\.}(')|\1${NEW}\2|" includes/class-coywolf-seo.php
+          # Version-stamp both readmes in their respective formats.
+          # Match ANY existing Stable tag version (not just CURR): the stable
+          # tag is the "latest released version" pointer and must always become
+          # NEW. Keying it off CURR meant a stable tag that ever drifted from
+          # the header version would never match and silently stop updating.
+          sed -i -E "s|(Stable tag:[[:space:]]+)[0-9]+(\.[0-9]+)*|\1${NEW}|" readme.txt
+          if [ -f readme.md ]; then
+            sed -i -E "s|(\*\*Version:\*\*[[:space:]]+)${CURR//./\\.}\b|\1${NEW}|" readme.md
+          fi
+
+          # Prepend a changelog entry to both readmes. readme.md (the
+          # source of truth) uses Markdown headings + dash bullets;
+          # readme.txt mirrors it in the WordPress-format that .org and
+          # the in-WP updater both consume.
+          python3 - <<'PY'
+          import os, re
+          new = os.environ["NEW"]
+          title = os.environ["PR_TITLE"].replace("\r", " ").strip() or "Maintenance update"
+          num = os.environ["PR_NUMBER"]
+
+          targets = [
+              {
+                  "path": "readme.txt",
+                  "anchor": r"(== Changelog ==\n)",
+                  "entry":  f"\n= {new} =\n* {title} (#{num}).\n",
+                  "required": True,
+              },
+              {
+                  "path": "readme.md",
+                  "anchor": r"(## Changelog\n)",
+                  "entry":  f"\n### {new}\n- {title} (#{num}).\n",
+                  "required": False,
+              },
+          ]
+          for t in targets:
+              if not os.path.exists(t["path"]):
+                  if t["required"]:
+                      raise SystemExit(f"Missing required file: {t['path']}")
+                  continue
+              with open(t["path"], "r", encoding="utf-8") as f:
+                  content = f.read()
+              new_content, n = re.subn(t["anchor"], r"\1" + t["entry"], content, count=1)
+              if n == 0:
+                  raise SystemExit(f"Could not find changelog anchor in {t['path']}")
+              with open(t["path"], "w", encoding="utf-8") as f:
+                  f.write(new_content)
+          PY
+
+      - name: Commit and push bump
+        if: steps.check.outputs.needs_bump == 'true'
+        id: commit
+        env:
+          NEW: ${{ steps.ver.outputs.new }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add coywolf-seo.php includes/class-coywolf-seo.php readme.txt
+          [ -f readme.md ] && git add readme.md || true
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore(release): bump version to ${NEW} [skip ci]"
+            git push origin main
+          fi
+          echo "release_version=${NEW}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve final release version
+        id: final
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.check.outputs.needs_bump }}" = "true" ]; then
+            V="${{ steps.commit.outputs.release_version }}"
+          else
+            V="${{ steps.check.outputs.release_version }}"
+          fi
+          echo "version=${V}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${V}" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if tag already exists
+        id: tagcheck
+        env:
+          TAG: ${{ steps.final.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists; skipping release."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build plugin zip
+        if: steps.tagcheck.outputs.exists == 'false'
+        env:
+          SLUG: coywolf-seo
+        run: |
+          set -euo pipefail
+          BUILD_DIR="$RUNNER_TEMP/build"
+          STAGE="$BUILD_DIR/$SLUG"
+          rm -rf "$BUILD_DIR"
+          mkdir -p "$STAGE"
+
+          # Copy plugin files, excluding repo / CI artefacts.
+          rsync -a --delete \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude '.gitignore' \
+            --exclude '.wordpress-org' \
+            --exclude 'build' \
+            --exclude '*.zip' \
+            --exclude 'tests' \
+            --exclude 'bin' \
+            --exclude 'CONTRIBUTING.md' \
+            --exclude 'node_modules' \
+            ./ "$STAGE/"
+
+          ( cd "$BUILD_DIR" && zip -r -q "$GITHUB_WORKSPACE/$SLUG.zip" "$SLUG" )
+          ls -l "$SLUG.zip"
+
+      - name: Extract release notes from readme.txt
+        if: steps.tagcheck.outputs.exists == 'false'
+        id: notes
+        env:
+          VERSION: ${{ steps.final.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' > release-notes.md
+          import os, re
+          version = os.environ["VERSION"]
+          with open("readme.txt", "r", encoding="utf-8") as f:
+              content = f.read()
+          # Capture the body of "= <VERSION> =" up to the next "= x.y.z =" or end.
+          pattern = r"=\s*" + re.escape(version) + r"\s*=\n(.*?)(?=\n=\s*\d|\Z)"
+          m = re.search(pattern, content, re.DOTALL)
+          if m:
+              body = m.group(1).strip()
+          else:
+              body = "Release " + version + "."
+          print(body)
+          PY
+          echo "---"
+          cat release-notes.md
+
+      - name: Create GitHub release
+        if: steps.tagcheck.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG:      ${{ steps.final.outputs.tag }}
+          VERSION:  ${{ steps.final.outputs.version }}
+          SLUG:     coywolf-seo
+        run: |
+          set -euo pipefail
+          # Target the latest commit on main (the bump commit, if we just made one).
+          TARGET=$(git rev-parse HEAD)
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --notes-file release-notes.md \
+            --target "$TARGET" \
+            "${SLUG}.zip"
+
+      # ----------------------------------------------------------------------
+      # WordPress.org variant
+      #
+      # The .org Plugin Directory forbids self-updaters that fetch code from
+      # outside .org, so we ship a second build with the GitHub updater
+      # stripped (bin/build-wporg.sh derives it from the SAME stage the GitHub
+      # zip was built from, so the two differ only by the updater). The zip is
+      # always produced as an artifact (for the initial .org submission and
+      # for local Plugin Check runs); the SVN deploy runs only once the
+      # WPORG_SVN_* secrets exist — until then it cleanly skips.
+      # ----------------------------------------------------------------------
+      - name: Build WordPress.org variant
+        if: steps.tagcheck.outputs.exists == 'false'
+        env:
+          SLUG: coywolf-seo
+          WPORG_SLUG: coywolf-seo
+        run: |
+          set -euo pipefail
+          # The GitHub build and the WordPress.org variant share one slug,
+          # "coywolf-seo" (the repo is already coywolf-prefixed and
+          # matches the text domain). The main file carries an "Update URI"
+          # header so WordPress never tries to pull the GitHub build's updates
+          # from .org for the same slug; build-wporg.sh strips that header and
+          # the self-updater for the .org variant. Re-stage the runtime tree
+          # under the slug so the folder Plugin Check / SVN derive from it is
+          # correct.
+          WPORG_SRC="$RUNNER_TEMP/wporg-src/$WPORG_SLUG"
+          rm -rf "$RUNNER_TEMP/wporg-src"
+          mkdir -p "$WPORG_SRC"
+          cp -a "$RUNNER_TEMP/build/$SLUG"/. "$WPORG_SRC/"
+          bash .github/build-wporg.sh "$WPORG_SRC" "$RUNNER_TEMP/wporg"
+          ( cd "$RUNNER_TEMP/wporg" && zip -r -q "$GITHUB_WORKSPACE/$WPORG_SLUG-wporg.zip" "$WPORG_SLUG" )
+          ls -l "$WPORG_SLUG-wporg.zip"
+
+      - name: Upload WordPress.org zip (submission / Plugin Check)
+        if: steps.tagcheck.outputs.exists == 'false'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.final.outputs.tag }}-wporg
+          path: coywolf-seo-wporg.zip
+          if-no-files-found: error
+
+      - name: Check for WordPress.org SVN credentials
+        if: steps.tagcheck.outputs.exists == 'false'
+        id: wporg
+        env:
+          SVN_USERNAME: ${{ secrets.WPORG_SVN_USERNAME }}
+        run: |
+          if [ -n "${SVN_USERNAME:-}" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No WPORG_SVN_USERNAME secret set — built the .org zip artifact; skipping SVN deploy."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy to WordPress.org SVN
+        if: steps.tagcheck.outputs.exists == 'false' && steps.wporg.outputs.ready == 'true'
+        uses: 10up/action-wordpress-plugin-deploy@stable
+        env:
+          SVN_USERNAME: ${{ secrets.WPORG_SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.WPORG_SVN_PASSWORD }}
+          SLUG:         coywolf-seo
+          VERSION:      ${{ steps.final.outputs.version }}
+          BUILD_DIR:    ${{ runner.temp }}/wporg/coywolf-seo
+          ASSETS_DIR:   .wordpress-org
