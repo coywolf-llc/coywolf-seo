@@ -62,6 +62,15 @@ final class Coywolf_SEO_Options {
 			'robots_max_image'      => true,
 			'robots_max_snippet'    => true,
 			'robots_max_video'      => true,
+			// IndexNow.
+			'indexnow_enabled'      => false,
+			'indexnow_key'          => '',
+			// News sitemap.
+			'news_enabled'          => false,
+			'news_include_posts'    => true,
+			'news_include_pages'    => false,
+			'news_cat_mode'         => 'all', // all | include | exclude.
+			'news_cats'             => array(),
 		);
 	}
 
@@ -126,6 +135,10 @@ final class Coywolf_SEO_Options {
 			'robots_max_image',
 			'robots_max_snippet',
 			'robots_max_video',
+			'indexnow_enabled',
+			'news_enabled',
+			'news_include_posts',
+			'news_include_pages',
 		);
 		foreach ( $booleans as $key ) {
 			if ( array_key_exists( $key, $raw ) ) {
@@ -168,6 +181,16 @@ final class Coywolf_SEO_Options {
 
 		if ( isset( $raw['org_properties'] ) && is_array( $raw['org_properties'] ) ) {
 			$out['org_properties'] = self::sanitize_properties( $raw['org_properties'], self::organization_properties() );
+		}
+
+		if ( isset( $raw['indexnow_key'] ) ) {
+			$out['indexnow_key'] = preg_replace( '/[^a-zA-Z0-9-]/', '', (string) $raw['indexnow_key'] );
+		}
+		if ( isset( $raw['news_cat_mode'] ) ) {
+			$out['news_cat_mode'] = in_array( $raw['news_cat_mode'], array( 'all', 'include', 'exclude' ), true ) ? $raw['news_cat_mode'] : 'all';
+		}
+		if ( isset( $raw['news_cats'] ) ) {
+			$out['news_cats'] = array_values( array_filter( array_map( 'absint', (array) $raw['news_cats'] ) ) );
 		}
 
 		return $out;

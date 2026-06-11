@@ -210,14 +210,25 @@ final class Coywolf_SEO_Admin {
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized field-by-field in Coywolf_SEO_Options::sanitize().
 		$raw = isset( $_POST['coywolf_seo'] ) && is_array( $_POST['coywolf_seo'] ) ? wp_unslash( $_POST['coywolf_seo'] ) : array();
 
-		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video' ) as $key ) {
+		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'news_enabled', 'news_include_posts', 'news_include_pages' ) as $key ) {
 			$raw[ $key ] = ! empty( $raw[ $key ] );
 		}
+		if ( empty( $raw['news_cats'] ) ) {
+			$raw['news_cats'] = array();
+		}
 
-		$clean = Coywolf_SEO_Options::sanitize( $raw );
+		$news_before = (bool) Coywolf_SEO_Options::get( 'news_enabled' );
+		$clean       = Coywolf_SEO_Options::sanitize( $raw );
 		Coywolf_SEO_Options::update( $clean );
 		if ( isset( $clean['access_role'] ) ) {
 			self::sync_capability( $clean['access_role'] );
+		}
+		if ( ! empty( $clean['indexnow_enabled'] ) ) {
+			Coywolf_SEO_IndexNow::ensure_key();
+		}
+		if ( (bool) Coywolf_SEO_Options::get( 'news_enabled' ) !== $news_before ) {
+			// The sitemap URL just appeared or disappeared.
+			flush_rewrite_rules();
 		}
 		$this->redirect_back( self::SLUG_SETTINGS, 'settings' );
 	}
@@ -568,6 +579,74 @@ final class Coywolf_SEO_Admin {
 								<label><input type="checkbox" name="coywolf_seo[robots_max_video]" value="1" <?php checked( $o['robots_max_video'] ); ?> /> <code>max-video-preview:-1</code></label>
 							</fieldset>
 							<p class="description"><?php esc_html_e( 'Directives included in the robots meta tag. Per-post Noindex and Nofollow override index and follow.', 'coywolf-seo' ); ?></p>
+						</td>
+					</tr>
+				</table>
+
+				<h2><?php esc_html_e( 'IndexNow', 'coywolf-seo' ); ?></h2>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'IndexNow', 'coywolf-seo' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="coywolf_seo[indexnow_enabled]" value="1" <?php checked( $o['indexnow_enabled'] ); ?> />
+								<?php esc_html_e( 'Ping Bing via IndexNow whenever a post or page is published, updated, or deleted', 'coywolf-seo' ); ?>
+							</label>
+							<?php if ( '' !== (string) $o['indexnow_key'] ) : ?>
+								<p class="description">
+									<?php esc_html_e( 'Key file:', 'coywolf-seo' ); ?>
+									<a href="<?php echo esc_url( home_url( '/' . $o['indexnow_key'] . '.txt' ) ); ?>" target="_blank" rel="noopener noreferrer"><code><?php echo esc_html( '/' . $o['indexnow_key'] . '.txt' ); ?></code></a>
+									<?php esc_html_e( '(served by the plugin — no file is written).', 'coywolf-seo' ); ?>
+								</p>
+							<?php else : ?>
+								<p class="description"><?php esc_html_e( 'A site key is generated automatically when you enable this.', 'coywolf-seo' ); ?></p>
+							<?php endif; ?>
+						</td>
+					</tr>
+				</table>
+
+				<h2><?php esc_html_e( 'Sitemaps', 'coywolf-seo' ); ?></h2>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'News', 'coywolf-seo' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="coywolf_seo[news_enabled]" value="1" <?php checked( $o['news_enabled'] ); ?> />
+								<?php
+								printf(
+									/* translators: %s: the sitemap file name. */
+									esc_html__( 'Serve a News XML sitemap at %s with articles from the last 48 hours', 'coywolf-seo' ),
+									'<code>/' . esc_html( Coywolf_SEO_News_Sitemap::FILENAME ) . '</code>'
+								);
+								?>
+							</label>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Include', 'coywolf-seo' ); ?></th>
+						<td>
+							<label><input type="checkbox" name="coywolf_seo[news_include_posts]" value="1" <?php checked( $o['news_include_posts'] ); ?> /> <?php esc_html_e( 'Posts', 'coywolf-seo' ); ?></label>
+							&nbsp;&nbsp;
+							<label><input type="checkbox" name="coywolf_seo[news_include_pages]" value="1" <?php checked( $o['news_include_pages'] ); ?> /> <?php esc_html_e( 'Pages', 'coywolf-seo' ); ?></label>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="coywolf-seo-news-cat-mode"><?php esc_html_e( 'Categories', 'coywolf-seo' ); ?></label></th>
+						<td>
+							<select id="coywolf-seo-news-cat-mode" name="coywolf_seo[news_cat_mode]">
+								<option value="all" <?php selected( $o['news_cat_mode'], 'all' ); ?>><?php esc_html_e( 'All categories', 'coywolf-seo' ); ?></option>
+								<option value="include" <?php selected( $o['news_cat_mode'], 'include' ); ?>><?php esc_html_e( 'Only these categories', 'coywolf-seo' ); ?></option>
+								<option value="exclude" <?php selected( $o['news_cat_mode'], 'exclude' ); ?>><?php esc_html_e( 'All except these categories', 'coywolf-seo' ); ?></option>
+							</select>
+							<div id="coywolf-seo-news-cats" class="coywolf-seo-cat-list" <?php echo ( 'all' === $o['news_cat_mode'] ) ? 'style="display:none"' : ''; ?>>
+								<?php foreach ( get_categories( array( 'hide_empty' => false ) ) as $cat ) : ?>
+									<label>
+										<input type="checkbox" name="coywolf_seo[news_cats][]" value="<?php echo esc_attr( (string) $cat->term_id ); ?>" <?php checked( in_array( $cat->term_id, array_map( 'intval', (array) $o['news_cats'] ), true ) ); ?> />
+										<?php echo esc_html( $cat->name ); ?>
+									</label><br />
+								<?php endforeach; ?>
+							</div>
+							<p class="description"><?php esc_html_e( 'Applies to posts; pages have no categories.', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
 				</table>

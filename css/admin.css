@@ -39,3 +39,14 @@
 .coywolf-seo-remove-row:hover {
 	color: #8a2424;
 }
+
+.coywolf-seo-cat-list {
+	max-height: 180px;
+	overflow-y: auto;
+	margin: 8px 0;
+	padding: 8px 12px;
+	border: 1px solid #dcdcde;
+	border-radius: 2px;
+	background: #fff;
+	max-width: 360px;
+}

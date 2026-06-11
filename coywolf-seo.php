@@ -54,6 +54,8 @@ require_once __DIR__ . '/includes/class-coywolf-seo-schema.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-opengraph.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-compat.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-category-base.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-indexnow.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-news-sitemap.php';
 require_once __DIR__ . '/includes/class-coywolf-seo.php';
 
 register_activation_hook( __FILE__, array( 'Coywolf_SEO', 'on_activate' ) );

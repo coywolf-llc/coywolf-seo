@@ -29,6 +29,11 @@
 			$( this ).closest( 'form' ).trigger( 'submit' );
 		} );
 
+		// News sitemap: only show the category list when it applies.
+		$( '#coywolf-seo-news-cat-mode' ).on( 'change', function () {
+			$( '#coywolf-seo-news-cats' ).toggle( $( this ).val() !== 'all' );
+		} );
+
 		$( document ).on( 'click', '.coywolf-seo-remove-row', function () {
 			var $rows = $( this ).closest( 'tbody' ).find( 'tr' );
 			if ( $rows.length > 1 ) {
