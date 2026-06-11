@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.12
+- **Version:** 1.0.13
 - **Requires WordPress:** 6.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -54,6 +54,9 @@ Updates are delivered straight from the project's GitHub releases via the bundle
 Privacy-first: this plugin includes no analytics, no tracking, and no data gathering — nothing about you, your site, or your visitors is ever collected. Outbound connections exist only for features you turn on: with IndexNow enabled, the changed URL is sent to Bing's IndexNow endpoint on publish, update, and delete; with AI Schema enrichment enabled, the published post's title and content are sent to Anthropic's API using your own API key, entity names are looked up on Wikidata's public API, and — only when you add a Google API key — entity names are looked up on Google's Knowledge Graph Search API. Nothing else, nowhere else.
 
 ## Changelog
+
+### 1.0.13
+- Send the site as referer on Knowledge Graph lookups, and append the site name to og:title (#14).
 
 ### 1.0.12
 - Surface deleted-URL decisions on the list screens, and remove the 404 log (#13).
