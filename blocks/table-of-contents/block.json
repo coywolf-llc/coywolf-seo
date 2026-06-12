@@ -1,0 +1,78 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "coywolf-seo/table-of-contents",
+	"title": "Table of Contents",
+	"category": "design",
+	"description": "A table of contents built from the page's headings at view time, so it never goes out of date.",
+	"keywords": [ "toc", "table of contents", "headings", "anchor", "jump links", "summary" ],
+	"textdomain": "coywolf-seo",
+	"supports": {
+		"html": false,
+		"anchor": true,
+		"align": [ "wide" ],
+		"color": {
+			"background": true,
+			"text": true,
+			"link": true
+		},
+		"typography": {
+			"fontSize": true,
+			"lineHeight": true
+		},
+		"spacing": {
+			"margin": true,
+			"padding": true
+		}
+	},
+	"attributes": {
+		"title": {
+			"type": "string",
+			"default": ""
+		},
+		"showTitle": {
+			"type": "boolean",
+			"default": true
+		},
+		"titleLevel": {
+			"type": "number",
+			"default": 2
+		},
+		"levels": {
+			"type": "array",
+			"items": { "type": "number" },
+			"default": [ 2, 3 ]
+		},
+		"listStyle": {
+			"type": "string",
+			"default": "none"
+		},
+		"collapsible": {
+			"type": "boolean",
+			"default": false
+		},
+		"initiallyCollapsed": {
+			"type": "boolean",
+			"default": false
+		},
+		"smoothScroll": {
+			"type": "boolean",
+			"default": true
+		},
+		"highlightCurrent": {
+			"type": "boolean",
+			"default": false
+		},
+		"minHeadings": {
+			"type": "number",
+			"default": 2
+		},
+		"scrollOffset": {
+			"type": "number",
+			"default": 0
+		}
+	},
+	"editorScript": "coywolf-seo-toc-block",
+	"editorStyle": "coywolf-seo-toc-editor",
+	"style": "coywolf-seo-toc"
+}

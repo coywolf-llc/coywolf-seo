@@ -1,0 +1,85 @@
+/**
+ * Coywolf SEO — Table of Contents block (front end + editor canvas).
+ *
+ * Deliberately light: link colors, fonts, and spacing stay with the theme;
+ * only the structure the block owns is styled here.
+ */
+
+/* The render placeholder, in the unlikely case the content filter never
+   replaces it. */
+.coywolf-seo-toc-placeholder {
+	display: none;
+}
+
+.coywolf-seo-toc .coywolf-seo-toc-title {
+	margin-top: 0;
+}
+
+.coywolf-seo-toc ul,
+.coywolf-seo-toc ol {
+	margin: 0;
+}
+
+.coywolf-seo-toc li {
+	margin: 0.25em 0;
+}
+
+/* No markers (default): flat left edge, indented sub-levels. */
+.coywolf-seo-toc-list-none ul,
+.coywolf-seo-toc-list-none ol {
+	list-style: none;
+	padding-left: 0;
+}
+
+.coywolf-seo-toc-list-none li ul,
+.coywolf-seo-toc-list-none li ol {
+	padding-left: 1.25em;
+}
+
+/* Bullets: the browser's defaults, tidied. */
+.coywolf-seo-toc-list-disc ul,
+.coywolf-seo-toc-list-disc ol {
+	padding-left: 1.25em;
+}
+
+/* Numbers: hierarchical 1. / 1.1 / 1.1.1 via CSS counters. */
+.coywolf-seo-toc-list-decimal ol,
+.coywolf-seo-toc-list-decimal ul {
+	list-style: none;
+	counter-reset: coywolf-seo-toc;
+	padding-left: 0;
+}
+
+.coywolf-seo-toc-list-decimal li ol,
+.coywolf-seo-toc-list-decimal li ul {
+	padding-left: 1.5em;
+}
+
+.coywolf-seo-toc-list-decimal li {
+	counter-increment: coywolf-seo-toc;
+}
+
+.coywolf-seo-toc-list-decimal li > a::before {
+	content: counters(coywolf-seo-toc, ".") ". ";
+}
+
+/* Collapsible. */
+.coywolf-seo-toc-summary {
+	cursor: pointer;
+}
+
+.coywolf-seo-toc-summary .coywolf-seo-toc-title {
+	display: inline;
+	margin: 0;
+	font-size: inherit;
+	font-weight: 600;
+}
+
+.coywolf-seo-toc-details[open] > .coywolf-seo-toc-summary {
+	margin-bottom: 0.5em;
+}
+
+/* Current-section highlight (scroll spy). */
+.coywolf-seo-toc a[aria-current] {
+	font-weight: 600;
+}
