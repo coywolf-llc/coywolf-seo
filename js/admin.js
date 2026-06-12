@@ -189,12 +189,17 @@
 			}
 		}
 
+		function bulkForceChecked() {
+			return $bulkArea.find( '#coywolf-seo-bulk-force' ).is( ':checked' ) ? 1 : 0;
+		}
+
 		function bulkOp( op ) {
 			$bulkArea.css( 'opacity', 0.5 ).find( 'button' ).prop( 'disabled', true );
 			$.post( config.ajaxUrl, {
 				action: 'coywolf_seo_bulk_action',
 				_ajax_nonce: config.bulkActionNonce,
-				op: op
+				op: op,
+				force: 'start' === op ? bulkForceChecked() : 0
 			} ).done( function ( res ) {
 				if ( res && res.success ) {
 					bulkRender( res.data.html, res.data.status );
@@ -207,8 +212,13 @@
 		$( document ).on( 'submit', '.coywolf-seo-bulk-op', function ( e ) {
 			e.preventDefault();
 			var op = $( this ).data( 'op' );
-			if ( 'start' === op && ! window.confirm( config.i18n.confirmBulkEnrich || 'Enrich all posts and pages now?' ) ) {
-				return;
+			if ( 'start' === op ) {
+				var startMessage = bulkForceChecked()
+					? ( config.i18n.confirmBulkForce || 'Re-analyze everything now?' )
+					: ( config.i18n.confirmBulkEnrich || 'Enrich all posts and pages now?' );
+				if ( ! window.confirm( startMessage ) ) {
+					return;
+				}
 			}
 			if ( 'cancel' === op && ! window.confirm( config.i18n.confirmBulkCancel || 'Cancel this run for good?' ) ) {
 				return;
@@ -254,7 +264,8 @@
 			$.post( config.ajaxUrl, {
 				action: 'coywolf_seo_bulk_estimate',
 				_ajax_nonce: config.bulkStatusNonce,
-				model: model || ''
+				model: model || '',
+				force: bulkForceChecked()
 			} ).done( function ( res ) {
 				if ( ! res || ! res.success ) {
 					return;
@@ -281,6 +292,9 @@
 			loadEstimate( '', false );
 			$( '#coywolf-seo-ai-model' ).on( 'change', function () {
 				loadEstimate( $( this ).val(), true );
+			} );
+			$( document ).on( 'change', '#coywolf-seo-bulk-force', function () {
+				loadEstimate( '', false );
 			} );
 		}
 
