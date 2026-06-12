@@ -145,6 +145,13 @@ final class Coywolf_SEO {
 	private $redirects;
 
 	/**
+	 * Table of Contents block module.
+	 *
+	 * @var Coywolf_SEO_TOC
+	 */
+	private $toc;
+
+	/**
 	 * Redirects admin screen (admin only).
 	 *
 	 * @var Coywolf_SEO_Redirects_Admin|null
@@ -215,6 +222,9 @@ final class Coywolf_SEO {
 
 		$this->redirects = new Coywolf_SEO_Redirects();
 		$this->redirects->init();
+
+		$this->toc = new Coywolf_SEO_TOC();
+		$this->toc->init();
 
 		// Not admin-gated: the block editor reads and saves the SEO meta
 		// through the REST API, where is_admin() is false — the meta must

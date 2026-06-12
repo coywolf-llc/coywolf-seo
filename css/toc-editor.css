@@ -1,0 +1,20 @@
+/**
+ * Coywolf SEO — Table of Contents block (editor-only styles).
+ */
+
+.coywolf-seo-toc .coywolf-seo-toc-hidden-note {
+	margin: 0.75em 0 0;
+	font-size: 0.85em;
+	font-style: italic;
+	color: #996800;
+}
+
+.coywolf-seo-toc-inspector-note {
+	font-size: 12px;
+	color: #757575;
+}
+
+/* Preview links navigate nowhere; don't pretend otherwise. */
+.coywolf-seo-toc.block-editor-block-list__block a {
+	cursor: text;
+}

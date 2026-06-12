@@ -166,6 +166,14 @@ final class Coywolf_SEO_Schema {
 			$webpage['primaryImageOfPage'] = $image;
 		}
 
+		// A Table of Contents block is a declarable accessibility feature
+		// (schema.org/accessibilityFeature); it goes on the Article when one
+		// exists, otherwise on the page node.
+		$has_toc = has_block( 'coywolf-seo/table-of-contents', $post );
+		if ( $has_toc && ( 'none' === $article_type || '' === $article_type ) ) {
+			$webpage['accessibilityFeature'] = array( 'tableOfContents' );
+		}
+
 		$nodes = array( $webpage );
 
 		if ( 'none' !== $article_type && '' !== $article_type ) {
@@ -183,6 +191,9 @@ final class Coywolf_SEO_Schema {
 			}
 			if ( '' !== $desc ) {
 				$article['description'] = $desc;
+			}
+			if ( $has_toc ) {
+				$article['accessibilityFeature'] = array( 'tableOfContents' );
 			}
 
 			// AI-grounded entities: main subjects as about, passing
@@ -238,6 +249,7 @@ final class Coywolf_SEO_Schema {
 
 	/**
 	 * The graph @id of the publisher entity (Organization or Person). An
+	 *
 	 * @id row in the property editor overrides the default anchor, and
 	 * every reference in the graph follows it.
 	 *
