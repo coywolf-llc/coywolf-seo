@@ -35,6 +35,7 @@
 	var components = wp.components;
 	var PanelBody = components.PanelBody;
 	var ToggleControl = components.ToggleControl;
+	var TextControl = components.TextControl;
 	var SelectControl = components.SelectControl;
 	var RangeControl = components.RangeControl;
 	var Placeholder = components.Placeholder;
@@ -194,7 +195,18 @@
 						setAttributes( { showTitle: !! value } );
 					}
 				} ),
-				attributes.showTitle ? el( SelectControl, {
+				attributes.showTitle ? el( TextControl, {
+				__next40pxDefaultSize: true,
+				__nextHasNoMarginBottom: true,
+				label: __( 'Title text', 'coywolf-seo' ),
+				placeholder: __( 'Table of contents', 'coywolf-seo' ),
+				help: __( 'Leave empty to use “Table of contents”.', 'coywolf-seo' ),
+				value: attributes.title || '',
+				onChange: function ( value ) {
+					setAttributes( { title: value } );
+				}
+			} ) : null,
+			attributes.showTitle ? el( SelectControl, {
 					__next40pxDefaultSize: true,
 					__nextHasNoMarginBottom: true,
 					label: __( 'Title heading level', 'coywolf-seo' ),
