@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.37
+- **Version:** 1.0.38
 - **Requires WordPress:** 6.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -56,6 +56,9 @@ Updates are delivered straight from the project's GitHub releases via the bundle
 Privacy-first: this plugin includes no analytics, no tracking, and no data gathering — nothing about you, your site, or your visitors is ever collected. Outbound connections exist only for features you turn on: with IndexNow enabled, the changed URL is sent to Bing's IndexNow endpoint on publish, update, and delete; with AI enrichment enabled, the published post's title and content are sent to Anthropic's API using your own API key, entity names are looked up on Wikidata's public API. Nothing else, nowhere else.
 
 ## Changelog
+
+### 1.0.38
+- Table of Contents: rename the title from block settings (#39).
 
 ### 1.0.37
 - Table of Contents block for posts and pages (#38).
