@@ -272,7 +272,15 @@
 				}
 				var d = res.data;
 				if ( ! d.posts ) {
-					$estimate.text( config.i18n.estimateNone || 'Nothing to enrich.' );
+					if ( d.force_posts > 0 ) {
+						$estimate.text(
+							( config.i18n.estimateNone || 'Everything is current — re-analyzing all %POSTS% posts costs ~$%COST%.' )
+								.replace( '%POSTS%', d.force_posts )
+								.replace( '%COST%', Number( d.force_cost ).toFixed( 2 ) )
+						);
+					} else {
+						$estimate.text( config.i18n.estimateEmpty || 'There is no published content to enrich yet.' );
+					}
 					return;
 				}
 				var line = ( config.i18n.estimateLine || '%POSTS% posts, ~$%COST%, reserve $%RESERVE% (%MODEL%)' )
