@@ -116,7 +116,8 @@ final class Coywolf_SEO_AI {
 			wp_die( esc_html__( 'You are not allowed to run bulk enrichment.', 'coywolf-seo' ) );
 		}
 		check_admin_referer( 'coywolf_seo_bulk_enrich' );
-		$this->start_bulk();
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce checked above.
+		$this->start_bulk( ! empty( $_POST['coywolf_seo_bulk_force'] ) );
 
 		wp_safe_redirect( admin_url( 'admin.php?page=coywolf-seo-settings&bulk-started=1' ) );
 		exit;
@@ -126,8 +127,12 @@ final class Coywolf_SEO_AI {
 	 * Start a fresh bulk run: clean up any live run (including its remote
 	 * batch), pre-screen the content, seed the state machine, and submit
 	 * the first batch.
+	 *
+	 * @param bool $force Re-analyze everything: skip the unchanged-content
+	 *                    check so every published post and page gets fresh
+	 *                    entities and descriptions.
 	 */
-	public function start_bulk() {
+	public function start_bulk( $force = false ) {
 		// A stale tab or double-submit must not orphan an in-flight run:
 		// clean up (including the remote batch) before starting fresh.
 		$existing = $this->bulk_state_fresh();
@@ -161,11 +166,13 @@ final class Coywolf_SEO_AI {
 					$skipped++;
 					continue;
 				}
-				$hash  = md5( get_the_title( $post ) . "\n" . $content . "\n" . $this->config_signature() );
-				$saved = get_post_meta( $post_id, self::META_KEY, true );
-				if ( is_array( $saved ) && isset( $saved['hash'] ) && $saved['hash'] === $hash ) {
-					$skipped++;
-					continue;
+				if ( ! $force ) {
+					$hash  = md5( get_the_title( $post ) . "\n" . $content . "\n" . $this->config_signature() );
+					$saved = get_post_meta( $post_id, self::META_KEY, true );
+					if ( is_array( $saved ) && isset( $saved['hash'] ) && $saved['hash'] === $hash ) {
+						$skipped++;
+						continue;
+					}
 				}
 				$queue[] = (int) $post_id;
 			}
@@ -724,9 +731,10 @@ final class Coywolf_SEO_AI {
 	 * What a bulk run would process and roughly cost.
 	 *
 	 * @param string $model Model to price ('' = the saved/default model).
+	 * @param bool   $force Price a re-analyze-all run (no unchanged skip).
 	 * @return array posts, skipped, est_cost, reserve_cost, model, from_history.
 	 */
-	public function bulk_estimate( $model = '' ) {
+	public function bulk_estimate( $model = '', $force = false ) {
 		$model = '' !== $model ? $model : $this->model();
 
 		$scan = get_transient( 'coywolf_seo_bulk_scan' );
@@ -739,8 +747,10 @@ final class Coywolf_SEO_AI {
 					'fields'         => 'ids',
 				)
 			);
-			$stale = 0;
-			$chars = 0;
+			$stale     = 0;
+			$chars     = 0;
+			$eligible  = 0;
+			$chars_all = 0;
 			foreach ( $ids as $post_id ) {
 				$post = get_post( $post_id );
 				if ( ! $post ) {
@@ -750,8 +760,10 @@ final class Coywolf_SEO_AI {
 				if ( '' === trim( $content ) ) {
 					continue;
 				}
-				$hash  = md5( get_the_title( $post ) . "\n" . $content . "\n" . $this->config_signature() );
-				$saved = get_post_meta( $post_id, self::META_KEY, true );
+				$eligible++;
+				$chars_all += strlen( $content );
+				$hash       = md5( get_the_title( $post ) . "\n" . $content . "\n" . $this->config_signature() );
+				$saved      = get_post_meta( $post_id, self::META_KEY, true );
 				if ( is_array( $saved ) && isset( $saved['hash'] ) && $saved['hash'] === $hash ) {
 					continue;
 				}
@@ -759,14 +771,17 @@ final class Coywolf_SEO_AI {
 				$chars += strlen( $content );
 			}
 			$scan = array(
-				'stale' => $stale,
-				'chars' => $chars,
-				'total' => count( $ids ),
+				'stale'     => $stale,
+				'chars'     => $chars,
+				'eligible'  => $eligible,
+				'chars_all' => $chars_all,
+				'total'     => count( $ids ),
 			);
 			set_transient( 'coywolf_seo_bulk_scan', $scan, 10 * MINUTE_IN_SECONDS );
 		}
 
-		$stale = (int) $scan['stale'];
+		$stale = $force ? (int) ( $scan['eligible'] ?? $scan['stale'] ) : (int) $scan['stale'];
+		$chars = $force ? (int) ( $scan['chars_all'] ?? $scan['chars'] ) : (int) $scan['chars'];
 		if ( $stale < 1 ) {
 			return array(
 				'posts'        => 0,
@@ -781,7 +796,7 @@ final class Coywolf_SEO_AI {
 		// Content makes one model pass for extraction and another for
 		// descriptions; ~4 characters per token plus prompt overhead.
 		$passes      = 1 + ( $this->descriptions_on() ? 1 : 0 );
-		$avg_in_post = (int) ceil( ( ( $scan['chars'] / max( 1, $stale ) ) / 4 + 400 ) * $passes );
+		$avg_in_post = (int) ceil( ( ( $chars / max( 1, $stale ) ) / 4 + 400 ) * $passes );
 		$avg_out     = 250 + ( $this->descriptions_on() ? 80 : 0 ) + 50;
 
 		// Prefer the measured lifetime averages once there is real data.
@@ -817,9 +832,11 @@ final class Coywolf_SEO_AI {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( array(), 403 );
 		}
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce checked above.
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce checked above.
 		$model = isset( $_POST['model'] ) ? preg_replace( '/[^a-z0-9.\-]/', '', strtolower( (string) wp_unslash( $_POST['model'] ) ) ) : '';
-		wp_send_json_success( $this->bulk_estimate( $model ) );
+		$force = ! empty( $_POST['force'] );
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+		wp_send_json_success( $this->bulk_estimate( $model, $force ) );
 	}
 
 	/**

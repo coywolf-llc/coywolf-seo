@@ -169,6 +169,10 @@ final class Coywolf_SEO_Admin {
 				<input type="hidden" name="action" value="coywolf_seo_bulk_enrich" />
 				<?php wp_nonce_field( 'coywolf_seo_bulk_enrich' ); ?>
 				<button type="submit" class="button"><?php esc_html_e( 'Enrich all posts and pages', 'coywolf-seo' ); ?></button>
+				<label class="coywolf-seo-bulk-force-label">
+					<input type="checkbox" id="coywolf-seo-bulk-force" name="coywolf_seo_bulk_force" value="1" />
+					<?php esc_html_e( 'Re-analyze all', 'coywolf-seo' ); ?>
+				</label>
 			</form>
 			<?php if ( 'done' === $coywolf_seo_bulk['status'] && '' !== $coywolf_seo_bulk['finished'] ) : ?>
 				<?php if ( $coywolf_seo_bulk['failed'] > 0 ) : ?>
@@ -214,7 +218,8 @@ final class Coywolf_SEO_Admin {
 		$ai = Coywolf_SEO::instance()->ai();
 		switch ( $op ) {
 			case 'start':
-				$ai->start_bulk();
+				// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce checked above.
+				$ai->start_bulk( ! empty( $_POST['force'] ) );
 				break;
 			case 'stop':
 				$ai->pause_bulk();
@@ -414,6 +419,7 @@ final class Coywolf_SEO_Admin {
 					'removeProperty' => __( 'Remove property', 'coywolf-seo' ),
 					'confirmDelete'      => __( 'Delete this redirect?', 'coywolf-seo' ),
 					'confirmBulkEnrich'  => __( 'Enrich ALL published posts and pages now? This runs in the background, can take a while, and incurs Anthropic API costs. Content already analyzed with the current settings is skipped.', 'coywolf-seo' ),
+					'confirmBulkForce'   => __( 'Re-analyze EVERY published post and page now, including content that is already current? Every item makes fresh API calls, so this costs the full estimated amount each time.', 'coywolf-seo' ),
 					'confirmBulkCancel'  => __( 'Cancel this run for good? The remaining queue is discarded — a new run would re-check every post from the start (already-analyzed content is skipped at no cost).', 'coywolf-seo' ),
 					'estimateLine'       => __( '%POSTS% posts need enrichment (%SKIPPED% already current). Estimated cost: ~$%COST% at batch rates for %MODEL%. Your Anthropic balance (and any Workspace spend limit) must cover about $%RESERVE% for the largest batch\'s upfront check.', 'coywolf-seo' ),
 					'estimateNone'       => __( 'Everything is already analyzed with the current settings — a run would cost nothing.', 'coywolf-seo' ),
