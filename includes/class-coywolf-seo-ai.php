@@ -783,6 +783,21 @@ final class Coywolf_SEO_AI {
 		$stale = $force ? (int) ( $scan['eligible'] ?? $scan['stale'] ) : (int) $scan['stale'];
 		$chars = $force ? (int) ( $scan['chars_all'] ?? $scan['chars'] ) : (int) $scan['chars'];
 		if ( $stale < 1 ) {
+			// Nothing stale — but a forced Re-analyze-all run still costs;
+			// give the UI those figures so it never claims "free".
+			$eligible    = (int) ( $scan['eligible'] ?? 0 );
+			$force_cost  = 0.0;
+			if ( $eligible > 0 ) {
+				$passes      = 1 + ( $this->descriptions_on() ? 1 : 0 );
+				$avg_in_post = (int) ceil( ( ( (int) ( $scan['chars_all'] ?? 0 ) / $eligible ) / 4 + 400 ) * $passes );
+				$avg_out     = 250 + ( $this->descriptions_on() ? 80 : 0 ) + 50;
+				$history     = Coywolf_SEO_AI_Batch::usage_summary( $model );
+				if ( ! empty( $history ) && $history['posts'] >= 3 ) {
+					$avg_in_post = (int) $history['avg_input'];
+					$avg_out     = (int) $history['avg_output'];
+				}
+				$force_cost = round( Coywolf_SEO_AI_Batch::estimate_cost( $model, $avg_in_post * $eligible, $avg_out * $eligible ), 2 );
+			}
 			return array(
 				'posts'        => 0,
 				'skipped'      => (int) $scan['total'],
@@ -790,6 +805,8 @@ final class Coywolf_SEO_AI {
 				'reserve_cost' => 0.0,
 				'model'        => $model,
 				'from_history' => false,
+				'force_posts'  => $eligible,
+				'force_cost'   => $force_cost,
 			);
 		}
 
