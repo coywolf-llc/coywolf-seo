@@ -152,6 +152,13 @@ final class Coywolf_SEO {
 	private $toc;
 
 	/**
+	 * Duplicate Post row action (admin only).
+	 *
+	 * @var Coywolf_SEO_Duplicate|null
+	 */
+	private $duplicate = null;
+
+	/**
 	 * Redirects admin screen (admin only).
 	 *
 	 * @var Coywolf_SEO_Redirects_Admin|null
@@ -235,6 +242,9 @@ final class Coywolf_SEO {
 		if ( is_admin() ) {
 			$this->admin = new Coywolf_SEO_Admin();
 			$this->admin->init();
+
+			$this->duplicate = new Coywolf_SEO_Duplicate();
+			$this->duplicate->init();
 
 			$this->redirects_admin = new Coywolf_SEO_Redirects_Admin( $this->redirects );
 			$this->redirects_admin->init();
