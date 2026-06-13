@@ -1,45 +1,21 @@
 <?php
 /**
- * Plugin Name:       Coywolf Link Manager
- * Plugin URI:        https://coywolf.com/notes/link-manager-wordpress-plugin/
- * Description:        Build and maintain an inventory of every internal and external link across your posts and pages. Analyze once, then keep it current automatically — and edit a link's URL, rel attributes, and anchor text across every place it appears from one screen.
- * Version:           2.5.0
- * Requires at least: 5.3
- * Requires PHP:      7.2
- * Author:            Coywolf
- * Author URI:        https://coywolf.com/jon-henshaw/
- * License:           GPL-2.0-or-later
- * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain:       coywolf-seo
+ * Coywolf SEO — Link Manager module.
+ *
+ * Build and maintain an inventory of every internal and external link across
+ * posts and pages. Analyze once, then keep it current automatically — and edit
+ * a link's URL, rel attributes, and anchor text across every place it appears
+ * from one screen.
+ *
  * @package CoywolfSEO
- *
- * Coywolf Link Manager
- * Copyright (C) 2026 Coywolf LLC
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License, version 2, as published
- * by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, see https://www.gnu.org/licenses/gpl-2.0.html.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/* wporg-strip:start — GitHub self-updater (removed from the WordPress.org build) */
-require_once __DIR__ . '/includes/class-github-updater.php';
-require_once __DIR__ . '/includes/class-lm-markdown.php';
-/* wporg-strip:end */
-
 /**
- * Main plugin class.
+ * Link Manager module class.
  *
  * The scan is started by a button (no WP-Cron, no scheduled task). When the
  * button is clicked the server builds a queue of published posts and fires a
@@ -52,27 +28,12 @@ require_once __DIR__ . '/includes/class-lm-markdown.php';
  */
 final class Coywolf_SEO_Link_Manager {
 
-	const VERSION        = '2.5.0';
-	const SLUG                 = 'coywolf-seo-lm';
-	const DOCS_SLUG            = 'coywolf-seo-lm-docs';
-	const SETTINGS_SLUG        = 'coywolf-seo-lm-settings';
-	const STATE_OPTION         = 'coywolf_seo_lm_state';
-	const IGNORES_OPTION       = 'coywolf_seo_lm_ignores';
-	const URL_CACHE_OPTION     = 'coywolf_seo_lm_url_cache';
-	const CANCEL_FLAG          = 'coywolf_seo_lm_cancel';
-	const ALLOWED_ROLES_OPTION = 'coywolf_seo_lm_allowed_roles';
-	const USER_AGENT_OPTION    = 'coywolf_seo_lm_user_agent_override';
-	const SCOPE_OPTION         = 'coywolf_seo_lm_scope';
-	const SPEED_OPTION         = 'coywolf_seo_lm_speed';
-	const AUTO_RUN_OPTION      = 'coywolf_seo_lm_auto_run';      // 'disabled'|'daily'|'weekly'|'monthly'
-	const AUTO_TIME_OPTION     = 'coywolf_seo_lm_auto_time';     // 'HH:MM' in site timezone
-	const AUTO_WEEKDAY_OPTION  = 'coywolf_seo_lm_auto_weekday';  // 0 (Sun) … 6 (Sat)
-	const AUTO_WEEK_OPTION     = 'coywolf_seo_lm_auto_week';     // 'first'|'second'|'third'|'fourth'|'last'
-	const AUTO_EMAIL_OPTION    = 'coywolf_seo_lm_auto_email';    // '1' when notifications are on
-	const AUTO_EMAIL_TO_OPTION = 'coywolf_seo_lm_auto_email_to'; // override recipient, '' = admin_email
-	const POST_TYPES_OPTION    = 'coywolf_seo_lm_post_types';    // array of slugs ('post','page',…)
-	const CAPABILITY           = 'coywolf_seo_lm_access';
-	const SCHEDULE_HOOK        = 'coywolf_seo_lm_run_auto_scan'; // wp-cron event name
+	const VERSION          = '2.5.0';
+	const SLUG             = 'coywolf-seo-link-manager'; // All Links admin page slug.
+	const STATE_OPTION     = 'coywolf_seo_lm_state';
+	const IGNORES_OPTION   = 'coywolf_seo_lm_ignores';
+	const URL_CACHE_OPTION = 'coywolf_seo_lm_url_cache';
+	const CANCEL_FLAG      = 'coywolf_seo_lm_cancel';
 
 	// Link Manager (persistent inventory) constants.
 	const EDIT_SLUG            = 'coywolf-seo-lm-edit';          // hidden Edit Link admin page
@@ -81,12 +42,6 @@ final class Coywolf_SEO_Link_Manager {
 	const RECHECK_QUEUE_OPTION = 'coywolf_seo_lm_recheck_queue'; // url_hash list awaiting a network re-check
 	const RECHECK_HOOK         = 'coywolf_seo_lm_drain_recheck'; // wp-cron safety net for the re-check queue
 	const DB_VERSION           = 3;
-
-	// Allowed values for the auto-run option (Settings → Auto-run scans).
-	const AUTO_DISABLED = 'disabled';
-	const AUTO_DAILY    = 'daily';
-	const AUTO_WEEKLY   = 'weekly';
-	const AUTO_MONTHLY  = 'monthly';
 
 	// Allowed values for the scope option (Settings → Links to check).
 	const SCOPE_ALL      = 'all';
@@ -100,10 +55,10 @@ final class Coywolf_SEO_Link_Manager {
 	const SPEED_FAST    = 'fast';
 	const SPEED_FASTER  = 'faster';
 
-	const BATCH_SIZE     = 5;   // Posts processed per loopback request (default profile).
-	const CONCURRENCY    = 8;   // Links checked in parallel (default profile, filterable).
-	const HTTP_TIMEOUT   = 8;   // Seconds allowed per link request.
-	const STALE_AFTER    = 90;  // Seconds before a running scan is treated as stalled.
+	const BATCH_SIZE      = 5;   // Posts processed per loopback request (default profile).
+	const CONCURRENCY     = 8;   // Links checked in parallel (default profile, filterable).
+	const HTTP_TIMEOUT    = 8;   // Seconds allowed per link request.
+	const STALE_AFTER     = 90;  // Seconds before a running scan is treated as stalled.
 	const CONCURRENCY_MAX = 32; // Upper bound for the `coywolf_seo_lm_concurrency` filter.
 
 	// Identify as a current Chrome on Windows. Many sites (LinkedIn, Cloudflare,
@@ -111,20 +66,6 @@ final class Coywolf_SEO_Link_Manager {
 	// browser UA — together with matching browser headers — reduces false
 	// "broken" results. Filterable via 'coywolf_seo_lm_user_agent'.
 	const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36';
-
-	/**
-	 * Singleton instance.
-	 *
-	 * @var Coywolf_SEO_Link_Manager|null
-	 */
-	private static $instance = null;
-
-	/**
-	 * Admin page hook suffixes returned by add_menu_page / add_submenu_page.
-	 *
-	 * @var array<string,string>
-	 */
-	private $page_hooks = array();
 
 	/**
 	 * Per-request memo of the ignore-rule list so is_ignored() does not read
@@ -145,25 +86,25 @@ final class Coywolf_SEO_Link_Manager {
 	private $lm_analyzed = null;
 
 	/**
-	 * Get the shared instance.
+	 * Register every runtime hook for the module.
 	 *
-	 * @return Coywolf_SEO_Link_Manager
+	 * Called once by Coywolf SEO during bootstrap:
+	 *   ( new Coywolf_SEO_Link_Manager() )->init();
+	 *
+	 * The All Links menu item itself is registered by Coywolf SEO; this module
+	 * only wires the screen renderers, assets, AJAX endpoints, indexing hooks,
+	 * and the schema self-heal.
 	 */
-	public static function instance() {
-		if ( null === self::$instance ) {
-			self::$instance = new self();
+	public function init() {
+		// Dormant when the Link Manager feature is turned off: the page is hidden
+		// and link scanning, indexing, AJAX, and the re-check cron all stop. The
+		// object is still constructed (so accessors do not fatal) and the saved
+		// link data is kept.
+		if ( ! Coywolf_SEO_Options::feature_enabled( 'links' ) ) {
+			return;
 		}
-		return self::$instance;
-	}
 
-	/**
-	 * Hook everything up.
-	 */
-	private function __construct() {
-		add_action( 'admin_menu', array( $this, 'register_menu' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
-		add_action( 'admin_init', array( $this, 'maybe_ensure_caps' ) );
-		add_action( 'admin_init', array( $this, 'maybe_handle_settings_save' ) );
 		add_action( 'admin_init', array( $this, 'lm_maybe_upgrade_db' ) );
 
 		// Operator-facing endpoints (require capability + nonce).
@@ -205,228 +146,154 @@ final class Coywolf_SEO_Link_Manager {
 	 * ------------------------------------------------------------------- */
 
 	/**
-	 * Register the top-level "Link Manager" menu and its subpages.
+	 * Load CSS/JS only on the Link Manager screens (All Links + hidden Edit Link).
 	 *
-	 * The first subpage (All Links) reuses the parent slug so it is the default
-	 * landing page. A hidden "Edit Link" route is registered with a null parent
-	 * so it is reachable by URL but does not appear in the menu. Visibility is
-	 * gated by {@see self::CAPABILITY}, granted to the roles picked in Settings.
-	 */
-	public function register_menu() {
-		$this->page_hooks['parent'] = add_menu_page(
-			__( 'Link Manager', 'coywolf-seo' ),
-			__( 'Link Manager', 'coywolf-seo' ),
-			self::CAPABILITY,
-			self::SLUG,
-			array( $this, 'render_all_links_page' ),
-			'dashicons-admin-links',
-			81
-		);
-
-		$this->page_hooks['all'] = add_submenu_page(
-			self::SLUG,
-			__( 'All Links', 'coywolf-seo' ),
-			__( 'All Links', 'coywolf-seo' ),
-			self::CAPABILITY,
-			self::SLUG,
-			array( $this, 'render_all_links_page' )
-		);
-
-		// Settings access is gated to administrators only — site-wide access
-		// rules and request headers shouldn't be editable by everyone who can
-		// manage links.
-		$this->page_hooks['settings'] = add_submenu_page(
-			self::SLUG,
-			__( 'Settings', 'coywolf-seo' ),
-			__( 'Settings', 'coywolf-seo' ),
-			'manage_options',
-			self::SETTINGS_SLUG,
-			array( $this, 'render_settings_page' )
-		);
-
-		$this->page_hooks['docs'] = add_submenu_page(
-			self::SLUG,
-			__( 'Documentation', 'coywolf-seo' ),
-			__( 'Documentation', 'coywolf-seo' ),
-			self::CAPABILITY,
-			self::DOCS_SLUG,
-			array( $this, 'render_documentation_page' )
-		);
-
-		// Hidden Edit Link screen, reached from the All Links table. A null
-		// parent registers the route without adding a visible menu item.
-		$this->page_hooks['edit'] = add_submenu_page(
-			null,
-			__( 'Edit Link', 'coywolf-seo' ),
-			__( 'Edit Link', 'coywolf-seo' ),
-			'manage_options',
-			self::EDIT_SLUG,
-			array( $this, 'render_edit_link_page' )
-		);
-	}
-
-	/**
-	 * Load CSS/JS only on this plugin's screens.
+	 * Gated on the current admin page slug rather than a stored hook suffix,
+	 * because Coywolf SEO registers the All Links menu item.
 	 *
-	 * @param string $hook Current admin page hook.
+	 * @param string $hook Current admin page hook (unused; kept for the hook signature).
 	 */
 	public function enqueue_assets( $hook ) {
-		$is_all = ( isset( $this->page_hooks['all'] ) && $hook === $this->page_hooks['all'] )
-			|| ( isset( $this->page_hooks['parent'] ) && $hook === $this->page_hooks['parent'] );
-		$is_edit    = isset( $this->page_hooks['edit'] ) && $hook === $this->page_hooks['edit'];
-		$is_docs    = isset( $this->page_hooks['docs'] ) && $hook === $this->page_hooks['docs'];
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only screen detection, no state change.
 
-		// The Documentation page only needs the stylesheet, not the table/edit JS.
-		if ( $is_docs ) {
-			wp_enqueue_style(
-				'coywolf-seo-lm',
-				plugins_url( 'assets/admin.css', __FILE__ ),
-				array( 'dashicons' ),
-				self::VERSION
-			);
-			return;
-		}
-
+		$is_all  = ( self::SLUG === $page );
+		$is_edit = ( self::EDIT_SLUG === $page );
 		if ( ! $is_all && ! $is_edit ) {
 			return;
 		}
 
-		if ( $is_edit ) {
-			$page = 'edit';
-		} else {
-			$page = 'all';
-		}
+		$page_kind = $is_edit ? 'edit' : 'all';
 
 		wp_enqueue_style(
-			'coywolf-seo-lm',
-			plugins_url( 'assets/admin.css', __FILE__ ),
+			'coywolf-seo-link-manager',
+			COYWOLF_SEO_URL . 'css/link-manager.css',
 			array( 'dashicons' ),
 			self::VERSION
 		);
 
 		wp_enqueue_script(
-			'coywolf-seo-lm',
-			plugins_url( 'assets/admin.js', __FILE__ ),
+			'coywolf-seo-link-manager',
+			COYWOLF_SEO_URL . 'js/link-manager.js',
 			array(),
 			self::VERSION,
 			true
 		);
 
 		wp_localize_script(
-			'coywolf-seo-lm',
+			'coywolf-seo-link-manager',
 			'CoywolfSEOLM',
 			array(
 				'ajaxUrl'  => admin_url( 'admin-ajax.php' ),
 				'nonce'    => wp_create_nonce( 'coywolf_seo_lm' ),
 				'pollMs'   => 2000,
 				'perPage'  => 20,
-				'page'     => $page,
+				'page'     => $page_kind,
 				'analyzed' => $this->lm_is_analyzed(),
 				'editBase' => admin_url( 'admin.php?page=' . self::EDIT_SLUG ),
-				'i18n'    => array(
-					'starting'    => __( 'Starting analysis…', 'coywolf-seo' ),
-					'analyzeBtn'  => __( 'Analyze all links', 'coywolf-seo' ),
-					'reanalyzeBtn' => __( 'Re-analyze all links', 'coywolf-seo' ),
-					'reanalyzing' => __( 'Re-analyzing…', 'coywolf-seo' ),
+				'i18n'     => array(
+					'starting'              => __( 'Starting analysis…', 'coywolf-seo' ),
+					'analyzeBtn'            => __( 'Analyze all links', 'coywolf-seo' ),
+					'reanalyzeBtn'          => __( 'Re-analyze all links', 'coywolf-seo' ),
+					'reanalyzing'           => __( 'Re-analyzing…', 'coywolf-seo' ),
 					/* translators: %s: number of selected links. */
-					'confirmRemoveBulk' => __( 'Remove %s selected link(s) from every post and page? The link text is kept.', 'coywolf-seo' ),
+					'confirmRemoveBulk'     => __( 'Remove %s selected link(s) from every post and page? The link text is kept.', 'coywolf-seo' ),
 					/* translators: %s: number of selected links. */
-					'confirmReplaceBulk' => __( 'Replace %s selected redirected link(s) with their final destination URLs, on every post and page?', 'coywolf-seo' ),
-					'replaceNeedsRedirect' => __( 'Replace only applies to links that redirect. Deselect the links that are not redirects and try again.', 'coywolf-seo' ),
-					'internal'    => __( 'Internal', 'coywolf-seo' ),
-					'external'    => __( 'External', 'coywolf-seo' ),
-					'noLinks'     => __( 'No links found yet. Click “Analyze all links” to build the inventory.', 'coywolf-seo' ),
-					'noResponse'  => __( 'No response', 'coywolf-seo' ),
-					'removeEverywhere' => __( 'Remove this link from every post and page it appears on? The link text is kept.', 'coywolf-seo' ),
+					'confirmReplaceBulk'    => __( 'Replace %s selected redirected link(s) with their final destination URLs, on every post and page?', 'coywolf-seo' ),
+					'replaceNeedsRedirect'  => __( 'Replace only applies to links that redirect. Deselect the links that are not redirects and try again.', 'coywolf-seo' ),
+					'internal'              => __( 'Internal', 'coywolf-seo' ),
+					'external'              => __( 'External', 'coywolf-seo' ),
+					'noLinks'               => __( 'No links found yet. Click “Analyze all links” to build the inventory.', 'coywolf-seo' ),
+					'noResponse'            => __( 'No response', 'coywolf-seo' ),
+					'removeEverywhere'      => __( 'Remove this link from every post and page it appears on? The link text is kept.', 'coywolf-seo' ),
 					/* translators: %s: final destination URL. */
-					'replaceEverywhere' => __( 'Replace this link with its redirect destination (%s) on every post and page?', 'coywolf-seo' ),
+					'replaceEverywhere'     => __( 'Replace this link with its redirect destination (%s) on every post and page?', 'coywolf-seo' ),
 					/* translators: %1$s: number of links; %2$s: number of posts/pages processed. */
-					'analyzedSummary' => __( 'Indexed %1$s links across %2$s posts and pages.', 'coywolf-seo' ),
+					'analyzedSummary'       => __( 'Indexed %1$s links across %2$s posts and pages.', 'coywolf-seo' ),
 					/* translators: %s: number of posts being scanned. */
-					'initiating'  => __( 'Initiating the scan of %s posts — this can take up to a minute before the first results appear.', 'coywolf-seo' ),
+					'initiating'            => __( 'Initiating the scan of %s posts — this can take up to a minute before the first results appear.', 'coywolf-seo' ),
 					/* translators: %1$s: current item number; %2$s: total posts and pages. */
-					'scanning'    => __( 'Collecting and analyzing links from %1$s of %2$s posts and pages', 'coywolf-seo' ),
-					'cancelling'  => __( 'Cancelling…', 'coywolf-seo' ),
-					'cancelled'   => __( 'Scan cancelled.', 'coywolf-seo' ),
-					'noBroken'    => __( 'No broken links or redirects found.', 'coywolf-seo' ),
-					'error'       => __( 'Something went wrong. Please try again.', 'coywolf-seo' ),
-					'edit'        => __( 'Edit', 'coywolf-seo' ),
-					'view'        => __( 'View', 'coywolf-seo' ),
-					'connErr'     => __( 'No response', 'coywolf-seo' ),
+					'scanning'              => __( 'Collecting and analyzing links from %1$s of %2$s posts and pages', 'coywolf-seo' ),
+					'cancelling'            => __( 'Cancelling…', 'coywolf-seo' ),
+					'cancelled'             => __( 'Scan cancelled.', 'coywolf-seo' ),
+					'noBroken'              => __( 'No broken links or redirects found.', 'coywolf-seo' ),
+					'error'                 => __( 'Something went wrong. Please try again.', 'coywolf-seo' ),
+					'edit'                  => __( 'Edit', 'coywolf-seo' ),
+					'view'                  => __( 'View', 'coywolf-seo' ),
+					'connErr'               => __( 'No response', 'coywolf-seo' ),
 					/* translators: %1$s: posts scanned; %2$s: links scanned; %3$s: broken count; %4$s: redirected count. */
-					'summary'     => __( 'Scanned %1$s posts and %2$s links. Found %3$s broken and %4$s redirected.', 'coywolf-seo' ),
-					'redirectTo'  => __( 'Redirects to:', 'coywolf-seo' ),
-					'ignore'         => __( 'Ignore this domain', 'coywolf-seo' ),
-					'ignoreUrl'      => __( 'Ignore this URL', 'coywolf-seo' ),
-					'ignoreDomainLink'   => __( 'Ignore domain', 'coywolf-seo' ),
-					'ignoreUrlLink'      => __( 'Ignore URL', 'coywolf-seo' ),
-					'wildcardIgnoreLink' => __( 'Wildcard ignore', 'coywolf-seo' ),
-					'wildcardEmpty'      => __( 'Enter a pattern.', 'coywolf-seo' ),
-					'wildcardSaving'     => __( 'Saving…', 'coywolf-seo' ),
-					'remove'      => __( 'Remove', 'coywolf-seo' ),
-					'noneShown'   => __( 'No results match your filter.', 'coywolf-seo' ),
-					'noSelection' => __( 'Select one or more rows first.', 'coywolf-seo' ),
-					'pickAction'  => __( 'Choose a bulk action first.', 'coywolf-seo' ),
+					'summary'               => __( 'Scanned %1$s posts and %2$s links. Found %3$s broken and %4$s redirected.', 'coywolf-seo' ),
+					'redirectTo'            => __( 'Redirects to:', 'coywolf-seo' ),
+					'ignore'                => __( 'Ignore this domain', 'coywolf-seo' ),
+					'ignoreUrl'             => __( 'Ignore this URL', 'coywolf-seo' ),
+					'ignoreDomainLink'      => __( 'Ignore domain', 'coywolf-seo' ),
+					'ignoreUrlLink'         => __( 'Ignore URL', 'coywolf-seo' ),
+					'wildcardIgnoreLink'    => __( 'Wildcard ignore', 'coywolf-seo' ),
+					'wildcardEmpty'         => __( 'Enter a pattern.', 'coywolf-seo' ),
+					'wildcardSaving'        => __( 'Saving…', 'coywolf-seo' ),
+					'remove'                => __( 'Remove', 'coywolf-seo' ),
+					'noneShown'             => __( 'No results match your filter.', 'coywolf-seo' ),
+					'noSelection'           => __( 'Select one or more rows first.', 'coywolf-seo' ),
+					'pickAction'            => __( 'Choose a bulk action first.', 'coywolf-seo' ),
 					/* translators: %s: number of domains. */
-					'confirmDom'  => __( 'Ignore %s domain(s) from future scans? Matching results will be removed from this list.', 'coywolf-seo' ),
+					'confirmDom'            => __( 'Ignore %s domain(s) from future scans? Matching results will be removed from this list.', 'coywolf-seo' ),
 					/* translators: %s: number of URLs. */
-					'confirmUrl'  => __( 'Ignore %s URL(s) from future scans? Matching results will be removed from this list.', 'coywolf-seo' ),
+					'confirmUrl'            => __( 'Ignore %s URL(s) from future scans? Matching results will be removed from this list.', 'coywolf-seo' ),
 					/* translators: %1$s: links shown; %2$s: total broken links. */
-					'filtered'    => __( 'Showing %1$s of %2$s broken links.', 'coywolf-seo' ),
-					'allCodes'    => __( 'All response codes', 'coywolf-seo' ),
-					'editLink'    => __( 'Edit', 'coywolf-seo' ),
-					'modalTitle'  => __( 'Edit link URL', 'coywolf-seo' ),
-					'modalHelp'   => __( 'Update the link in the post. This changes the post content immediately.', 'coywolf-seo' ),
-					'save'        => __( 'Save', 'coywolf-seo' ),
-					'cancel'      => __( 'Cancel', 'coywolf-seo' ),
-					'saving'      => __( 'Saving…', 'coywolf-seo' ),
-					'invalidUrl'  => __( 'Please enter a valid http or https URL.', 'coywolf-seo' ),
-					'sameUrl'     => __( 'The URL is unchanged.', 'coywolf-seo' ),
-					'notFound'    => __( 'That URL was no longer found in the post — it may have already been changed.', 'coywolf-seo' ),
+					'filtered'              => __( 'Showing %1$s of %2$s broken links.', 'coywolf-seo' ),
+					'allCodes'              => __( 'All response codes', 'coywolf-seo' ),
+					'editLink'              => __( 'Edit', 'coywolf-seo' ),
+					'modalTitle'            => __( 'Edit link URL', 'coywolf-seo' ),
+					'modalHelp'             => __( 'Update the link in the post. This changes the post content immediately.', 'coywolf-seo' ),
+					'save'                  => __( 'Save', 'coywolf-seo' ),
+					'cancel'                => __( 'Cancel', 'coywolf-seo' ),
+					'saving'                => __( 'Saving…', 'coywolf-seo' ),
+					'invalidUrl'            => __( 'Please enter a valid http or https URL.', 'coywolf-seo' ),
+					'sameUrl'               => __( 'The URL is unchanged.', 'coywolf-seo' ),
+					'notFound'              => __( 'That URL was no longer found in the post — it may have already been changed.', 'coywolf-seo' ),
 					/* translators: %s: number of occurrences updated. */
-					'updated'     => __( 'Link updated (%s occurrence(s)).', 'coywolf-seo' ),
-					'removeLink'  => __( 'Remove', 'coywolf-seo' ),
-					'confirmTitle' => __( 'Remove link', 'coywolf-seo' ),
-					'confirmMsg'  => __( 'Are you sure you want to remove the link?', 'coywolf-seo' ),
-					'confirmHelp' => __( 'The link will be removed from the post but its text will be kept.', 'coywolf-seo' ),
-					'removing'    => __( 'Removing…', 'coywolf-seo' ),
-					'removeBulk'  => __( 'Remove links', 'coywolf-seo' ),
+					'updated'               => __( 'Link updated (%s occurrence(s)).', 'coywolf-seo' ),
+					'removeLink'            => __( 'Remove', 'coywolf-seo' ),
+					'confirmTitle'          => __( 'Remove link', 'coywolf-seo' ),
+					'confirmMsg'            => __( 'Are you sure you want to remove the link?', 'coywolf-seo' ),
+					'confirmHelp'           => __( 'The link will be removed from the post but its text will be kept.', 'coywolf-seo' ),
+					'removing'              => __( 'Removing…', 'coywolf-seo' ),
+					'removeBulk'            => __( 'Remove links', 'coywolf-seo' ),
 					/* translators: %s: number of selected links. */
-					'confirmBulkMsg' => __( 'Are you sure you want to remove %s selected link(s)?', 'coywolf-seo' ),
+					'confirmBulkMsg'        => __( 'Are you sure you want to remove %s selected link(s)?', 'coywolf-seo' ),
 					/* translators: %1$s: current page number; %2$s: total pages. */
-					'pageOf'      => __( '%1$s of %2$s', 'coywolf-seo' ),
-					'currentPage' => __( 'Current Page', 'coywolf-seo' ),
-					'firstPage'   => __( 'First page', 'coywolf-seo' ),
-					'prevPage'    => __( 'Previous page', 'coywolf-seo' ),
-					'nextPage'    => __( 'Next page', 'coywolf-seo' ),
-					'lastPage'    => __( 'Last page', 'coywolf-seo' ),
+					'pageOf'                => __( '%1$s of %2$s', 'coywolf-seo' ),
+					'currentPage'           => __( 'Current Page', 'coywolf-seo' ),
+					'firstPage'             => __( 'First page', 'coywolf-seo' ),
+					'prevPage'              => __( 'Previous page', 'coywolf-seo' ),
+					'nextPage'              => __( 'Next page', 'coywolf-seo' ),
+					'lastPage'              => __( 'Last page', 'coywolf-seo' ),
 					/* translators: %s: number of items. */
-					'nItems'      => __( '%s items', 'coywolf-seo' ),
-					'noIgnores'   => __( 'No ignored domains or URLs yet.', 'coywolf-seo' ),
+					'nItems'                => __( '%s items', 'coywolf-seo' ),
+					'noIgnores'             => __( 'No ignored domains or URLs yet.', 'coywolf-seo' ),
 					/* translators: %s: number of ignore rules. */
-					'confirmRemoveIgnores' => __( 'Remove %s ignore rule(s)?', 'coywolf-seo' ),
-					'typeDomain'   => __( 'Domain', 'coywolf-seo' ),
-					'typeUrl'      => __( 'URL', 'coywolf-seo' ),
-					'typeWildcard' => __( 'Wildcard', 'coywolf-seo' ),
-					'viewAll'      => __( 'All', 'coywolf-seo' ),
-					'viewIgnored'  => __( 'Ignored', 'coywolf-seo' ),
-					'unignore'     => __( 'Unignore', 'coywolf-seo' ),
-					'unignoreBulk' => __( 'Unignore', 'coywolf-seo' ),
+					'confirmRemoveIgnores'  => __( 'Remove %s ignore rule(s)?', 'coywolf-seo' ),
+					'typeDomain'            => __( 'Domain', 'coywolf-seo' ),
+					'typeUrl'               => __( 'URL', 'coywolf-seo' ),
+					'typeWildcard'          => __( 'Wildcard', 'coywolf-seo' ),
+					'viewAll'               => __( 'All', 'coywolf-seo' ),
+					'viewIgnored'           => __( 'Ignored', 'coywolf-seo' ),
+					'unignore'              => __( 'Unignore', 'coywolf-seo' ),
+					'unignoreBulk'          => __( 'Unignore', 'coywolf-seo' ),
 					/* translators: %s: number of selected links. */
-					'confirmUnignoreBulk' => __( 'Stop ignoring %s selected link(s)? Any domain or wildcard rule that also matches other links is removed, so those links return to the list too.', 'coywolf-seo' ),
-					'confirmUnignoreOne'  => __( 'Stop ignoring this link? If it was ignored by a domain or wildcard rule, that rule is removed, so other links it matches return to the list too.', 'coywolf-seo' ),
-					'noIgnoredLinks' => __( 'No ignored links yet. Use “Add rule” above, or a link’s Ignore actions, to ignore links.', 'coywolf-seo' ),
-					'replaceLink' => __( 'Replace', 'coywolf-seo' ),
-					'replaceTitle' => __( 'Replace link', 'coywolf-seo' ),
-					'replaceMsg'  => __( 'Replace this link with its redirect destination?', 'coywolf-seo' ),
-					'replaceHelp' => __( 'The link in the post will be updated to point directly at the final URL. The row will be removed from this list.', 'coywolf-seo' ),
-					'replaceFrom' => __( 'From:', 'coywolf-seo' ),
-					'replaceTo'   => __( 'To:', 'coywolf-seo' ),
-					'replacing'   => __( 'Replacing…', 'coywolf-seo' ),
-					'replaceBulk' => __( 'Replace links', 'coywolf-seo' ),
+					'confirmUnignoreBulk'   => __( 'Stop ignoring %s selected link(s)? Any domain or wildcard rule that also matches other links is removed, so those links return to the list too.', 'coywolf-seo' ),
+					'confirmUnignoreOne'    => __( 'Stop ignoring this link? If it was ignored by a domain or wildcard rule, that rule is removed, so other links it matches return to the list too.', 'coywolf-seo' ),
+					'noIgnoredLinks'        => __( 'No ignored links yet. Use “Add rule” above, or a link’s Ignore actions, to ignore links.', 'coywolf-seo' ),
+					'replaceLink'           => __( 'Replace', 'coywolf-seo' ),
+					'replaceTitle'          => __( 'Replace link', 'coywolf-seo' ),
+					'replaceMsg'            => __( 'Replace this link with its redirect destination?', 'coywolf-seo' ),
+					'replaceHelp'           => __( 'The link in the post will be updated to point directly at the final URL. The row will be removed from this list.', 'coywolf-seo' ),
+					'replaceFrom'           => __( 'From:', 'coywolf-seo' ),
+					'replaceTo'             => __( 'To:', 'coywolf-seo' ),
+					'replacing'             => __( 'Replacing…', 'coywolf-seo' ),
+					'replaceBulk'           => __( 'Replace links', 'coywolf-seo' ),
 					/* translators: %s: number of redirected links. */
 					'confirmReplaceBulkMsg' => __( 'Replace %s redirected link(s) with their final destination URLs?', 'coywolf-seo' ),
-					'noRedirects' => __( 'None of the selected rows have a redirect destination to replace.', 'coywolf-seo' ),
+					'noRedirects'           => __( 'None of the selected rows have a redirect destination to replace.', 'coywolf-seo' ),
 				),
 			)
 		);
@@ -437,8 +304,8 @@ final class Coywolf_SEO_Link_Manager {
 	 * one-time "Analyze all links" control. Rows are drawn client-side from the
 	 * inventory endpoint; the progress bar is reused for the analysis run.
 	 */
-	public function render_all_links_page() {
-		if ( ! current_user_can( self::CAPABILITY ) ) {
+	public function render_page() {
+		if ( ! current_user_can( Coywolf_SEO_Admin::CAPABILITY ) ) {
 			return;
 		}
 		?>
@@ -688,7 +555,7 @@ final class Coywolf_SEO_Link_Manager {
 	 */
 	private function authorise_operator() {
 		check_ajax_referer( 'coywolf_seo_lm', 'nonce' );
-		if ( ! current_user_can( self::CAPABILITY ) ) {
+		if ( ! current_user_can( Coywolf_SEO_Admin::CAPABILITY ) ) {
 			wp_send_json_error( array( 'message' => __( 'You do not have permission to do that.', 'coywolf-seo' ) ), 403 );
 		}
 	}
@@ -698,20 +565,17 @@ final class Coywolf_SEO_Link_Manager {
 	 */
 	public function ajax_start() {
 		$this->authorise_operator();
-		$state = $this->start_scan( false );
+		$state = $this->start_scan();
 		wp_send_json_success( $this->public_state( $state ) );
 	}
 
 	/**
 	 * Build the post queue, fire the first worker, and return the resulting
-	 * scan state. Shared entry point for both UI-triggered scans and the
-	 * WP-Cron auto-run callback. The $auto_run flag is persisted in state so
-	 * the completion path can decide whether to send a notification email.
+	 * scan state.
 	 *
-	 * @param bool $auto_run True when launched from the auto-run cron event.
 	 * @return array Internal scan state (caller decides how to expose it).
 	 */
-	private function start_scan( $auto_run = false ) {
+	private function start_scan() {
 		$post_ids = get_posts(
 			array(
 				'post_type'      => $this->get_post_types_to_scan(),
@@ -738,7 +602,6 @@ final class Coywolf_SEO_Link_Manager {
 		$state['total_posts'] = count( $post_ids );
 		$state['token']       = wp_generate_password( 32, false );
 		$state['started']     = time();
-		$state['auto_run']    = (bool) $auto_run;
 		$this->save_state( $state );
 
 		if ( empty( $state['queue'] ) ) {
@@ -793,7 +656,7 @@ final class Coywolf_SEO_Link_Manager {
 	public function ajax_ignore_add() {
 		$this->authorise_operator();
 
-		$raw = isset( $_POST['rules'] ) ? wp_unslash( $_POST['rules'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput, WordPress.Security.NonceVerification.Missing -- Raw JSON payload validated per-field after decode; nonce + capability verified in authorise_operator().
+		$raw     = isset( $_POST['rules'] ) ? wp_unslash( $_POST['rules'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput, WordPress.Security.NonceVerification.Missing -- Raw JSON payload validated per-field after decode; nonce + capability verified in authorise_operator().
 		$decoded = json_decode( (string) $raw, true );
 		if ( ! is_array( $decoded ) ) {
 			$decoded = array();
@@ -807,7 +670,7 @@ final class Coywolf_SEO_Link_Manager {
 			if ( null === $norm ) {
 				continue;
 			}
-			$key = $norm['type'] . '|' . $norm['value'];
+			$key             = $norm['type'] . '|' . $norm['value'];
 			$ignores[ $key ] = $norm;
 		}
 		$this->save_ignores( $ignores );
@@ -849,84 +712,6 @@ final class Coywolf_SEO_Link_Manager {
 	}
 
 	/**
-	 * Update a link's URL inside a post's content.
-	 *
-	 * Replaces the href of every <a> in the post whose (entity-decoded) target
-	 * equals the old URL, then saves the post. Only the href attribute value is
-	 * touched, so the rest of the content — including block markup — is left
-	 * intact. Also refreshes the in-memory scan results so the table reflects
-	 * the new URL without a re-scan.
-	 */
-	public function ajax_update_link() {
-		$this->authorise_operator();
-
-		$post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce + capability verified in authorise_operator() (check_ajax_referer) before this AJAX handler reads input.
-		$old_url = isset( $_POST['old_url'] ) ? esc_url_raw( wp_unslash( $_POST['old_url'] ), array( 'http', 'https' ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce + capability verified in authorise_operator() (check_ajax_referer) before this AJAX handler reads input.
-		$new_url = isset( $_POST['new_url'] ) ? esc_url_raw( wp_unslash( $_POST['new_url'] ), array( 'http', 'https' ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce + capability verified in authorise_operator() (check_ajax_referer) before this AJAX handler reads input.
-
-		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
-			wp_send_json_error( array( 'message' => __( 'You cannot edit that post.', 'coywolf-seo' ) ), 403 );
-		}
-		if ( '' === $old_url || '' === $new_url ) {
-			wp_send_json_error( array( 'message' => __( 'Please enter a valid http or https URL.', 'coywolf-seo' ) ), 400 );
-		}
-
-		$post = get_post( $post_id );
-		if ( ! $post ) {
-			wp_send_json_error( array( 'message' => __( 'Post not found.', 'coywolf-seo' ) ), 404 );
-		}
-
-		$replaced = 0;
-		$content  = $this->replace_link_url( $post->post_content, $old_url, $new_url, $replaced );
-
-		if ( 0 === $replaced ) {
-			wp_send_json_error(
-				array( 'message' => __( 'That URL was no longer found in the post — it may have already been changed.', 'coywolf-seo' ) ),
-				409
-			);
-		}
-
-		$result = wp_update_post(
-			array(
-				'ID'           => $post_id,
-				'post_content' => $content,
-			),
-			true
-		);
-
-		if ( is_wp_error( $result ) ) {
-			wp_send_json_error( array( 'message' => $result->get_error_message() ), 500 );
-		}
-
-		// Drop the edited row from the stored results: the operator has
-		// declared the link fixed by saving a new URL, so it does not need to
-		// remain in the broken/redirect list until a re-scan. (Matches the
-		// behaviour of the Remove and Replace actions.)
-		$state = $this->get_state();
-		if ( ! empty( $state['results'] ) ) {
-			$state['results'] = array_values(
-				array_filter(
-					$state['results'],
-					function ( $row ) use ( $post_id, $old_url ) {
-						return ! ( (int) $row['post_id'] === $post_id && $row['url'] === $old_url );
-					}
-				)
-			);
-			$this->bump_version( $state );
-			$this->save_state( $state );
-			$this->forget_cached_urls( array( $old_url ) );
-		}
-
-		wp_send_json_success(
-			array(
-				'replaced' => $replaced,
-				'newUrl'   => $new_url,
-				'state'    => $this->public_state( $state ),
-			)
-		);
-	}
-
-	/**
 	 * Replace the href of matching <a> tags in HTML content.
 	 *
 	 * Matches by the entity-decoded href value so URLs containing "&" (stored as
@@ -962,176 +747,6 @@ final class Coywolf_SEO_Link_Manager {
 		);
 
 		return $content;
-	}
-
-	/**
-	 * Remove a link from a post while keeping its text.
-	 *
-	 * Unwraps every <a> in the post whose target equals the given URL, replacing
-	 * the whole element with its inner contents (so "<a href=…>text</a>" becomes
-	 * "text"). The matching row(s) are then dropped from the scan results.
-	 */
-	public function ajax_remove_link() {
-		$this->authorise_operator();
-
-		$post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce + capability verified in authorise_operator() (check_ajax_referer) before this AJAX handler reads input.
-		$old_url = isset( $_POST['old_url'] ) ? esc_url_raw( wp_unslash( $_POST['old_url'] ), array( 'http', 'https' ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce + capability verified in authorise_operator() (check_ajax_referer) before this AJAX handler reads input.
-
-		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
-			wp_send_json_error( array( 'message' => __( 'You cannot edit that post.', 'coywolf-seo' ) ), 403 );
-		}
-		if ( '' === $old_url ) {
-			wp_send_json_error( array( 'message' => __( 'Please enter a valid http or https URL.', 'coywolf-seo' ) ), 400 );
-		}
-
-		$post = get_post( $post_id );
-		if ( ! $post ) {
-			wp_send_json_error( array( 'message' => __( 'Post not found.', 'coywolf-seo' ) ), 404 );
-		}
-
-		$removed = 0;
-		$content = $this->remove_link_url( $post->post_content, $old_url, $removed );
-
-		if ( 0 === $removed ) {
-			wp_send_json_error(
-				array( 'message' => __( 'That URL was no longer found in the post — it may have already been changed.', 'coywolf-seo' ) ),
-				409
-			);
-		}
-
-		$result = wp_update_post(
-			array(
-				'ID'           => $post_id,
-				'post_content' => $content,
-			),
-			true
-		);
-
-		if ( is_wp_error( $result ) ) {
-			wp_send_json_error( array( 'message' => $result->get_error_message() ), 500 );
-		}
-
-		// Drop the removed link's row(s) from the stored results.
-		$state = $this->get_state();
-		if ( ! empty( $state['results'] ) ) {
-			$state['results'] = array_values(
-				array_filter(
-					$state['results'],
-					function ( $row ) use ( $post_id, $old_url ) {
-						return ! ( (int) $row['post_id'] === $post_id && $row['url'] === $old_url );
-					}
-				)
-			);
-			$this->bump_version( $state );
-			$this->save_state( $state );
-			$this->forget_cached_urls( array( $old_url ) );
-		}
-
-		wp_send_json_success(
-			array(
-				'removed' => $removed,
-				'state'   => $this->public_state( $state ),
-			)
-		);
-	}
-
-	/**
-	 * Remove several links at once (bulk action).
-	 *
-	 * Accepts a JSON array of { post_id, url } items. Links are grouped by post
-	 * so each affected post is loaded, modified, and saved a single time — even
-	 * when several selected links live in the same post — which keeps the
-	 * revision history clean and avoids overlapping writes. Unauthorised posts
-	 * and already-removed links are skipped silently.
-	 */
-	public function ajax_remove_links_bulk() {
-		$this->authorise_operator();
-
-		$raw   = isset( $_POST['items'] ) ? wp_unslash( $_POST['items'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput, WordPress.Security.NonceVerification.Missing -- Raw JSON payload validated per-field after decode; nonce + capability verified in authorise_operator().
-		$items = json_decode( (string) $raw, true );
-		if ( ! is_array( $items ) ) {
-			$items = array();
-		}
-
-		// Group unique URLs per post, keeping only posts the user may edit.
-		$by_post = array();
-		foreach ( $items as $item ) {
-			$pid = isset( $item['post_id'] ) ? absint( $item['post_id'] ) : 0;
-			$url = isset( $item['url'] ) ? esc_url_raw( $item['url'], array( 'http', 'https' ) ) : '';
-			if ( ! $pid || '' === $url || ! current_user_can( 'edit_post', $pid ) ) {
-				continue;
-			}
-			$by_post[ $pid ][ $url ] = true;
-		}
-
-		if ( empty( $by_post ) ) {
-			wp_send_json_error( array( 'message' => __( 'Nothing to remove.', 'coywolf-seo' ) ), 400 );
-		}
-
-		$removed_total = 0;
-		$posts_changed = 0;
-
-		foreach ( $by_post as $pid => $urls ) {
-			$post = get_post( $pid );
-			if ( ! $post ) {
-				continue;
-			}
-
-			$content = $post->post_content;
-			$changed = false;
-			foreach ( array_keys( $urls ) as $url ) {
-				$count   = 0;
-				$content = $this->remove_link_url( $content, $url, $count );
-				if ( $count > 0 ) {
-					$removed_total += $count;
-					$changed        = true;
-				}
-			}
-
-			if ( $changed ) {
-				$result = wp_update_post(
-					array(
-						'ID'           => $pid,
-						'post_content' => $content,
-					),
-					true
-				);
-				if ( ! is_wp_error( $result ) ) {
-					$posts_changed++;
-				}
-			}
-		}
-
-		// Drop every selected (post, url) pair from the stored results.
-		$state = $this->get_state();
-		if ( ! empty( $state['results'] ) ) {
-			$state['results'] = array_values(
-				array_filter(
-					$state['results'],
-					function ( $row ) use ( $by_post ) {
-						$pid = (int) $row['post_id'];
-						return ! ( isset( $by_post[ $pid ] ) && isset( $by_post[ $pid ][ $row['url'] ] ) );
-					}
-				)
-			);
-			$this->bump_version( $state );
-			$this->save_state( $state );
-			$forget = array();
-			foreach ( $by_post as $urls ) {
-				foreach ( array_keys( $urls ) as $url ) {
-					$forget[] = $url;
-				}
-			}
-			$this->forget_cached_urls( $forget );
-		}
-
-		wp_send_json_success(
-			array(
-				'removed'      => $removed_total,
-				'postsChanged' => $posts_changed,
-				'state'        => $this->public_state( $state ),
-			)
-		);
 	}
 
 	/**
@@ -1347,11 +962,11 @@ final class Coywolf_SEO_Link_Manager {
 				$is_internal = ( '' !== $home_host && $link_host === $home_host );
 
 				$links[] = array(
-					'url'       => $abs,
-					'anchor'    => $this->lm_anchor_text( $inner ),
-					'type'      => $is_internal ? 'internal' : 'external',
-					'rel'       => implode( ' ', $this->lm_parse_rel( $attrs ) ),
-					'instance'  => $i,
+					'url'      => $abs,
+					'anchor'   => $this->lm_anchor_text( $inner ),
+					'type'     => $is_internal ? 'internal' : 'external',
+					'rel'      => implode( ' ', $this->lm_parse_rel( $attrs ) ),
+					'instance' => $i,
 				);
 				return null; // Read-only walk.
 			}
@@ -1495,175 +1110,6 @@ final class Coywolf_SEO_Link_Manager {
 	}
 
 	/**
-	 * Replace a redirected link's URL with its final destination.
-	 *
-	 * Reuses the same href-rewrite logic as {@see ajax_update_link} but is
-	 * intended for redirect cleanup: after a successful replace the row is
-	 * dropped from the scan results (the new URL is presumed good — the
-	 * redirect target the server already confirmed reachable).
-	 */
-	public function ajax_replace_link() {
-		$this->authorise_operator();
-
-		$post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce + capability verified in authorise_operator() (check_ajax_referer) before this AJAX handler reads input.
-		$old_url = isset( $_POST['old_url'] ) ? esc_url_raw( wp_unslash( $_POST['old_url'] ), array( 'http', 'https' ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce + capability verified in authorise_operator() (check_ajax_referer) before this AJAX handler reads input.
-		$new_url = isset( $_POST['new_url'] ) ? esc_url_raw( wp_unslash( $_POST['new_url'] ), array( 'http', 'https' ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce + capability verified in authorise_operator() (check_ajax_referer) before this AJAX handler reads input.
-
-		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
-			wp_send_json_error( array( 'message' => __( 'You cannot edit that post.', 'coywolf-seo' ) ), 403 );
-		}
-		if ( '' === $old_url || '' === $new_url ) {
-			wp_send_json_error( array( 'message' => __( 'Please enter a valid http or https URL.', 'coywolf-seo' ) ), 400 );
-		}
-
-		$post = get_post( $post_id );
-		if ( ! $post ) {
-			wp_send_json_error( array( 'message' => __( 'Post not found.', 'coywolf-seo' ) ), 404 );
-		}
-
-		$replaced = 0;
-		$content  = $this->replace_link_url( $post->post_content, $old_url, $new_url, $replaced );
-
-		if ( 0 === $replaced ) {
-			wp_send_json_error(
-				array( 'message' => __( 'That URL was no longer found in the post — it may have already been changed.', 'coywolf-seo' ) ),
-				409
-			);
-		}
-
-		$result = wp_update_post(
-			array(
-				'ID'           => $post_id,
-				'post_content' => $content,
-			),
-			true
-		);
-		if ( is_wp_error( $result ) ) {
-			wp_send_json_error( array( 'message' => $result->get_error_message() ), 500 );
-		}
-
-		// Drop the replaced row from stored results; its URL now points at the
-		// final destination the scanner already proved reachable.
-		$state = $this->get_state();
-		if ( ! empty( $state['results'] ) ) {
-			$state['results'] = array_values(
-				array_filter(
-					$state['results'],
-					function ( $row ) use ( $post_id, $old_url ) {
-						return ! ( (int) $row['post_id'] === $post_id && $row['url'] === $old_url );
-					}
-				)
-			);
-			$this->bump_version( $state );
-			$this->save_state( $state );
-			$this->forget_cached_urls( array( $old_url ) );
-		}
-
-		wp_send_json_success(
-			array(
-				'replaced' => $replaced,
-				'newUrl'   => $new_url,
-				'state'    => $this->public_state( $state ),
-			)
-		);
-	}
-
-	/**
-	 * Replace multiple redirected links at once (bulk action). Accepts a
-	 * JSON array of { post_id, old_url, new_url } items. Posts are loaded
-	 * and saved once each, regardless of how many of their links are in
-	 * the batch.
-	 */
-	public function ajax_replace_links_bulk() {
-		$this->authorise_operator();
-
-		$raw   = isset( $_POST['items'] ) ? wp_unslash( $_POST['items'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput, WordPress.Security.NonceVerification.Missing -- Raw JSON payload validated per-field after decode; nonce + capability verified in authorise_operator().
-		$items = json_decode( (string) $raw, true );
-		if ( ! is_array( $items ) ) {
-			$items = array();
-		}
-
-		// Group (old_url => new_url) per post, dropping posts the user cannot edit.
-		$by_post = array();
-		foreach ( $items as $item ) {
-			$pid = isset( $item['post_id'] ) ? absint( $item['post_id'] ) : 0;
-			$old = isset( $item['old_url'] ) ? esc_url_raw( $item['old_url'], array( 'http', 'https' ) ) : '';
-			$new = isset( $item['new_url'] ) ? esc_url_raw( $item['new_url'], array( 'http', 'https' ) ) : '';
-			if ( ! $pid || '' === $old || '' === $new || ! current_user_can( 'edit_post', $pid ) ) {
-				continue;
-			}
-			$by_post[ $pid ][ $old ] = $new;
-		}
-
-		if ( empty( $by_post ) ) {
-			wp_send_json_error( array( 'message' => __( 'Nothing to replace.', 'coywolf-seo' ) ), 400 );
-		}
-
-		$replaced_total = 0;
-		$posts_changed  = 0;
-
-		foreach ( $by_post as $pid => $map ) {
-			$post = get_post( $pid );
-			if ( ! $post ) {
-				continue;
-			}
-			$content = $post->post_content;
-			$changed = false;
-			foreach ( $map as $old => $new ) {
-				$count   = 0;
-				$content = $this->replace_link_url( $content, $old, $new, $count );
-				if ( $count > 0 ) {
-					$replaced_total += $count;
-					$changed         = true;
-				}
-			}
-			if ( $changed ) {
-				$result = wp_update_post(
-					array(
-						'ID'           => $pid,
-						'post_content' => $content,
-					),
-					true
-				);
-				if ( ! is_wp_error( $result ) ) {
-					$posts_changed++;
-				}
-			}
-		}
-
-		// Drop every selected (post, old_url) pair from the stored results.
-		$state = $this->get_state();
-		if ( ! empty( $state['results'] ) ) {
-			$state['results'] = array_values(
-				array_filter(
-					$state['results'],
-					function ( $row ) use ( $by_post ) {
-						$pid = (int) $row['post_id'];
-						return ! ( isset( $by_post[ $pid ] ) && isset( $by_post[ $pid ][ $row['url'] ] ) );
-					}
-				)
-			);
-			$this->bump_version( $state );
-			$this->save_state( $state );
-			$forget = array();
-			foreach ( $by_post as $map ) {
-				foreach ( array_keys( $map ) as $old ) {
-					$forget[] = $old;
-				}
-			}
-			$this->forget_cached_urls( $forget );
-		}
-
-		wp_send_json_success(
-			array(
-				'replaced'     => $replaced_total,
-				'postsChanged' => $posts_changed,
-				'state'        => $this->public_state( $state ),
-			)
-		);
-	}
-
-	/**
 	 * Process one batch of posts, then chain the next worker.
 	 *
 	 * Authorised by the per-scan token rather than the auth cookie, because the
@@ -1797,7 +1243,7 @@ final class Coywolf_SEO_Link_Manager {
 			if ( ! isset( $state['processed_by_type'][ $ptype ] ) ) {
 				$state['processed_by_type'][ $ptype ] = 0;
 			}
-			$state['processed_by_type'][ $ptype ]++;
+			++$state['processed_by_type'][ $ptype ];
 
 			// Record this post's link occurrences (this upserts the link rows).
 			// Ignored links are kept in the inventory but never response-checked,
@@ -1819,7 +1265,7 @@ final class Coywolf_SEO_Link_Manager {
 			foreach ( $checked as $url => $result ) {
 				$url_cache[ $url ] = $result;
 				$this->lm_write_response( sha1( $url ), $result );
-				$state['links_checked']++;
+				++$state['links_checked'];
 			}
 		}
 
@@ -1978,7 +1424,7 @@ final class Coywolf_SEO_Link_Manager {
 		// Normalise "." / ".." segments. Query string and fragment are
 		// preserved unchanged.
 		$query_frag = '';
-		$cut = strcspn( $combined, '?#' );
+		$cut        = strcspn( $combined, '?#' );
 		if ( $cut < strlen( $combined ) ) {
 			$query_frag = substr( $combined, $cut );
 			$combined   = substr( $combined, 0, $cut );
@@ -2060,7 +1506,12 @@ final class Coywolf_SEO_Link_Manager {
 
 		$get = empty( $need_get ) ? array() : $this->multi_request( $need_get, 'GET' );
 
-		$blank = array( 'code' => 0, 'error' => null, 'redirect_code' => 0, 'final_url' => '' );
+		$blank = array(
+			'code'          => 0,
+			'error'         => null,
+			'redirect_code' => 0,
+			'final_url'     => '',
+		);
 		foreach ( $safe as $url ) {
 			$h      = isset( $head[ $url ] ) ? $head[ $url ] : $blank;
 			$g      = isset( $get[ $url ] ) ? $get[ $url ] : null;
@@ -2120,13 +1571,13 @@ final class Coywolf_SEO_Link_Manager {
 
 		foreach ( array_chunk( $urls, $concurrency ) as $chunk ) {
 			$options = array(
-				'timeout'         => self::HTTP_TIMEOUT,
-				'connect_timeout' => self::HTTP_TIMEOUT,
-				'redirects'       => 5,
+				'timeout'          => self::HTTP_TIMEOUT,
+				'connect_timeout'  => self::HTTP_TIMEOUT,
+				'redirects'        => 5,
 				'follow_redirects' => true,
-				'verify'          => true,
-				'useragent'       => $this->user_agent(),
-				'hooks'           => $this->redirect_guard_hooks(),
+				'verify'           => true,
+				'useragent'        => $this->user_agent(),
+				'hooks'            => $this->redirect_guard_hooks(),
 			);
 
 			$requests = array();
@@ -2148,7 +1599,12 @@ final class Coywolf_SEO_Link_Manager {
 			} catch ( \Exception $e ) {
 				// Whole-chunk failure: record an error for each and continue.
 				foreach ( $chunk as $url ) {
-					$out[ $url ] = array( 'code' => 0, 'error' => $e->getMessage(), 'redirect_code' => 0, 'final_url' => '' );
+					$out[ $url ] = array(
+						'code'          => 0,
+						'error'         => $e->getMessage(),
+						'redirect_code' => 0,
+						'final_url'     => '',
+					);
 				}
 				continue;
 			}
@@ -2168,9 +1624,19 @@ final class Coywolf_SEO_Link_Manager {
 						'final_url'     => $final_url,
 					);
 				} elseif ( $resp instanceof \Exception ) {
-					$out[ $url ] = array( 'code' => 0, 'error' => $resp->getMessage(), 'redirect_code' => 0, 'final_url' => '' );
+					$out[ $url ] = array(
+						'code'          => 0,
+						'error'         => $resp->getMessage(),
+						'redirect_code' => 0,
+						'final_url'     => '',
+					);
 				} else {
-					$out[ $url ] = array( 'code' => 0, 'error' => __( 'No response', 'coywolf-seo' ), 'redirect_code' => 0, 'final_url' => '' );
+					$out[ $url ] = array(
+						'code'          => 0,
+						'error'         => __( 'No response', 'coywolf-seo' ),
+						'redirect_code' => 0,
+						'final_url'     => '',
+					);
 				}
 			}
 		}
@@ -2232,7 +1698,7 @@ final class Coywolf_SEO_Link_Manager {
 
 	/**
 	 * The User-Agent string to present. Order of precedence:
-	 *   1. The Settings page override (if set to a non-empty value).
+	 *   1. The Coywolf SEO Settings override ('lm_user_agent', if non-empty).
 	 *   2. The 'coywolf_seo_lm_user_agent' filter (legacy hook for site code).
 	 *   3. The built-in current Chrome / Windows UA.
 	 *
@@ -2240,8 +1706,8 @@ final class Coywolf_SEO_Link_Manager {
 	 */
 	private function user_agent() {
 		// Defence in depth: strip control chars at read time too, in case
-		// the option was written by something other than our save handler.
-		$override = preg_replace( '/[\r\n\t\0]+/', ' ', (string) get_option( self::USER_AGENT_OPTION, '' ) );
+		// the option was written by something other than the settings save path.
+		$override = preg_replace( '/[\r\n\t\0]+/', ' ', (string) Coywolf_SEO_Options::get( 'lm_user_agent' ) );
 		$override = trim( (string) $override );
 		if ( '' !== $override ) {
 			return $override;
@@ -2585,7 +2051,7 @@ final class Coywolf_SEO_Link_Manager {
 		if ( null !== $this->ignores_cache ) {
 			return $this->ignores_cache;
 		}
-		$ignores = get_option( self::IGNORES_OPTION );
+		$ignores             = get_option( self::IGNORES_OPTION );
 		$this->ignores_cache = is_array( $ignores ) ? $ignores : array();
 		return $this->ignores_cache;
 	}
@@ -2828,17 +2294,16 @@ final class Coywolf_SEO_Link_Manager {
 	 */
 	private function default_state() {
 		return array(
-			'status'        => 'idle', // idle | running | complete | cancelled.
-			'queue'         => array(),
-			'total_posts'   => 0,
-			'processed'     => 0,
-			'links_checked' => 0,
-			'results'       => array(),
+			'status'                => 'idle', // idle | running | complete | cancelled.
+			'queue'                 => array(),
+			'total_posts'           => 0,
+			'processed'             => 0,
+			'links_checked'         => 0,
+			'results'               => array(),
 			'token'                 => '',
 			'started'               => 0,
 			'updated'               => 0,
 			'current_post'          => '',
-			'auto_run'              => false,
 			'processed_by_type'     => array(),
 			'links_checked_by_type' => array(),
 			// Bumped whenever 'results' changes, so the status poll can skip
@@ -2957,9 +2422,9 @@ final class Coywolf_SEO_Link_Manager {
 		$redir_count  = 0;
 		foreach ( $state['results'] as $r ) {
 			if ( 0 === (int) $r['code'] || (int) $r['code'] >= 400 ) {
-				$broken_count++;
+				++$broken_count;
 			} elseif ( ! empty( $r['redirect'] ) ) {
-				$redir_count++;
+				++$redir_count;
 			}
 		}
 
@@ -3087,64 +2552,30 @@ final class Coywolf_SEO_Link_Manager {
 	}
 
 	/* ---------------------------------------------------------------------
-	 * Settings: access control + user agent override
+	 * Settings (relocated to Coywolf SEO's Settings page)
 	 * ------------------------------------------------------------------- */
 
 	/**
-	 * Read the allowed-roles option. Administrators are always included so
-	 * site owners cannot accidentally lock themselves out.
-	 *
-	 * @return string[] Role slugs.
-	 */
-	private function get_allowed_roles() {
-		$stored = get_option( self::ALLOWED_ROLES_OPTION, array( 'administrator' ) );
-		if ( ! is_array( $stored ) ) {
-			$stored = array( 'administrator' );
-		}
-		$stored = array_values( array_unique( array_map( 'sanitize_key', $stored ) ) );
-		if ( ! in_array( 'administrator', $stored, true ) ) {
-			$stored[] = 'administrator';
-		}
-		return $stored;
-	}
-
-	/**
-	 * Read the scope option ("all" | "external" | "internal"), defaulting
+	 * Read the scope setting ("all" | "external" | "internal"), defaulting
 	 * to "external" and falling back to the default on any unknown value.
+	 * Stored in Coywolf SEO's options as 'lm_scope'.
 	 *
 	 * @return string One of the self::SCOPE_* constants.
 	 */
 	private function get_scope() {
-		$stored = (string) get_option( self::SCOPE_OPTION, self::SCOPE_EXTERNAL );
+		$stored = (string) Coywolf_SEO_Options::get( 'lm_scope' );
 		$valid  = array( self::SCOPE_ALL, self::SCOPE_EXTERNAL, self::SCOPE_INTERNAL );
 		return in_array( $stored, $valid, true ) ? $stored : self::SCOPE_EXTERNAL;
 	}
 
 	/**
-	 * The set of post types each scan walks. Stored as an array of slugs;
-	 * defaults to ['post'] (matching the original "posts only" behaviour).
-	 * Falls back to ['post'] if the option is empty or somehow corrupted,
-	 * so a misconfigured site can never silently scan nothing.
+	 * The set of post types each scan walks. The link inventory always covers
+	 * posts and pages (the All Links table reports a per-link count for each).
 	 *
 	 * @return string[]
 	 */
 	private function get_post_types_to_scan() {
-		// The link inventory always covers posts and pages (the All Links table
-		// reports a per-link count for each).
 		return array( 'post', 'page' );
-	}
-
-	/**
-	 * The post-type checkboxes shown on the Settings page. Today we expose
-	 * just Posts and Pages; future versions can extend this map.
-	 *
-	 * @return array<string,string> slug => display label
-	 */
-	private function post_type_choices() {
-		return array(
-			'post' => __( 'Posts', 'coywolf-seo' ),
-			'page' => __( 'Pages', 'coywolf-seo' ),
-		);
 	}
 
 	/**
@@ -3170,10 +2601,22 @@ final class Coywolf_SEO_Link_Manager {
 	 */
 	private function speed_profiles() {
 		return array(
-			self::SPEED_POLITE  => array( 'batch' => 3,  'concurrency' => 4 ),
-			self::SPEED_DEFAULT => array( 'batch' => 5,  'concurrency' => 8 ),
-			self::SPEED_FAST    => array( 'batch' => 15, 'concurrency' => 16 ),
-			self::SPEED_FASTER  => array( 'batch' => 30, 'concurrency' => 24 ),
+			self::SPEED_POLITE  => array(
+				'batch'       => 3,
+				'concurrency' => 4,
+			),
+			self::SPEED_DEFAULT => array(
+				'batch'       => 5,
+				'concurrency' => 8,
+			),
+			self::SPEED_FAST    => array(
+				'batch'       => 15,
+				'concurrency' => 16,
+			),
+			self::SPEED_FASTER  => array(
+				'batch'       => 30,
+				'concurrency' => 24,
+			),
 		);
 	}
 
@@ -3193,12 +2636,13 @@ final class Coywolf_SEO_Link_Manager {
 
 	/**
 	 * Resolve the currently-selected speed profile, falling back to the
-	 * Default profile on any unknown value.
+	 * Default profile on any unknown value. Stored in Coywolf SEO's options
+	 * as 'lm_speed'.
 	 *
 	 * @return array{batch:int,concurrency:int}
 	 */
 	private function get_speed_profile() {
-		$stored   = (string) get_option( self::SPEED_OPTION, self::SPEED_DEFAULT );
+		$stored   = (string) Coywolf_SEO_Options::get( 'lm_speed' );
 		$profiles = $this->speed_profiles();
 		if ( ! isset( $profiles[ $stored ] ) ) {
 			$stored = self::SPEED_DEFAULT;
@@ -3237,451 +2681,6 @@ final class Coywolf_SEO_Link_Manager {
 	}
 
 	/* ---------------------------------------------------------------------
-	 * Auto-run scheduler (Settings → Auto-run scans)
-	 * ------------------------------------------------------------------- */
-
-	/**
-	 * Read and validate every auto-run option in one place.
-	 *
-	 * @return array{frequency:string,time:string,hour:int,minute:int,weekday:int,week:string,email:bool}
-	 */
-	private function get_auto_run_settings() {
-		$frequency = (string) get_option( self::AUTO_RUN_OPTION, self::AUTO_DISABLED );
-		$valid_freq = array(
-			self::AUTO_DISABLED,
-			self::AUTO_DAILY,
-			self::AUTO_WEEKLY,
-			self::AUTO_MONTHLY,
-		);
-		if ( ! in_array( $frequency, $valid_freq, true ) ) {
-			$frequency = self::AUTO_DISABLED;
-		}
-
-		$time_raw = (string) get_option( self::AUTO_TIME_OPTION, '02:00' );
-		if ( ! preg_match( '/^([01][0-9]|2[0-3]):([0-5][0-9])$/', $time_raw, $m ) ) {
-			$time_raw = '02:00';
-			$m        = array( null, '02', '00' );
-		}
-		$hour   = (int) $m[1];
-		$minute = (int) $m[2];
-
-		$weekday = (int) get_option( self::AUTO_WEEKDAY_OPTION, 1 );
-		if ( $weekday < 0 || $weekday > 6 ) {
-			$weekday = 1;
-		}
-
-		$week = (string) get_option( self::AUTO_WEEK_OPTION, 'first' );
-		$valid_week = array( 'first', 'second', 'third', 'fourth', 'last' );
-		if ( ! in_array( $week, $valid_week, true ) ) {
-			$week = 'first';
-		}
-
-		$email    = (bool) get_option( self::AUTO_EMAIL_OPTION, '' );
-		$email_to = (string) get_option( self::AUTO_EMAIL_TO_OPTION, '' );
-		// Drop the override if it's not a deliverable address; the resolver
-		// will fall back to the WP admin email.
-		if ( '' !== $email_to && ! is_email( $email_to ) ) {
-			$email_to = '';
-		}
-
-		return array(
-			'frequency' => $frequency,
-			'time'      => sprintf( '%02d:%02d', $hour, $minute ),
-			'hour'      => $hour,
-			'minute'    => $minute,
-			'weekday'   => $weekday,
-			'week'      => $week,
-			'email'     => $email,
-			'email_to'  => $email_to,
-		);
-	}
-
-	/**
-	 * Resolve the recipient for auto-run completion emails: the user's
-	 * Settings override if non-empty and valid, otherwise the site's
-	 * admin_email. Returns '' when neither yields a deliverable address
-	 * (caller should not attempt to send).
-	 */
-	private function resolve_email_recipient() {
-		$opts = $this->get_auto_run_settings();
-		if ( '' !== $opts['email_to'] && is_email( $opts['email_to'] ) ) {
-			return $opts['email_to'];
-		}
-		$admin = (string) get_option( 'admin_email' );
-		return is_email( $admin ) ? $admin : '';
-	}
-
-	/**
-	 * Labels for the weekday dropdown, indexed 0 (Sun) … 6 (Sat).
-	 *
-	 * @return array<int,string>
-	 */
-	private function weekday_labels() {
-		return array(
-			0 => __( 'Sunday', 'coywolf-seo' ),
-			1 => __( 'Monday', 'coywolf-seo' ),
-			2 => __( 'Tuesday', 'coywolf-seo' ),
-			3 => __( 'Wednesday', 'coywolf-seo' ),
-			4 => __( 'Thursday', 'coywolf-seo' ),
-			5 => __( 'Friday', 'coywolf-seo' ),
-			6 => __( 'Saturday', 'coywolf-seo' ),
-		);
-	}
-
-	/**
-	 * Labels for the week-of-month dropdown.
-	 *
-	 * @return array<string,string>
-	 */
-	private function week_of_month_labels() {
-		return array(
-			'first'  => __( 'First', 'coywolf-seo' ),
-			'second' => __( 'Second', 'coywolf-seo' ),
-			'third'  => __( 'Third', 'coywolf-seo' ),
-			'fourth' => __( 'Fourth', 'coywolf-seo' ),
-			'last'   => __( 'Last', 'coywolf-seo' ),
-		);
-	}
-
-	/**
-	 * Compute the next firing time (Unix timestamp, UTC) for the configured
-	 * auto-run schedule. Returns 0 if scheduling is disabled or the
-	 * computation fails.
-	 *
-	 * @param array $opts Validated settings from get_auto_run_settings().
-	 * @return int
-	 */
-	private function compute_next_auto_run_timestamp( $opts ) {
-		if ( self::AUTO_DISABLED === $opts['frequency'] ) {
-			return 0;
-		}
-
-		try {
-			$tz       = wp_timezone();
-			$now      = new DateTime( 'now', $tz );
-			$weekdays = array( 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday' );
-			$dayname  = $weekdays[ $opts['weekday'] ];
-
-			if ( self::AUTO_DAILY === $opts['frequency'] ) {
-				$next = clone $now;
-				$next->setTime( $opts['hour'], $opts['minute'], 0 );
-				if ( $next <= $now ) {
-					$next->modify( '+1 day' );
-				}
-				return $next->getTimestamp();
-			}
-
-			if ( self::AUTO_WEEKLY === $opts['frequency'] ) {
-				// Walk forward one day at a time until we hit the chosen
-				// weekday with a time still in the future. Loops at most 8
-				// iterations. This avoids PHP relative-string surprises
-				// like "next Monday" returning today vs. seven days hence
-				// depending on the reference date.
-				$next = clone $now;
-				$next->setTime( $opts['hour'], $opts['minute'], 0 );
-				for ( $i = 0; $i < 8; $i++ ) {
-					if ( (int) $next->format( 'w' ) === $opts['weekday'] && $next > $now ) {
-						return $next->getTimestamp();
-					}
-					$next->modify( '+1 day' );
-				}
-				return 0;
-			}
-
-			if ( self::AUTO_MONTHLY === $opts['frequency'] ) {
-				// Try the candidate in the current month first; if it is in the
-				// past, roll forward month-by-month until a future date is
-				// found (handles e.g. "Last Friday" when the month is short).
-				$cursor = ( clone $now )->modify( 'first day of this month 00:00:00' );
-				for ( $i = 0; $i < 13; $i++ ) {
-					$month_label = $cursor->format( 'F Y' );
-					$expr        = $opts['week'] . ' ' . $dayname . ' of ' . $month_label;
-					$candidate   = new DateTime( $expr, $tz );
-					$candidate->setTime( $opts['hour'], $opts['minute'], 0 );
-					if ( $candidate > $now ) {
-						return $candidate->getTimestamp();
-					}
-					$cursor->modify( 'first day of next month' );
-				}
-			}
-		} catch ( Exception $e ) {
-			return 0;
-		}
-
-		return 0;
-	}
-
-	/**
-	 * Make the WP-Cron schedule match the currently-saved settings. Clears
-	 * any existing event first, then schedules the next one if auto-run is
-	 * enabled. Safe to call repeatedly.
-	 */
-	private function reschedule_auto_run() {
-		wp_clear_scheduled_hook( self::SCHEDULE_HOOK );
-		$opts = $this->get_auto_run_settings();
-		if ( self::AUTO_DISABLED === $opts['frequency'] ) {
-			return;
-		}
-		$ts = $this->compute_next_auto_run_timestamp( $opts );
-		if ( $ts > 0 ) {
-			wp_schedule_single_event( $ts, self::SCHEDULE_HOOK );
-		}
-	}
-
-	/**
-	 * Self-heal: on every admin pageload, if auto-run is enabled and no
-	 * event is queued (e.g. wp_cron lost it, or settings imported from
-	 * another site without a schedule), put one back. Cheap — both calls
-	 * read options without writing.
-	 */
-	public function maybe_ensure_schedule() {
-		$opts = $this->get_auto_run_settings();
-		if ( self::AUTO_DISABLED === $opts['frequency'] ) {
-			return;
-		}
-		if ( wp_next_scheduled( self::SCHEDULE_HOOK ) ) {
-			return;
-		}
-		$this->reschedule_auto_run();
-	}
-
-	/**
-	 * WP-Cron callback: start an auto-run scan, then re-schedule the next
-	 * occurrence. Skipped if scheduling has been disabled since the event
-	 * was queued, or if a scan is already running (we don't clobber the
-	 * existing run).
-	 */
-	public function handle_auto_run_event() {
-		$opts = $this->get_auto_run_settings();
-		if ( self::AUTO_DISABLED === $opts['frequency'] ) {
-			return;
-		}
-
-		$state = $this->get_state();
-		if ( 'running' === $state['status'] ) {
-			$this->reschedule_auto_run();
-			return;
-		}
-
-		$this->start_scan( true );
-		$this->reschedule_auto_run();
-	}
-
-	/**
-	 * Resolve a post-type slug to a human label for display in the email
-	 * (plural form, e.g. "Posts" / "Pages"). Falls back to the slug if
-	 * the type is no longer registered (e.g. a CPT plugin was removed
-	 * between the scan and the email).
-	 */
-	private function post_type_display_label( $slug ) {
-		$obj = get_post_type_object( $slug );
-		if ( $obj && isset( $obj->labels->name ) && '' !== $obj->labels->name ) {
-			return (string) $obj->labels->name;
-		}
-		return $slug;
-	}
-
-	/**
-	 * Apply (or revoke) the {@see self::CAPABILITY} capability on every WP
-	 * role so the menu and AJAX endpoints reflect the allowed-roles list.
-	 *
-	 * @param string[] $allowed Role slugs that should be granted access.
-	 */
-	private function sync_capabilities( $allowed ) {
-		$roles = wp_roles();
-		if ( ! $roles instanceof WP_Roles ) {
-			return;
-		}
-		foreach ( array_keys( $roles->roles ) as $slug ) {
-			$role = get_role( $slug );
-			if ( ! $role ) {
-				continue;
-			}
-			if ( in_array( $slug, $allowed, true ) ) {
-				if ( ! $role->has_cap( self::CAPABILITY ) ) {
-					$role->add_cap( self::CAPABILITY );
-				}
-			} elseif ( $role->has_cap( self::CAPABILITY ) ) {
-				$role->remove_cap( self::CAPABILITY );
-			}
-		}
-	}
-
-	/**
-	 * Cheap self-heal on every admin pageload: if the Administrator role
-	 * does not have our capability (fresh install, upgraded-via-rename
-	 * install, uninstall wiped it, etc.) then run the full sync once.
-	 * Steady-state pageloads do not write to the database.
-	 */
-	public function maybe_ensure_caps() {
-		$admin = get_role( 'administrator' );
-		if ( $admin && ! $admin->has_cap( self::CAPABILITY ) ) {
-			$this->sync_capabilities( $this->get_allowed_roles() );
-		}
-	}
-
-	/**
-	 * Handle the Settings form POST (access roles, analysis speed, User-Agent
-	 * override).
-	 */
-	public function maybe_handle_settings_save() {
-		if ( empty( $_POST['coywolf_seo_lm_settings_submit'] ) ) {
-			return;
-		}
-		if ( ! current_user_can( 'manage_options' ) ) {
-			return;
-		}
-		check_admin_referer( 'coywolf_seo_lm_settings' );
-
-		$all_roles = array_keys( wp_roles()->roles );
-		$submitted = isset( $_POST['coywolf_seo_lm_allowed_roles'] ) && is_array( $_POST['coywolf_seo_lm_allowed_roles'] )
-			? array_map( 'sanitize_key', wp_unslash( $_POST['coywolf_seo_lm_allowed_roles'] ) )
-			: array();
-		// Always include Administrator so a misclick cannot lock the site out.
-		if ( ! in_array( 'administrator', $submitted, true ) ) {
-			$submitted[] = 'administrator';
-		}
-		$allowed = array_values( array_intersect( $submitted, $all_roles ) );
-		update_option( self::ALLOWED_ROLES_OPTION, $allowed, false );
-		$this->sync_capabilities( $allowed );
-
-		$ua_raw = isset( $_POST[ self::USER_AGENT_OPTION ] )
-			? wp_unslash( $_POST[ self::USER_AGENT_OPTION ] ) // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized below: control chars stripped via preg_replace, then sanitize_text_field() + trim().
-			: '';
-		// Strip CR/LF/TAB/NUL so a saved value cannot smuggle extra headers into
-		// outbound link-check requests via a User-Agent containing a newline.
-		$ua = preg_replace( '/[\r\n\t\0]+/', ' ', (string) $ua_raw );
-		$ua = trim( sanitize_text_field( $ua ) );
-		update_option( self::USER_AGENT_OPTION, $ua, false );
-
-		$speed_raw    = isset( $_POST[ self::SPEED_OPTION ] )
-			? sanitize_key( wp_unslash( $_POST[ self::SPEED_OPTION ] ) )
-			: self::SPEED_DEFAULT;
-		$valid_speeds = array_keys( $this->speed_profiles() );
-		$speed        = in_array( $speed_raw, $valid_speeds, true ) ? $speed_raw : self::SPEED_DEFAULT;
-		update_option( self::SPEED_OPTION, $speed, false );
-
-		add_settings_error(
-			'coywolf_seo_lm_settings',
-			'coywolf_seo_lm_saved',
-			__( 'Settings saved.', 'coywolf-seo' ),
-			'updated'
-		);
-	}
-
-	/**
-	 * Render the Documentation subpage. The body is generated from the bundled
-	 * readme.md (the canonical Markdown source — same file GitHub shows) so
-	 * the docs always match the installed version, with the leading logo
-	 * <img> line dropped and the screenshots rendered as real images.
-	 */
-	public function render_documentation_page() {
-		if ( ! current_user_can( self::CAPABILITY ) ) {
-			return;
-		}
-		$readme = plugin_dir_path( __FILE__ ) . 'readme.md';
-		$text   = is_readable( $readme ) ? (string) file_get_contents( $readme ) : ''; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reading the plugin's own bundled, read-only text file, not a remote request.
-		// Drop the leading logo <img> line; the rest is Markdown.
-		$text = preg_replace( '/^\s*<img\b[^>]*>\s*$/m', '', $text );
-		?>
-		<div class="wrap coywolf-seo-lm coywolf-seo-lm-docs-page">
-			<h1><?php esc_html_e( 'Documentation', 'coywolf-seo' ); ?></h1>
-			<?php if ( '' === trim( $text ) ) : ?>
-				<p><?php esc_html_e( 'Documentation is unavailable.', 'coywolf-seo' ); ?></p>
-			<?php else : ?>
-				<div class="coywolf-seo-lm-doc-body">
-					<?php echo wp_kses_post( Coywolf_SEO_Markdown::to_html( $text ) ); ?>
-				</div>
-			<?php endif; ?>
-		</div>
-		<?php
-	}
-
-	/**
-	 * Render the Settings subpage: access roles, analysis speed, the link-check
-	 * User-Agent override, and the "Re-analyze all links" maintenance action.
-	 */
-	public function render_settings_page() {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			return;
-		}
-
-		$allowed     = $this->get_allowed_roles();
-		$ua_override = (string) get_option( self::USER_AGENT_OPTION, '' );
-		$ua_default  = self::BROWSER_UA;
-		$speed       = (string) get_option( self::SPEED_OPTION, self::SPEED_DEFAULT );
-		if ( ! isset( $this->speed_profiles()[ $speed ] ) ) {
-			$speed = self::SPEED_DEFAULT;
-		}
-		$roles = wp_roles();
-		settings_errors( 'coywolf_seo_lm_settings' );
-		?>
-		<div class="wrap coywolf-seo-lm coywolf-seo-lm-settings-page">
-			<h1><?php echo esc_html__( 'Settings', 'coywolf-seo' ); ?></h1>
-
-			<form method="post" action="">
-				<?php wp_nonce_field( 'coywolf_seo_lm_settings' ); ?>
-				<input type="hidden" name="coywolf_seo_lm_settings_submit" value="1" />
-
-				<h2><?php echo esc_html__( 'Access', 'coywolf-seo' ); ?></h2>
-				<table class="form-table" role="presentation">
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Allowed user roles', 'coywolf-seo' ); ?></th>
-						<td>
-							<fieldset class="coywolf-seo-lm-roles-fieldset">
-								<legend class="screen-reader-text"><?php echo esc_html__( 'Allowed user roles', 'coywolf-seo' ); ?></legend>
-								<?php
-								foreach ( $roles->roles as $slug => $info ) :
-									$slug         = (string) $slug;
-									$display_name = isset( $info['name'] ) ? translate_user_role( $info['name'] ) : $slug;
-									$is_admin     = ( 'administrator' === $slug );
-									$is_checked   = $is_admin || in_array( $slug, $allowed, true );
-									?>
-									<label style="display:block;margin:4px 0;">
-										<input type="checkbox" name="coywolf_seo_lm_allowed_roles[]" value="<?php echo esc_attr( $slug ); ?>" <?php checked( $is_checked ); ?> <?php disabled( $is_admin ); ?> />
-										<?php echo esc_html( $display_name ); ?>
-										<?php if ( $is_admin ) : ?><em class="description">— <?php echo esc_html__( 'always allowed', 'coywolf-seo' ); ?></em><?php endif; ?>
-									</label>
-								<?php endforeach; ?>
-							</fieldset>
-							<p class="description"><?php echo esc_html__( 'Select which user roles can see and use Link Manager. Administrator is always allowed.', 'coywolf-seo' ); ?></p>
-						</td>
-					</tr>
-				</table>
-
-				<h2><?php echo esc_html__( 'Analysis speed', 'coywolf-seo' ); ?></h2>
-				<table class="form-table" role="presentation">
-					<tr>
-						<th scope="row"><label for="coywolf-seo-lm-speed"><?php echo esc_html__( 'Throughput', 'coywolf-seo' ); ?></label></th>
-						<td>
-							<select name="<?php echo esc_attr( self::SPEED_OPTION ); ?>" id="coywolf-seo-lm-speed">
-								<?php foreach ( $this->speed_labels() as $key => $label ) : ?>
-									<option value="<?php echo esc_attr( $key ); ?>" <?php selected( $speed, $key ); ?>><?php echo esc_html( $label ); ?></option>
-								<?php endforeach; ?>
-							</select>
-							<p class="description"><?php echo esc_html__( 'How aggressively the analysis checks link responses. Drop to Polite if hosts rate-limit you.', 'coywolf-seo' ); ?></p>
-						</td>
-					</tr>
-				</table>
-
-				<h2><?php echo esc_html__( 'Request headers', 'coywolf-seo' ); ?></h2>
-				<table class="form-table" role="presentation">
-					<tr>
-						<th scope="row"><label for="coywolf-seo-lm-ua"><?php echo esc_html__( 'User-Agent override', 'coywolf-seo' ); ?></label></th>
-						<td>
-							<input type="text" class="large-text code" id="coywolf-seo-lm-ua" name="<?php echo esc_attr( self::USER_AGENT_OPTION ); ?>" value="<?php echo esc_attr( $ua_override ); ?>" placeholder="<?php echo esc_attr( $ua_default ); ?>" />
-							<p class="description"><?php echo esc_html__( 'Sent when checking link responses. Leave blank to use the bundled Chrome User-Agent.', 'coywolf-seo' ); ?></p>
-						</td>
-					</tr>
-				</table>
-
-				<?php submit_button(); ?>
-			</form>
-		</div>
-		<?php
-	}
-
-	/* ---------------------------------------------------------------------
 	 * Database — persistent link inventory
 	 *
 	 * Two custom tables replace the old ephemeral scan-results array:
@@ -3710,14 +2709,15 @@ final class Coywolf_SEO_Link_Manager {
 	}
 
 	/**
-	 * Create or upgrade the custom tables with dbDelta. Idempotent — safe to
-	 * call on every activation and from the admin_init version self-heal.
+	 * Create or upgrade the custom tables with dbDelta and stamp the schema
+	 * version option. Idempotent — safe to call on every activation and from
+	 * the admin_init version self-heal. Coywolf SEO's on_activate() calls this.
 	 *
 	 * dbDelta is whitespace/keyword sensitive: two spaces after PRIMARY KEY /
 	 * KEY, one column per line, no backticks around the table name, and TEXT
 	 * columns cannot carry an inline DEFAULT (hence the NULL date columns).
 	 */
-	public static function lm_install_tables() {
+	public static function install_tables() {
 		global $wpdb;
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
@@ -3778,12 +2778,11 @@ final class Coywolf_SEO_Link_Manager {
 
 	/**
 	 * Run the installer when the stored schema version is behind the code.
-	 * Hooked on admin_init so a folder-rename upgrade self-heals, mirroring
-	 * {@see self::maybe_ensure_caps()}.
+	 * Hooked on admin_init so a folder-rename upgrade self-heals.
 	 */
 	public function lm_maybe_upgrade_db() {
 		if ( (int) get_option( self::DB_VERSION_OPTION, 0 ) < self::DB_VERSION ) {
-			self::lm_install_tables();
+			self::install_tables();
 		}
 	}
 
@@ -3908,12 +2907,12 @@ final class Coywolf_SEO_Link_Manager {
 				continue;
 			}
 			$new_ids[ $id ] = true;
-			$rows[]   = '(%d, %d, %d, %s, %s)';
-			$values[] = $id;
-			$values[] = $post_id;
-			$values[] = (int) $r['instance'];
-			$values[] = (string) $r['anchor'];
-			$values[] = (string) $r['rel'];
+			$rows[]         = '(%d, %d, %d, %s, %s)';
+			$values[]       = $id;
+			$values[]       = $post_id;
+			$values[]       = (int) $r['instance'];
+			$values[]       = (string) $r['anchor'];
+			$values[]       = (string) $r['rel'];
 		}
 		if ( ! empty( $rows ) ) {
 			$wpdb->query( $wpdb->prepare( "INSERT INTO $occ (link_id, post_id, instance, anchor, rel) VALUES " . implode( ', ', $rows ), $values ) );
@@ -4219,7 +3218,7 @@ final class Coywolf_SEO_Link_Manager {
 			 GROUP BY o.link_id, p.post_type",
 			ARRAY_A
 		);
-		$map = array();
+		$map   = array();
 		foreach ( (array) $rows as $row ) {
 			$lid = (int) $row['lid'];
 			if ( ! isset( $map[ $lid ] ) ) {
@@ -4241,8 +3240,8 @@ final class Coywolf_SEO_Link_Manager {
 	 */
 	private function lm_links_payload() {
 		global $wpdb;
-		$links = self::lm_links_table();
-		$rows  = $wpdb->get_results(
+		$links  = self::lm_links_table();
+		$rows   = $wpdb->get_results(
 			"SELECT id, url, type, response_code, response_short, response_label, is_redirect, redirect_code, final_url, last_checked
 			 FROM $links ORDER BY id ASC",
 			ARRAY_A
@@ -4393,7 +3392,7 @@ final class Coywolf_SEO_Link_Manager {
 			$id = absint( $id );
 			if ( $id ) {
 				$this->lm_mutate_link_everywhere( $id, 'remove', '' );
-				$removed++;
+				++$removed;
 			}
 		}
 		wp_send_json_success( array( 'removed' => $removed ) );
@@ -4420,7 +3419,7 @@ final class Coywolf_SEO_Link_Manager {
 			$link = $this->lm_get_link( $id );
 			if ( $link && ! empty( $link['is_redirect'] ) && '' !== (string) $link['final_url'] ) {
 				$this->lm_mutate_link_everywhere( $id, 'replace', (string) $link['final_url'] );
-				$replaced++;
+				++$replaced;
 			}
 		}
 		wp_send_json_success( array( 'replaced' => $replaced ) );
@@ -4516,7 +3515,7 @@ final class Coywolf_SEO_Link_Manager {
 	 * Render the hidden Edit Link screen.
 	 */
 	public function render_edit_link_page() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! current_user_can( Coywolf_SEO_Admin::CAPABILITY ) ) {
 			wp_die( esc_html__( 'You do not have permission to edit links.', 'coywolf-seo' ) );
 		}
 		$link_id = isset( $_GET['link_id'] ) ? absint( $_GET['link_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only page load; the form below carries its own nonce.
@@ -4610,9 +3609,18 @@ final class Coywolf_SEO_Link_Manager {
 								<?php endif; ?>
 								<?php if ( $edit_link || $view_link ) : ?>
 									<div class="row-actions">
-										<?php if ( $edit_link ) : ?><span class="edit"><a href="<?php echo esc_url( $edit_link ); ?>"><?php esc_html_e( 'Edit', 'coywolf-seo' ); ?></a></span><?php endif; ?>
-										<?php if ( $edit_link && $view_link ) : ?> | <?php endif; ?>
-										<?php if ( $view_link ) : ?><span class="view"><a href="<?php echo esc_url( $view_link ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'View', 'coywolf-seo' ); ?></a></span><?php endif; ?>
+										<?php
+										if ( $edit_link ) :
+											?>
+											<span class="edit"><a href="<?php echo esc_url( $edit_link ); ?>"><?php esc_html_e( 'Edit', 'coywolf-seo' ); ?></a></span><?php endif; ?>
+										<?php
+										if ( $edit_link && $view_link ) :
+											?>
+											| <?php endif; ?>
+										<?php
+										if ( $view_link ) :
+											?>
+											<span class="view"><a href="<?php echo esc_url( $view_link ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'View', 'coywolf-seo' ); ?></a></span><?php endif; ?>
 									</div>
 								<?php endif; ?>
 							</td>
@@ -4656,7 +3664,7 @@ final class Coywolf_SEO_Link_Manager {
 	 * re-index each touched post.
 	 */
 	public function lm_save_edit() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! current_user_can( Coywolf_SEO_Admin::CAPABILITY ) ) {
 			wp_die( esc_html__( 'You do not have permission to edit links.', 'coywolf-seo' ) );
 		}
 		$link_id = isset( $_POST['link_id'] ) ? absint( $_POST['link_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- link_id forms part of the nonce action verified on the next line.
@@ -4693,10 +3701,10 @@ final class Coywolf_SEO_Link_Manager {
 		// Map occurrence id -> (post_id, instance) and build per-post specs.
 		$by_post = array();
 		foreach ( $this->lm_occurrences_for_link( $link_id ) as $o ) {
-			$oid   = (int) $o['id'];
-			$pid   = (int) $o['post_id'];
-			$inst  = (int) $o['instance'];
-			$entry = array(
+			$oid                      = (int) $o['id'];
+			$pid                      = (int) $o['post_id'];
+			$inst                     = (int) $o['instance'];
+			$entry                    = array(
 				'remove' => ! empty( $remove_in[ $oid ] ),
 				'anchor' => isset( $anchor_in[ $oid ] ) ? sanitize_text_field( $anchor_in[ $oid ] ) : null,
 			);
@@ -4734,41 +3742,3 @@ final class Coywolf_SEO_Link_Manager {
 		exit;
 	}
 }
-
-Coywolf_SEO_Link_Manager::instance();
-
-// Grant the access capability to Administrator on activation. The
-// admin_init self-heal also handles upgrades-by-folder-rename and
-// re-activations where the option survived but the cap did not.
-register_activation_hook(
-	__FILE__,
-	function () {
-		$role = get_role( 'administrator' );
-		if ( $role && ! $role->has_cap( Coywolf_SEO_Link_Manager::CAPABILITY ) ) {
-			$role->add_cap( Coywolf_SEO_Link_Manager::CAPABILITY );
-		}
-		Coywolf_SEO_Link_Manager::lm_install_tables();
-		if ( false === get_option( Coywolf_SEO_Link_Manager::ALLOWED_ROLES_OPTION ) ) {
-			update_option( Coywolf_SEO_Link_Manager::ALLOWED_ROLES_OPTION, array( 'administrator' ), false );
-		}
-		// Carry over ignore rules from a prior "Link Checker" install, if present.
-		$coywolf_seo_lm_legacy = get_option( 'coywolf_blc_ignores' );
-		if ( false !== $coywolf_seo_lm_legacy && false === get_option( Coywolf_SEO_Link_Manager::IGNORES_OPTION ) ) {
-			update_option( Coywolf_SEO_Link_Manager::IGNORES_OPTION, $coywolf_seo_lm_legacy, false );
-		}
-	}
-);
-
-// On deactivation, clear the auto-run cron event so WordPress doesn't keep
-// firing a hook the (now-disabled) plugin no longer handles. Settings are
-// preserved; uninstall.php handles their removal.
-register_deactivation_hook(
-	__FILE__,
-	function () {
-		wp_clear_scheduled_hook( Coywolf_SEO_Link_Manager::SCHEDULE_HOOK );
-	}
-);
-
-/* wporg-strip:start — GitHub self-updater (removed from the WordPress.org build) */
-( new Coywolf_SEO_LM_GitHub_Updater( __FILE__, Coywolf_SEO_Link_Manager::VERSION ) )->init();
-/* wporg-strip:end */

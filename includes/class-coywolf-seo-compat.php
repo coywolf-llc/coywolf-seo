@@ -19,6 +19,18 @@
  *   notice for manual deactivation (its title filter is still neutralized
  *   with the rest).
  *
+ * SCHEMA INTEROP: when this plugin's own "Schema.org markup" feature is
+ * turned OFF (! Coywolf_SEO_Options::feature_enabled( 'schema' )), the
+ * schema-killing switches above are relaxed so an active third-party SEO
+ * plugin can supply the JSON-LD instead of nobody emitting any — while the
+ * redundant NON-schema output (titles, meta description, Open Graph, robots,
+ * canonical, editor UI) stays suppressed because those Coywolf features are
+ * still active. When schema is ON the behaviour is unchanged (everything
+ * suppressed). This is best-effort and built on each plugin's documented
+ * public filters; the filter/class names called out below should be verified
+ * against the installed plugin versions. Per-plugin schema-on/off handling
+ * lives in init() and suppress_head_output().
+ *
  * Features outside this plugin's scope (XML sitemaps, redirects) are left
  * untouched — suppressing them would remove functionality nothing here
  * replaces.
@@ -39,11 +51,60 @@ final class Coywolf_SEO_Compat {
 	 * Hook everything up.
 	 */
 	public function init() {
+		// Whether this plugin is also outputting its own Schema.org markup.
+		// When it is OFF, Coywolf still owns titles/meta/OG/robots/canonical,
+		// but it leaves the schema field open so another active SEO plugin can
+		// supply the JSON-LD instead of nobody emitting any. This flag changes
+		// only the schema-killing switches below; all non-schema suppression is
+		// registered unconditionally either way.
+		$schema_on = Coywolf_SEO_Options::feature_enabled( 'schema' );
+
 		// Master switches, registered before the other plugins consult them.
-		add_filter( 'rank_math/frontend/disable', '__return_true' );
+		//
+		// rank_math/frontend/disable, aioseo_disable and
+		// the_seo_framework_query_supports_seo are broad "disable the whole
+		// front end" levers — they also take out the other plugin's schema.
+		// When schema is OFF we want to drop the master disable ONLY where the
+		// plugin gives us a reliable way to keep its non-schema output
+		// suppressed by other means; otherwise we keep the master disable and
+		// accept that that plugin's schema can't be selectively re-enabled:
+		//
+		//   - Rank Math: rank_math/json_ld only *modifies* the JSON-LD array; it
+		//     cannot re-enable schema once rank_math/frontend/disable has shut
+		//     the front end down. Schema-on interop for Rank Math is handled in
+		//     suppress_head_output() (we skip the master disable's head twin
+		//     there when schema is off) — see the note below. The master
+		//     filter here is therefore left in place only as the schema-ON
+		//     belt; when schema is OFF we do NOT register it so Rank Math's
+		//     rank_math/head (which carries its schema) is free to run, and we
+		//     surgically drop its non-schema head output instead.
+		//   - AIOSEO: it has no documented schema-only output filter that
+		//     survives aioseo_disable, so we keep the master disable and accept
+		//     that AIOSEO's schema cannot be selectively re-enabled. (VERIFY:
+		//     check the installed AIOSEO version for an aioseo_disable_schema /
+		//     aioseo_schema_output style filter; if one exists, prefer it so
+		//     AIOSEO schema can flow when this plugin's schema is OFF.)
+		//   - The SEO Framework: the_seo_framework_query_supports_seo => false
+		//     short-circuits ALL of TSF's front-end output, schema included, so
+		//     the_seo_framework_use_ld_json_output cannot re-enable schema once
+		//     it is set. There is no documented lever that suppresses TSF's
+		//     title/meta/OG while keeping ONLY its LD-JSON, so we keep the
+		//     master disable in both states and accept that TSF's schema cannot
+		//     be selectively re-enabled. (VERIFY against the installed TSF
+		//     version — if a future version lets use_ld_json_output run
+		//     independently of query_supports_seo, switch to that.)
+		if ( $schema_on ) {
+			add_filter( 'rank_math/frontend/disable', '__return_true' );
+		}
 		add_filter( 'aioseo_disable', '__return_true' );
 		add_filter( 'the_seo_framework_query_supports_seo', '__return_false' );
-		add_filter( 'wpseo_json_ld_output', '__return_false' );
+
+		// Yoast legacy JSON-LD belt. Only clamp it shut when this plugin is
+		// emitting its own schema; when schema is OFF we want Yoast's JSON-LD
+		// (legacy and modern) to flow.
+		if ( $schema_on ) {
+			add_filter( 'wpseo_json_ld_output', '__return_false' );
+		}
 
 		add_action( 'template_redirect', array( $this, 'suppress_head_output' ), 0 );
 		add_action( 'admin_notices', array( $this, 'maybe_show_detected_notice' ) );
@@ -129,12 +190,46 @@ final class Coywolf_SEO_Compat {
 			return;
 		}
 
-		// Yoast SEO prints everything inside its own wpseo_head action.
-		remove_all_actions( 'wpseo_head' );
+		// When this plugin emits its own schema, suppress the other plugins'
+		// schema too; when it does not, leave the schema field open for them.
+		$schema_on = Coywolf_SEO_Options::feature_enabled( 'schema' );
 
-		// Rank Math prints everything inside rank_math/head (belt — the
-		// master filter above already disables its front end).
-		remove_all_actions( 'rank_math/head' );
+		if ( $schema_on ) {
+			// Yoast SEO prints everything (titles, meta, OG, robots, canonical
+			// AND schema) inside its own wpseo_head action.
+			remove_all_actions( 'wpseo_head' );
+		} else {
+			// Schema OFF: don't nuke wpseo_head wholesale — that would take
+			// Yoast's schema down with the rest. Instead keep ONLY Yoast's
+			// schema presenter and drop every other presenter, so Yoast emits
+			// just its JSON-LD while Coywolf keeps titles/meta/OG/robots.
+			//
+			// VERIFY against the installed Yoast version: modern Yoast builds
+			// its <head> from a presenter array passed through
+			// wpseo_frontend_presenters; the schema presenter's class name
+			// contains "Schema" (e.g.
+			// Yoast\WP\SEO\Presenters\Schema_Presenter). If that naming
+			// changes, update the match below.
+			add_filter( 'wpseo_frontend_presenters', array( $this, 'keep_only_schema_presenter' ) );
+		}
+
+		if ( $schema_on ) {
+			// Rank Math prints everything inside rank_math/head (belt — the
+			// rank_math/frontend/disable master filter above already disables
+			// its front end when schema is on).
+			remove_all_actions( 'rank_math/head' );
+		}
+		// Schema OFF: we intentionally do NOT remove_all_actions(
+		// 'rank_math/head' ) and we did NOT register
+		// rank_math/frontend/disable in init(), so rank_math/head runs and
+		// carries Rank Math's JSON-LD. Rank Math bundles its head output in
+		// one action and exposes no documented per-tag head filter to drop the
+		// non-schema tags while keeping schema, so this is a best-effort path:
+		// CAVEAT — Rank Math's title/meta/OG/robots may briefly duplicate
+		// Coywolf's because we cannot surgically strip them here. (VERIFY: if a
+		// reliable Rank Math head/presenter filter becomes available for the
+		// installed version, drop the non-schema tags here instead of letting
+		// the whole rank_math/head action through.)
 
 		// Every one of these plugins takes the title over through
 		// pre_get_document_title; removing their callbacks (scoped to known
@@ -152,6 +247,35 @@ final class Coywolf_SEO_Compat {
 		}
 		// Same for core's canonical: this plugin removes and replaces it
 		// itself in Coywolf_SEO_Head, so nothing to restore here.
+	}
+
+	/**
+	 * Keep only Yoast's schema presenter, dropping every other presenter.
+	 *
+	 * Used on the wpseo_frontend_presenters filter when this plugin's own
+	 * schema output is OFF: Yoast still emits its JSON-LD, but its titles,
+	 * meta description, Open Graph, robots and canonical presenters are
+	 * removed so Coywolf's equivalents are the only ones printed.
+	 *
+	 * Best-effort: presenters are matched by class name containing "Schema".
+	 * VERIFY this against the installed Yoast version — the schema presenter is
+	 * Yoast\WP\SEO\Presenters\Schema_Presenter at time of writing.
+	 *
+	 * @param array $presenters Yoast presenter objects for the current request.
+	 * @return array Only the schema presenter(s).
+	 */
+	public function keep_only_schema_presenter( $presenters ) {
+		if ( ! is_array( $presenters ) ) {
+			return $presenters;
+		}
+		$kept = array();
+		foreach ( $presenters as $presenter ) {
+			$class = is_object( $presenter ) ? get_class( $presenter ) : (string) $presenter;
+			if ( false !== stripos( $class, 'Schema' ) ) {
+				$kept[] = $presenter;
+			}
+		}
+		return $kept;
 	}
 
 	/**

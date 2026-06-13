@@ -289,16 +289,31 @@ final class Coywolf_SEO_Admin {
 				array( Coywolf_SEO::instance()->image_text(), 'render_page' )
 			);
 		}
-		$pending      = Coywolf_SEO::instance()->redirects()->pending_count();
-		$bubble       = $pending > 0 ? ' <span class="awaiting-mod">' . esc_html( (string) $pending ) . '</span>' : '';
-		add_submenu_page(
-			self::SLUG_SITE,
-			__( 'Redirects', 'coywolf-seo' ),
-			__( 'Redirects', 'coywolf-seo' ) . $bubble,
-			self::CAPABILITY,
-			Coywolf_SEO_Redirects::SLUG,
-			array( Coywolf_SEO::instance()->redirects_admin(), 'render' )
-		);
+		// Link Manager — hidden when the feature is turned off.
+		if ( Coywolf_SEO_Options::feature_enabled( 'links' ) ) {
+			add_submenu_page(
+				self::SLUG_SITE,
+				__( 'Link Manager', 'coywolf-seo' ),
+				__( 'Link Manager', 'coywolf-seo' ),
+				self::CAPABILITY,
+				Coywolf_SEO_Link_Manager::SLUG,
+				array( Coywolf_SEO::instance()->link_manager(), 'render_page' )
+			);
+		}
+		// Redirects — hidden when the feature is turned off (the pending-count
+		// bubble query is skipped too).
+		if ( Coywolf_SEO_Options::feature_enabled( 'redirects' ) ) {
+			$pending = Coywolf_SEO::instance()->redirects()->pending_count();
+			$bubble  = $pending > 0 ? ' <span class="awaiting-mod">' . esc_html( (string) $pending ) . '</span>' : '';
+			add_submenu_page(
+				self::SLUG_SITE,
+				__( 'Redirects', 'coywolf-seo' ),
+				__( 'Redirects', 'coywolf-seo' ) . $bubble,
+				self::CAPABILITY,
+				Coywolf_SEO_Redirects::SLUG,
+				array( Coywolf_SEO::instance()->redirects_admin(), 'render' )
+			);
+		}
 		add_submenu_page(
 			self::SLUG_SITE,
 			__( 'Settings', 'coywolf-seo' ),
@@ -563,7 +578,7 @@ final class Coywolf_SEO_Admin {
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized field-by-field in Coywolf_SEO_Options::sanitize().
 		$raw = isset( $_POST['coywolf_seo'] ) && is_array( $_POST['coywolf_seo'] ) ? wp_unslash( $_POST['coywolf_seo'] ) : array();
 
-		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'sitemap_exclude_posts', 'sitemap_exclude_pages', 'sitemap_exclude_categories', 'sitemap_exclude_users', 'news_enabled', 'news_include_posts', 'news_include_pages', 'ai_descriptions', 'image_text_write_alt', 'image_text_write_title', 'image_text_write_caption', 'image_text_write_description', 'image_text_overwrite', 'feature_ai_off', 'feature_schema_off', 'feature_sitemaps_off' ) as $key ) {
+		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'sitemap_exclude_posts', 'sitemap_exclude_pages', 'sitemap_exclude_categories', 'sitemap_exclude_users', 'news_enabled', 'news_include_posts', 'news_include_pages', 'ai_descriptions', 'image_text_write_alt', 'image_text_write_title', 'image_text_write_caption', 'image_text_write_description', 'image_text_overwrite', 'feature_ai_off', 'feature_schema_off', 'feature_sitemaps_off', 'feature_links_off', 'feature_redirects_off' ) as $key ) {
 			$raw[ $key ] = ! empty( $raw[ $key ] );
 		}
 		// Entity detection: its checkbox is disabled (so omitted from POST) when
@@ -1175,6 +1190,31 @@ final class Coywolf_SEO_Admin {
 				</table>
 				<?php endif; // End AI enrichment and Image Text defaults. ?>
 
+				<?php if ( Coywolf_SEO_Options::feature_enabled( 'links' ) ) : ?>
+				<h2><?php esc_html_e( 'Link Manager', 'coywolf-seo' ); ?></h2>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><label for="coywolf-seo-lm-speed"><?php esc_html_e( 'Throughput', 'coywolf-seo' ); ?></label></th>
+						<td>
+							<select id="coywolf-seo-lm-speed" name="coywolf_seo[lm_speed]">
+								<option value="polite" <?php selected( $o['lm_speed'], 'polite' ); ?>><?php esc_html_e( 'Polite (3 posts / 4 parallel)', 'coywolf-seo' ); ?></option>
+								<option value="default" <?php selected( $o['lm_speed'], 'default' ); ?>><?php esc_html_e( 'Default (5 posts / 8 parallel)', 'coywolf-seo' ); ?></option>
+								<option value="fast" <?php selected( $o['lm_speed'], 'fast' ); ?>><?php esc_html_e( 'Fast (15 posts / 16 parallel)', 'coywolf-seo' ); ?></option>
+								<option value="faster" <?php selected( $o['lm_speed'], 'faster' ); ?>><?php esc_html_e( 'Faster (30 posts / 24 parallel)', 'coywolf-seo' ); ?></option>
+							</select>
+							<p class="description"><?php esc_html_e( 'How many posts are processed per batch and how many link responses are checked in parallel. Higher is faster but heavier on your server and the sites being checked.', 'coywolf-seo' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="coywolf-seo-lm-ua"><?php esc_html_e( 'User-Agent override', 'coywolf-seo' ); ?></label></th>
+						<td>
+							<input type="text" class="large-text code" id="coywolf-seo-lm-ua" name="coywolf_seo[lm_user_agent]" value="<?php echo esc_attr( $o['lm_user_agent'] ); ?>" placeholder="<?php esc_attr_e( '(bundled Chrome UA)', 'coywolf-seo' ); ?>" />
+							<p class="description"><?php esc_html_e( 'Sent when checking link responses. Leave blank to use the bundled Chrome User-Agent.', 'coywolf-seo' ); ?></p>
+						</td>
+					</tr>
+				</table>
+				<?php endif; // End Link Manager section. ?>
+
 				<h2><?php esc_html_e( 'IndexNow', 'coywolf-seo' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
@@ -1296,6 +1336,26 @@ final class Coywolf_SEO_Admin {
 								<?php esc_html_e( 'Turn off Sitemaps', 'coywolf-seo' ); ?>
 							</label>
 							<p class="description"><?php esc_html_e( 'Stops the News XML sitemap and the native XML sitemap exclusions. Your sitemap preferences are kept.', 'coywolf-seo' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Link Manager', 'coywolf-seo' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="coywolf_seo[feature_links_off]" value="1" <?php checked( $o['feature_links_off'] ); ?> />
+								<?php esc_html_e( 'Turn off the Link Manager', 'coywolf-seo' ); ?>
+							</label>
+							<p class="description"><?php esc_html_e( 'Hides the Link Manager page and stops link scanning. Your saved link data is kept.', 'coywolf-seo' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Redirects', 'coywolf-seo' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="coywolf_seo[feature_redirects_off]" value="1" <?php checked( $o['feature_redirects_off'] ); ?> />
+								<?php esc_html_e( 'Turn off Redirects', 'coywolf-seo' ); ?>
+							</label>
+							<p class="description"><?php esc_html_e( 'Hides the Redirects page and stops serving redirects, letting another redirect plugin handle them. Your redirect rules are kept.', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
 				</table>

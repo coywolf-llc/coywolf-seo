@@ -90,6 +90,12 @@ final class Coywolf_SEO_Options {
 			'feature_ai_off'               => false,
 			'feature_schema_off'           => false,
 			'feature_sitemaps_off'         => false,
+			'feature_links_off'            => false,
+			'feature_redirects_off'        => false,
+			// Link Manager settings (relocated from the standalone plugin).
+			'lm_speed'                     => 'default',
+			'lm_user_agent'                => '',
+			'lm_scope'                     => 'external',
 		);
 	}
 
@@ -192,6 +198,8 @@ final class Coywolf_SEO_Options {
 			'feature_ai_off',
 			'feature_schema_off',
 			'feature_sitemaps_off',
+			'feature_links_off',
+			'feature_redirects_off',
 		);
 		foreach ( $booleans as $key ) {
 			if ( array_key_exists( $key, $raw ) ) {
@@ -254,6 +262,20 @@ final class Coywolf_SEO_Options {
 		}
 		if ( isset( $raw['news_cats'] ) ) {
 			$out['news_cats'] = array_values( array_filter( array_map( 'absint', (array) $raw['news_cats'] ) ) );
+		}
+
+		// Link Manager settings.
+		if ( isset( $raw['lm_speed'] ) ) {
+			$out['lm_speed'] = in_array( $raw['lm_speed'], array( 'polite', 'default', 'fast', 'faster' ), true ) ? $raw['lm_speed'] : 'default';
+		}
+		if ( isset( $raw['lm_scope'] ) ) {
+			$out['lm_scope'] = in_array( $raw['lm_scope'], array( 'all', 'external', 'internal' ), true ) ? $raw['lm_scope'] : 'external';
+		}
+		if ( isset( $raw['lm_user_agent'] ) ) {
+			// Strip CR/LF/TAB/NUL first (header-injection guard) before the
+			// standard text-field sanitize.
+			$ua                   = preg_replace( '/[\r\n\t\0]+/', ' ', (string) $raw['lm_user_agent'] );
+			$out['lm_user_agent'] = trim( sanitize_text_field( $ua ) );
 		}
 
 		return $out;

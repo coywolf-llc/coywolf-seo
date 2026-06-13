@@ -63,6 +63,7 @@ require_once __DIR__ . '/includes/class-coywolf-seo-ai-batch.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-ai.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-image-ai.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-image-text.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-link-manager.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-import-export.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-redirects.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-redirects-admin.php';
