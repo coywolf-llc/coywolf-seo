@@ -899,7 +899,7 @@ final class Coywolf_SEO_Robots {
 		$writable = $exists ? is_writable( $path ) : is_writable( $this->site_root_path() ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_is_writable
 		$count    = Coywolf_SEO_Robots_Bots::count();
 		?>
-		<h2><?php esc_html_e( 'Robots.txt Manager', 'coywolf-seo' ); ?></h2>
+		<h2 id="coywolf-seo-section-robots"><?php esc_html_e( 'Robots.txt Manager', 'coywolf-seo' ); ?></h2>
 
 			<h3><?php echo esc_html__( 'How robots.txt is managed', 'coywolf-seo' ); ?></h3>
 				<table class="form-table" role="presentation">

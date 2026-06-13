@@ -645,3 +645,20 @@
 .coywolf-seo-redirects .coywolf-seo-rules-list {
 	max-width: none;
 }
+
+/* ------------------------------------------------------------------ *
+ * Settings page section jump links (table of contents).
+ * ------------------------------------------------------------------ */
+.coywolf-seo-settings-toc {
+	list-style: disc;
+	margin: 0.5em 0 1.5em 1.5em;
+}
+
+.coywolf-seo-settings-toc li {
+	margin: 0.15em 0;
+}
+
+/* Offset jumped-to sections so the heading clears the admin bar. */
+.coywolf-seo-wrap h2[id] {
+	scroll-margin-top: 50px;
+}
