@@ -993,12 +993,27 @@ final class Coywolf_SEO_Admin {
 								<?php
 								printf(
 									/* translators: 1: Anthropic console URL, 2: constant name. */
-									esc_html__( 'Your own Anthropic API key, created at %1$s. Stored server-side and never shown again. Remove deletes the saved key immediately. You can define %2$s in wp-config.php instead.', 'coywolf-seo' ),
+									esc_html__( 'Your own Anthropic API key, created at %1$s. Stored server-side and never shown again. Remove deletes the saved key immediately. For better security you can define %2$s in wp-config.php instead — see below.', 'coywolf-seo' ),
 									'<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>',
 									'<code>ANTHROPIC_API_KEY</code>'
 								);
 								?>
 							</p>
+							<details class="coywolf-seo-wpconfig">
+								<summary><?php esc_html_e( 'Add the key in wp-config.php instead (recommended)', 'coywolf-seo' ); ?></summary>
+								<p><?php esc_html_e( 'Keeping the key in wp-config.php instead of the database means a database leak (for example, a stolen backup) can’t expose it. Add this line to wp-config.php, anywhere above the line that reads “/* That’s all, stop editing! Happy publishing. */”:', 'coywolf-seo' ); ?></p>
+								<pre class="coywolf-seo-code"><code>define( 'ANTHROPIC_API_KEY', 'sk-ant-...' );</code></pre>
+								<p>
+									<?php
+									printf(
+										/* translators: %s: sk-ant-... placeholder in a code tag. */
+										esc_html__( 'Replace %s with your real key. On most hosts you can edit wp-config.php through the dashboard file manager or over SSH; it sits in the site’s web root, next to wp-admin and wp-content.', 'coywolf-seo' ),
+										'<code>sk-ant-...</code>'
+									);
+									?>
+								</p>
+								<p><?php esc_html_e( 'The saved key field above takes precedence, so to use the wp-config value leave that field empty (or click Remove). An ANTHROPIC_API_KEY environment variable works the same way if your host lets you set one.', 'coywolf-seo' ); ?></p>
+							</details>
 						</td>
 					</tr>
 					<tr>
@@ -1032,6 +1047,45 @@ final class Coywolf_SEO_Admin {
 					<tr>
 						<th scope="row"><?php esc_html_e( 'API connection', 'coywolf-seo' ); ?></th>
 						<td>
+							<?php $coywolf_seo_key_status = Coywolf_SEO::instance()->ai()->key_status(); ?>
+							<?php if ( '' !== $coywolf_seo_key_status['source'] ) : ?>
+								<p class="coywolf-seo-key-status coywolf-seo-key-status--ok">
+									<span class="dashicons dashicons-yes-alt" aria-hidden="true"></span>
+									<?php
+									if ( 'saved' === $coywolf_seo_key_status['source'] ) {
+										esc_html_e( 'API key configured — saved in this site.', 'coywolf-seo' );
+									} elseif ( 'constant' === $coywolf_seo_key_status['source'] ) {
+										printf(
+											/* translators: %s: constant name. */
+											esc_html__( 'API key configured — using the %s constant from wp-config.php.', 'coywolf-seo' ),
+											'<code>ANTHROPIC_API_KEY</code>'
+										);
+									} else {
+										printf(
+											/* translators: %s: constant name. */
+											esc_html__( 'API key configured — using the %s environment variable.', 'coywolf-seo' ),
+											'<code>ANTHROPIC_API_KEY</code>'
+										);
+									}
+									?>
+								</p>
+								<?php if ( 'saved' === $coywolf_seo_key_status['source'] && ( $coywolf_seo_key_status['constant'] || $coywolf_seo_key_status['env'] ) ) : ?>
+									<p class="description">
+										<?php
+										printf(
+											/* translators: %s: constant name. */
+											esc_html__( 'A wp-config %s is also defined, but the saved key above takes precedence. Remove the saved key to use the wp-config value.', 'coywolf-seo' ),
+											'<code>ANTHROPIC_API_KEY</code>'
+										);
+										?>
+									</p>
+								<?php endif; ?>
+							<?php else : ?>
+								<p class="coywolf-seo-key-status coywolf-seo-key-status--none">
+									<span class="dashicons dashicons-warning" aria-hidden="true"></span>
+									<?php esc_html_e( 'No API key configured yet — add one above or in wp-config.php.', 'coywolf-seo' ); ?>
+								</p>
+							<?php endif; ?>
 							<button type="button" class="button" id="coywolf-seo-ai-test"><?php esc_html_e( 'Test API access', 'coywolf-seo' ); ?></button>
 							<span class="description" id="coywolf-seo-ai-test-result"></span>
 						</td>

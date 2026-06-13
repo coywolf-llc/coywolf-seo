@@ -401,3 +401,55 @@
 	border: 1px solid #c3c4c7;
 	border-radius: 4px;
 }
+
+/* API key: connection status indicator */
+.coywolf-seo-key-status {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin: 0 0 8px;
+	font-weight: 600;
+}
+
+.coywolf-seo-key-status .dashicons {
+	width: 20px;
+	height: 20px;
+	font-size: 20px;
+}
+
+.coywolf-seo-key-status--ok {
+	color: #007017;
+}
+
+.coywolf-seo-key-status--none {
+	color: #8a6d00;
+}
+
+/* API key: wp-config.php instructions */
+.coywolf-seo-wpconfig {
+	margin: 10px 0 0;
+	max-width: 640px;
+}
+
+.coywolf-seo-wpconfig > summary {
+	cursor: pointer;
+	color: #2271b1;
+}
+
+.coywolf-seo-wpconfig[open] > summary {
+	margin-bottom: 8px;
+}
+
+.coywolf-seo-code {
+	margin: 8px 0;
+	padding: 10px 12px;
+	background: #f6f7f7;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	overflow-x: auto;
+}
+
+.coywolf-seo-code code {
+	background: none;
+	padding: 0;
+}
