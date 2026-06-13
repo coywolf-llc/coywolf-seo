@@ -712,9 +712,24 @@ final class Coywolf_SEO_Image_Text {
 				array(
 					'configured' => $this->ai->is_configured(),
 					'contentTab' => version_compare( $wp_version, '7.0', '>=' ),
+					/* translators: %s: the active AI service name (Claude, OpenAI, Gemini). */
+					'genLabel'   => sprintf( __( 'Generate with %s', 'coywolf-seo' ), Coywolf_SEO_AI_Providers::current()->short_label() ),
 				)
 			) . ';',
 			'before'
+		);
+
+		// Hide core's redundant "Alternative text" control on the image block —
+		// the Image text panel above edits the same block alt. Scoped to the
+		// `coywolf-seo-it-active` body class the panel adds only while an image
+		// block is selected, so other media blocks keep their own alt field. The
+		// control is core's ToolsPanelItem whose help links to the W3C image
+		// accessibility tutorial — a stable hook for the :has() match.
+		wp_register_style( 'coywolf-seo-it-editor', false, array(), Coywolf_SEO::VERSION );
+		wp_enqueue_style( 'coywolf-seo-it-editor' );
+		wp_add_inline_style(
+			'coywolf-seo-it-editor',
+			'body.coywolf-seo-it-active .components-tools-panel-item:has( a[href*="w3.org/WAI" ] ) { display: none; }'
 		);
 	}
 

@@ -64,6 +64,13 @@ final class Coywolf_SEO_AI_Google extends Coywolf_SEO_AI_Provider {
 	/**
 	 * {@inheritdoc}
 	 */
+	public function short_label() {
+		return __( 'Gemini', 'coywolf-seo' );
+	}
+
+	/**
+	 * {@inheritdoc}
+	 */
 	public function key_option() {
 		return 'ai_api_key_google';
 	}

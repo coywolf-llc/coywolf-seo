@@ -57,6 +57,13 @@ final class Coywolf_SEO_AI_OpenAI extends Coywolf_SEO_AI_Provider {
 	/**
 	 * {@inheritdoc}
 	 */
+	public function short_label() {
+		return 'OpenAI';
+	}
+
+	/**
+	 * {@inheritdoc}
+	 */
 	public function key_option() {
 		return 'ai_api_key_openai';
 	}

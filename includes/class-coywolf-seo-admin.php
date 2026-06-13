@@ -1056,7 +1056,7 @@ final class Coywolf_SEO_Admin {
 			$coywolf_seo_toc = array(
 				array( 'coywolf-seo-section-general', __( 'General settings', 'coywolf-seo' ), true ),
 				array( 'coywolf-seo-section-ai', __( 'AI enrichment', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'ai' ) ),
-				array( 'coywolf-seo-section-image-text', __( 'Image Text defaults', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'ai' ) ),
+				array( 'coywolf-seo-section-image-text', __( 'Image Text', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'ai' ) ),
 				array( 'coywolf-seo-section-links', __( 'Link Manager', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'links' ) ),
 				array( 'coywolf-seo-section-indexnow', __( 'IndexNow', 'coywolf-seo' ), true ),
 				array( 'coywolf-seo-section-sitemaps', __( 'Sitemaps', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'sitemaps' ) ),
@@ -1287,7 +1287,7 @@ final class Coywolf_SEO_Admin {
 						</tbody>
 				</table>
 
-				<h2 id="coywolf-seo-section-image-text"><?php esc_html_e( 'Image Text defaults', 'coywolf-seo' ); ?></h2>
+				<h2 id="coywolf-seo-section-image-text"><?php esc_html_e( 'Image Text', 'coywolf-seo' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Fields to write', 'coywolf-seo' ); ?></th>

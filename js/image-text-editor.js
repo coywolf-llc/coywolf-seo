@@ -28,6 +28,7 @@
 	var el = wp.element.createElement;
 	var Fragment = wp.element.Fragment;
 	var useState = wp.element.useState;
+	var useEffect = wp.element.useEffect;
 	var InspectorControls = wp.blockEditor.InspectorControls;
 	var PanelBody = wp.components.PanelBody;
 	var TextControl = wp.components.TextControl;
@@ -61,6 +62,21 @@
 		var noticeState = useState( '' );
 		var notice = noticeState[ 0 ];
 		var setNotice = noticeState[ 1 ];
+
+		// While this panel is mounted (an image block is selected), flag the
+		// editor so CSS hides core's redundant "Alternative text" control — this
+		// panel edits the same block alt. Removed on deselect so other media
+		// blocks (Cover, Media & Text…) keep their own alt field.
+		useEffect( function () {
+			var body = document.body;
+			if ( ! body ) {
+				return undefined;
+			}
+			body.classList.add( 'coywolf-seo-it-active' );
+			return function () {
+				body.classList.remove( 'coywolf-seo-it-active' );
+			};
+		}, [] );
 
 		var titleValue = null !== title ? title : ( media && media.title ? media.title.raw : '' );
 		var descValue = null !== description ? description : ( media && media.description ? media.description.raw : '' );
@@ -155,7 +171,7 @@
 							disabled: busy,
 							onClick: generate,
 						},
-						__( 'Generate with Claude', 'coywolf-seo' )
+						cfg.genLabel || __( 'Generate with Claude', 'coywolf-seo' )
 					)
 					: null,
 				el(
