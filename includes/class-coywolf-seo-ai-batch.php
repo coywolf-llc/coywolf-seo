@@ -1,13 +1,14 @@
 <?php
 /**
- * Anthropic Message Batches client, batch pricing, and usage telemetry.
+ * Bulk Batch API facade, batch pricing, and usage telemetry.
  *
- * Bulk enrichment runs exclusively through the Batches API: half-price
- * tokens in exchange for asynchronous processing (results typically
- * within the hour, guaranteed within 24). This class owns the HTTP
- * surface — submit, poll, fetch results, cancel — plus the discounted
- * price table and the lifetime usage aggregate that powers the
- * average-cost-per-post readout.
+ * Bulk enrichment runs through the active provider's Batch API: half-price
+ * tokens in exchange for asynchronous processing (results typically within
+ * the hour, guaranteed within 24). This class is a thin facade over the
+ * current {@see Coywolf_SEO_AI_Provider} — it keeps the public method names
+ * and return shapes the bulk state machine relies on while delegating all
+ * HTTP to the provider — plus the discounted price table and the lifetime
+ * usage aggregate that powers the average-cost-per-post readout.
  *
  * @package CoywolfSEO
  */
@@ -17,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Batches API client and cost telemetry.
+ * Batch API facade and cost telemetry.
  */
 final class Coywolf_SEO_AI_Batch {
 
@@ -27,9 +28,11 @@ final class Coywolf_SEO_AI_Batch {
 	const USAGE_OPTION = 'coywolf_seo_ai_usage';
 
 	/**
-	 * Batches endpoint.
+	 * The provider that owns the Batch API transport.
+	 *
+	 * @var Coywolf_SEO_AI_Provider
 	 */
-	const ENDPOINT = 'https://api.anthropic.com/v1/messages/batches';
+	private $provider;
 
 	/**
 	 * API key.
@@ -48,41 +51,30 @@ final class Coywolf_SEO_AI_Batch {
 	/**
 	 * Wire up.
 	 *
-	 * @param string $key   Anthropic API key.
-	 * @param string $model Model ID.
+	 * @param Coywolf_SEO_AI_Provider $provider Active provider (owns all HTTP).
+	 * @param string                  $key      API key.
+	 * @param string                  $model    Model ID.
 	 */
-	public function __construct( $key, $model ) {
-		$this->key   = (string) $key;
-		$this->model = (string) $model;
+	public function __construct( Coywolf_SEO_AI_Provider $provider, $key, $model ) {
+		$this->provider = $provider;
+		$this->key      = (string) $key;
+		$this->model    = (string) $model;
 	}
 
 	/**
-	 * One batch request entry.
+	 * One batch request entry, in the active provider's shape.
 	 *
 	 * @param string $custom_id  Caller's correlation ID.
 	 * @param string $system     System prompt.
 	 * @param string $user       User prompt.
-	 * @param int    $max_tokens Output token allowance. Anthropic checks a
+	 * @param int    $max_tokens Output token allowance. Providers may check a
 	 *                           batch's MAXIMUM possible cost against the
 	 *                           credit balance at submission, so this is
 	 *                           sized per task, not set-and-forget high.
 	 * @return array
 	 */
 	public function request( $custom_id, $system, $user, $max_tokens = 1000 ) {
-		return array(
-			'custom_id' => (string) $custom_id,
-			'params'    => array(
-				'model'      => $this->model,
-				'max_tokens' => max( 100, (int) $max_tokens ),
-				'system'     => $system,
-				'messages'   => array(
-					array(
-						'role'    => 'user',
-						'content' => $user,
-					),
-				),
-			),
-		);
+		return $this->provider->batch_build( $custom_id, $this->model, $system, $user, $max_tokens );
 	}
 
 	/**
@@ -92,14 +84,7 @@ final class Coywolf_SEO_AI_Batch {
 	 * @return string|WP_Error Batch ID.
 	 */
 	public function submit( array $requests ) {
-		$response = $this->http( 'POST', self::ENDPOINT, array( 'requests' => array_values( $requests ) ) );
-		if ( is_wp_error( $response ) ) {
-			return $response;
-		}
-		if ( empty( $response['id'] ) ) {
-			return new WP_Error( 'coywolf_seo_batch', __( 'The batch could not be created.', 'coywolf-seo' ) );
-		}
-		return (string) $response['id'];
+		return $this->provider->batch_submit( $this->key, $this->model, $requests );
 	}
 
 	/**
@@ -109,79 +94,26 @@ final class Coywolf_SEO_AI_Batch {
 	 * @return array|WP_Error { ended: bool, results_url: string }
 	 */
 	public function poll( $batch_id ) {
-		$response = $this->http( 'GET', self::ENDPOINT . '/' . rawurlencode( $batch_id ), null );
-		if ( is_wp_error( $response ) ) {
-			return $response;
+		$r = $this->provider->batch_poll( $this->key, $batch_id );
+		if ( is_wp_error( $r ) ) {
+			return $r;
 		}
+		// Map the provider's results_handle to the results_url key the bulk
+		// state machine has always read, so it stays untouched.
 		return array(
-			'ended'       => isset( $response['processing_status'] ) && 'ended' === $response['processing_status'],
-			'results_url' => isset( $response['results_url'] ) ? (string) $response['results_url'] : '',
+			'ended'       => ! empty( $r['ended'] ),
+			'results_url' => isset( $r['results_handle'] ) ? (string) $r['results_handle'] : '',
 		);
 	}
 
 	/**
 	 * Fetch and decode a finished batch's results.
 	 *
-	 * @param string $results_url The batch's results_url.
+	 * @param string $results_url The batch's results handle (from poll()).
 	 * @return array|WP_Error custom_id => { ok: bool, text: string, error: string, input: int, output: int }
 	 */
 	public function results( $results_url ) {
-		$response = wp_remote_get(
-			$results_url,
-			array(
-				'timeout'     => 60,
-				'redirection' => 0, // Never forward the API key to another host.
-				'headers'     => $this->headers(),
-			)
-		);
-		if ( is_wp_error( $response ) ) {
-			return $response;
-		}
-		if ( 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
-			return new WP_Error( 'coywolf_seo_batch', $this->api_error( $response ) );
-		}
-
-		$out = array();
-		foreach ( explode( "\n", (string) wp_remote_retrieve_body( $response ) ) as $line ) {
-			$line = trim( $line );
-			if ( '' === $line ) {
-				continue;
-			}
-			$row = json_decode( $line, true );
-			if ( ! is_array( $row ) || empty( $row['custom_id'] ) ) {
-				continue;
-			}
-			$result = isset( $row['result'] ) ? (array) $row['result'] : array();
-			$type   = isset( $result['type'] ) ? (string) $result['type'] : 'errored';
-
-			if ( 'succeeded' === $type ) {
-				$message = isset( $result['message'] ) ? (array) $result['message'] : array();
-				$text    = '';
-				foreach ( (array) ( $message['content'] ?? array() ) as $block ) {
-					if ( is_array( $block ) && isset( $block['type'] ) && 'text' === $block['type'] ) {
-						$text .= (string) $block['text'];
-					}
-				}
-				$out[ (string) $row['custom_id'] ] = array(
-					'ok'     => true,
-					'text'   => $text,
-					'error'  => '',
-					'input'  => (int) ( $message['usage']['input_tokens'] ?? 0 ),
-					'output' => (int) ( $message['usage']['output_tokens'] ?? 0 ),
-				);
-			} else {
-				$error = isset( $result['error']['error']['message'] ) ? (string) $result['error']['error']['message']
-					: ( isset( $result['error']['message'] ) ? (string) $result['error']['message'] : $type );
-				$out[ (string) $row['custom_id'] ] = array(
-					'ok'     => false,
-					'text'   => '',
-					'error'  => $error,
-					'input'  => 0,
-					'output' => 0,
-				);
-			}
-		}
-		return $out;
+		return $this->provider->batch_results( $this->key, $results_url );
 	}
 
 	/**
@@ -190,12 +122,12 @@ final class Coywolf_SEO_AI_Batch {
 	 * @param string $batch_id Batch ID.
 	 */
 	public function cancel( $batch_id ) {
-		$this->http( 'POST', self::ENDPOINT . '/' . rawurlencode( $batch_id ) . '/cancel', null );
+		$this->provider->batch_cancel( $this->key, $batch_id );
 	}
 
 	/**
-	 * Batch-discounted prices per million tokens — already the 50% batch
-	 * rate. Filterable as models and prices move.
+	 * Batch-discounted prices per million tokens for the active provider —
+	 * already the 50% batch rate. Filterable as models and prices move.
 	 *
 	 * @return array Model prefix => [ input $/MTok, output $/MTok ].
 	 */
@@ -205,17 +137,7 @@ final class Coywolf_SEO_AI_Batch {
 		 *
 		 * @param array $prices Prefix => [input, output].
 		 */
-		return (array) apply_filters(
-			'coywolf_seo_ai_batch_prices',
-			array(
-				// Legacy Opus 4.0/4.1 kept their higher standard rates.
-				'claude-opus-4-1'        => array( 7.5, 37.5 ),
-				'claude-opus-4-20250514' => array( 7.5, 37.5 ),
-				'claude-opus-4'          => array( 2.5, 12.5 ),
-				'claude-sonnet-4'        => array( 1.5, 7.5 ),
-				'claude-haiku-4'         => array( 0.5, 2.5 ),
-			)
-		);
+		return (array) apply_filters( 'coywolf_seo_ai_batch_prices', Coywolf_SEO_AI_Providers::current()->batch_prices() );
 	}
 
 	/**
@@ -227,21 +149,7 @@ final class Coywolf_SEO_AI_Batch {
 	 * @return float
 	 */
 	public static function estimate_cost( $model, $input, $output ) {
-		$prices = self::prices();
-		// Longest prefix first, so specific entries always beat generic
-		// ones regardless of insertion order.
-		uksort(
-			$prices,
-			static function ( $a, $b ) {
-				return strlen( (string) $b ) - strlen( (string) $a );
-			}
-		);
-		foreach ( $prices as $prefix => $price ) {
-			if ( 0 === strpos( (string) $model, (string) $prefix ) ) {
-				return ( $input / 1000000 ) * (float) $price[0] + ( $output / 1000000 ) * (float) $price[1];
-			}
-		}
-		return 0.0;
+		return Coywolf_SEO_AI_Provider::price_lookup( self::prices(), $model, $input, $output );
 	}
 
 	/**
@@ -278,62 +186,6 @@ final class Coywolf_SEO_AI_Batch {
 			'avg_input'  => $avg_in,
 			'avg_output' => $avg_out,
 			'avg_cost'   => self::estimate_cost( $model, $avg_in, $avg_out ),
-		);
-	}
-
-	/**
-	 * Authenticated JSON request to the Batches API.
-	 *
-	 * @param string     $method HTTP method.
-	 * @param string     $url    URL.
-	 * @param array|null $body   JSON body, null for none.
-	 * @return array|WP_Error Decoded response.
-	 */
-	private function http( $method, $url, $body ) {
-		$args = array(
-			'method'  => $method,
-			'timeout' => 90,
-			'headers' => $this->headers(),
-		);
-		if ( null !== $body ) {
-			$args['headers']['content-type'] = 'application/json';
-			$args['body']                    = wp_json_encode( $body );
-		}
-		$response = wp_remote_request( $url, $args );
-		if ( is_wp_error( $response ) ) {
-			return $response;
-		}
-		$code = (int) wp_remote_retrieve_response_code( $response );
-		if ( $code < 200 || $code >= 300 ) {
-			return new WP_Error( 'coywolf_seo_batch', $this->api_error( $response ) );
-		}
-		$decoded = json_decode( wp_remote_retrieve_body( $response ), true );
-		return is_array( $decoded ) ? $decoded : array();
-	}
-
-	/**
-	 * A readable error from an API response.
-	 *
-	 * @param array $response WP HTTP response.
-	 * @return string
-	 */
-	private function api_error( $response ) {
-		$code = (int) wp_remote_retrieve_response_code( $response );
-		$body = json_decode( wp_remote_retrieve_body( $response ), true );
-		$msg  = isset( $body['error']['message'] ) ? (string) $body['error']['message'] : (string) wp_remote_retrieve_response_message( $response );
-		/* translators: 1: HTTP status code, 2: API error message. */
-		return sprintf( __( 'Anthropic Batches API returned HTTP %1$d: %2$s', 'coywolf-seo' ), $code, $msg );
-	}
-
-	/**
-	 * Common request headers.
-	 *
-	 * @return array
-	 */
-	private function headers() {
-		return array(
-			'x-api-key'         => $this->key,
-			'anthropic-version' => '2023-06-01',
 		);
 	}
 }

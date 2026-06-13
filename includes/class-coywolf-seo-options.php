@@ -38,50 +38,58 @@ final class Coywolf_SEO_Options {
 	public static function defaults() {
 		return array(
 			// Site Details.
-			'og_image_id'          => 0,
-			'entity_type'          => 'organization', // organization | person.
-			'person_user_id'       => 0,
-			'org_properties'       => array(), // Ordered list of array( 'prop' => ..., 'value' => ... ).
-			'homepage_title'       => '',
-			'homepage_description' => '',
-			'append_site_name'     => false,
-			'post_page_type'       => 'WebPage',
-			'post_article_type'    => 'Article',
-			'page_page_type'       => 'WebPage',
-			'page_article_type'    => 'none',
-			'cat_hide_prefix'      => false,
+			'og_image_id'                  => 0,
+			'entity_type'                  => 'organization', // organization | person.
+			'person_user_id'               => 0,
+			'org_properties'               => array(), // Ordered list of array( 'prop' => ..., 'value' => ... ).
+			'homepage_title'               => '',
+			'homepage_description'         => '',
+			'append_site_name'             => false,
+			'post_page_type'               => 'WebPage',
+			'post_article_type'            => 'Article',
+			'page_page_type'               => 'WebPage',
+			'page_article_type'            => 'none',
+			'cat_hide_prefix'              => false,
 			// Settings.
-			'access_role'          => 'administrator', // administrator | editor.
-			'force_rewrite_titles' => false,
-			'exclude_meta_desc'    => false,
-			'robots_index'         => true,
-			'robots_follow'        => true,
-			'robots_max_image'     => true,
-			'robots_max_snippet'   => true,
-			'robots_max_video'     => true,
+			'access_role'                  => 'administrator', // administrator | editor.
+			'force_rewrite_titles'         => false,
+			'exclude_meta_desc'            => false,
+			'robots_index'                 => true,
+			'robots_follow'                => true,
+			'robots_max_image'             => true,
+			'robots_max_snippet'           => true,
+			'robots_max_video'             => true,
 			// IndexNow.
-			'indexnow_enabled'     => false,
-			'indexnow_key'         => '',
+			'indexnow_enabled'             => false,
+			'indexnow_key'                 => '',
 			// News sitemap.
-			'sitemap_exclude_posts' => false,
-			'sitemap_exclude_pages' => false,
-			'sitemap_exclude_categories' => false,
-			'sitemap_exclude_users' => false,
-			'news_enabled'         => false,
-			'news_include_posts'   => true,
-			'news_include_pages'   => false,
-			'news_cat_mode'        => 'all', // all | include | exclude.
-			'news_cats'            => array(),
+			'sitemap_exclude_posts'        => false,
+			'sitemap_exclude_pages'        => false,
+			'sitemap_exclude_categories'   => false,
+			'sitemap_exclude_users'        => false,
+			'news_enabled'                 => false,
+			'news_include_posts'           => true,
+			'news_include_pages'           => false,
+			'news_cat_mode'                => 'all', // all | include | exclude.
+			'news_cats'                    => array(),
 			// AI schema enrichment.
-			'ai_enabled'           => false,
-			'ai_descriptions'      => false,
-			'ai_model'             => '',
-			'ai_api_key'           => '',
-			// Image Text defaults (Claude-written alt/title/caption/description).
+			'ai_enabled'                   => false,
+			'ai_descriptions'              => false,
+			// Active AI service: 'anthropic' (Claude) | 'openai' | 'google' (Gemini).
+			'ai_service'                   => 'anthropic',
+			// Per-service model + API key. ai_model / ai_api_key are Claude's (kept
+			// under their original names so pre-multi-provider installs are unchanged).
+			'ai_model'                     => '',
+			'ai_api_key'                   => '',
+			'ai_model_openai'              => '',
+			'ai_api_key_openai'            => '',
+			'ai_model_google'              => '',
+			'ai_api_key_google'            => '',
+			// Image Text defaults (AI-written alt/title/caption/description).
 			'image_text_write_alt'         => true,
-			'image_text_write_title'       => true,
+			'image_text_write_title'       => false,
 			'image_text_write_caption'     => true,
-			'image_text_write_description' => true,
+			'image_text_write_description' => false,
 			'image_text_overwrite'         => false,
 			'image_text_instructions'      => '',
 			// Master feature toggles. Stored as "off" flags so the Settings
@@ -252,11 +260,18 @@ final class Coywolf_SEO_Options {
 		if ( isset( $raw['indexnow_key'] ) ) {
 			$out['indexnow_key'] = preg_replace( '/[^a-zA-Z0-9-]/', '', (string) $raw['indexnow_key'] );
 		}
-		if ( isset( $raw['ai_model'] ) ) {
-			$out['ai_model'] = preg_replace( '/[^a-z0-9.\-]/', '', strtolower( (string) $raw['ai_model'] ) );
+		if ( isset( $raw['ai_service'] ) ) {
+			$out['ai_service'] = in_array( $raw['ai_service'], array( 'anthropic', 'openai', 'google' ), true ) ? $raw['ai_service'] : 'anthropic';
 		}
-		if ( isset( $raw['ai_api_key'] ) ) {
-			$out['ai_api_key'] = preg_replace( '/\s+/', '', (string) $raw['ai_api_key'] );
+		foreach ( array( 'ai_model', 'ai_model_openai', 'ai_model_google' ) as $coywolf_seo_model_key ) {
+			if ( isset( $raw[ $coywolf_seo_model_key ] ) ) {
+				$out[ $coywolf_seo_model_key ] = preg_replace( '/[^a-z0-9.\-]/', '', strtolower( (string) $raw[ $coywolf_seo_model_key ] ) );
+			}
+		}
+		foreach ( array( 'ai_api_key', 'ai_api_key_openai', 'ai_api_key_google' ) as $coywolf_seo_key_key ) {
+			if ( isset( $raw[ $coywolf_seo_key_key ] ) ) {
+				$out[ $coywolf_seo_key_key ] = preg_replace( '/\s+/', '', (string) $raw[ $coywolf_seo_key_key ] );
+			}
 		}
 		if ( isset( $raw['news_cat_mode'] ) ) {
 			$out['news_cat_mode'] = in_array( $raw['news_cat_mode'], array( 'all', 'include', 'exclude' ), true ) ? $raw['news_cat_mode'] : 'all';

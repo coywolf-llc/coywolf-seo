@@ -4,7 +4,7 @@
  * Plugin URI:        https://coywolf.com/notes/coywolf-seo/
  * Description:       An SEO plugin that has exactly what you need, and nothing more.
  * Version:           1.0.50
- * Requires at least: 6.0
+ * Requires at least: 7.0
  * Requires PHP:      7.4
  * Author:            Coywolf
  * Author URI:        https://coywolf.com/jon-henshaw/
@@ -59,6 +59,11 @@ require_once __DIR__ . '/includes/class-coywolf-seo-category-base.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-indexnow.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-news-sitemap.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-sitemaps.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-ai-provider.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-ai-anthropic.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-ai-openai.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-ai-google.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-ai-providers.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-ai-batch.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-ai.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-image-ai.php';

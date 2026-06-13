@@ -2,14 +2,16 @@
 /**
  * AI enrichment for Coywolf SEO.
  *
- * When enabled (with the site owner's own Anthropic API key), published
- * posts and pages are analyzed in the background and the entities they
- * discuss are added to their Article schema — primary subjects as `about`,
- * passing references as `mentions`, each grounded to a real Wikidata item.
+ * When enabled (with the site owner's own API key), published posts and pages
+ * are analyzed in the background and the entities they discuss are added to
+ * their Article schema — primary subjects as `about`, passing references as
+ * `mentions`, each grounded to a real Wikidata item. All AI work routes through
+ * the active provider ({@see Coywolf_SEO_AI_Providers::current()}: Claude,
+ * OpenAI, or Gemini), so the engine here stays provider-agnostic.
  *
  * Hallucinated identifiers are designed out with retrieve-and-verify:
  *
- * 1. Claude extracts entity MENTIONS only — surface form, normalized name,
+ * 1. The model extracts entity MENTIONS only — surface form, normalized name,
  *    type (Person/Organization/Place/Thing), a one-line description, and a
  *    primary/secondary split. It is explicitly instructed not to produce
  *    QIDs or URLs.
@@ -23,8 +25,9 @@
  *    against the expected type: disambiguation pages are dropped, a Person
  *    must be a human (Q5), and a non-Person must not be one.
  *
- * Calls go through the WordPress PHP AI Client SDK with the Anthropic
- * provider (both vendored via Composer), per the project requirements.
+ * Text generation goes through the WordPress PHP AI Client SDK with the active
+ * provider's php-ai-client provider class; the parts the SDK does not abstract
+ * (model listing, the Batch API) are delegated to the provider.
  *
  * @package CoywolfSEO
  */
@@ -32,7 +35,6 @@
 use WordPress\AiClient\AiClient;
 use WordPress\AiClient\Providers\Http\DTO\ApiKeyRequestAuthentication;
 use WordPress\AiClient\Providers\Http\DTO\RequestOptions;
-use WordPress\AnthropicAiProvider\Provider\AnthropicProvider;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -165,14 +167,14 @@ final class Coywolf_SEO_AI {
 					}
 					$content = $this->plain_content( $post );
 					if ( '' === trim( $content ) ) {
-						$skipped++;
+						++$skipped;
 						continue;
 					}
 					if ( ! $force ) {
 						$hash  = md5( get_the_title( $post ) . "\n" . $content . "\n" . $this->config_signature() );
 						$saved = get_post_meta( $post_id, self::META_KEY, true );
 						if ( is_array( $saved ) && isset( $saved['hash'] ) && $saved['hash'] === $hash ) {
-							$skipped++;
+							++$skipped;
 							continue;
 						}
 					}
@@ -324,12 +326,13 @@ final class Coywolf_SEO_AI {
 
 
 	/**
-	 * The Batches client for the current key and model.
+	 * The Batch client for the active provider, key, and model.
 	 *
 	 * @return Coywolf_SEO_AI_Batch
 	 */
 	private function batch() {
-		return new Coywolf_SEO_AI_Batch( $this->api_key(), $this->model() );
+		$provider = Coywolf_SEO_AI_Providers::current();
+		return new Coywolf_SEO_AI_Batch( $provider, $provider->key(), $provider->model() );
 	}
 
 	/**
@@ -394,7 +397,6 @@ final class Coywolf_SEO_AI {
 			case 'disambig_submit':
 				return $this->bulk_submit_stage( $state, 'disambig_wait', $this->disambiguate_system(), true, 1000 );
 
-
 			case 'extract_wait':
 				return $this->bulk_collect_stage(
 					$state,
@@ -425,9 +427,9 @@ final class Coywolf_SEO_AI {
 
 			case 'ground':
 				while ( time() < $deadline && ! empty( $state['queue'] ) ) {
-					$post_id = (int) array_shift( $state['queue'] );
-					$row     = (array) get_post_meta( $post_id, self::BULK_META, true );
-					$result  = $this->ground_candidates( isset( $row['mentions'] ) ? (array) $row['mentions'] : array() );
+					$post_id          = (int) array_shift( $state['queue'] );
+					$row              = (array) get_post_meta( $post_id, self::BULK_META, true );
+					$result           = $this->ground_candidates( isset( $row['mentions'] ) ? (array) $row['mentions'] : array() );
 					$row['mentions']  = $result[0];
 					$row['ambiguous'] = $result[1];
 					update_post_meta( $post_id, self::BULK_META, $row );
@@ -532,7 +534,8 @@ final class Coywolf_SEO_AI {
 		$batch      = $this->batch();
 		$requests   = array();
 		$bytes      = 0;
-		while ( ! empty( $state['stage_queue'] ) && count( $requests ) < $chunk_size && $bytes < 32 * MB_IN_BYTES ) {
+		$count      = 0;
+		while ( ! empty( $state['stage_queue'] ) && $count < $chunk_size && $bytes < 32 * MB_IN_BYTES ) {
 			$post_id = (int) array_shift( $state['stage_queue'] );
 			$post    = get_post( $post_id );
 			if ( ! $post ) {
@@ -548,6 +551,7 @@ final class Coywolf_SEO_AI {
 			}
 			$bytes     += strlen( $user );
 			$requests[] = $batch->request( 'p' . $post_id, $system, $user, $max_tokens );
+			++$count;
 		}
 
 		if ( empty( $requests ) ) {
@@ -610,9 +614,9 @@ final class Coywolf_SEO_AI {
 				$survivors[] = $post_id; // Not part of this batch (e.g. unambiguous posts during disambiguation).
 				continue;
 			}
-			$result               = $results[ $key ];
-			$state['usage_in']    = (int) $state['usage_in'] + (int) $result['input'];
-			$state['usage_out']   = (int) $state['usage_out'] + (int) $result['output'];
+			$result             = $results[ $key ];
+			$state['usage_in']  = (int) $state['usage_in'] + (int) $result['input'];
+			$state['usage_out'] = (int) $state['usage_out'] + (int) $result['output'];
 			if ( empty( $result['ok'] ) ) {
 				$this->bulk_fail_post( $post_id, (string) $result['error'], $state );
 				continue;
@@ -690,7 +694,7 @@ final class Coywolf_SEO_AI {
 	 * @param array  $state   Run state, mutated in place.
 	 */
 	private function bulk_fail_post( $post_id, $error, array &$state ) {
-		$row           = (array) get_post_meta( $post_id, self::BULK_META, true );
+		$row = (array) get_post_meta( $post_id, self::BULK_META, true );
 		delete_post_meta( $post_id, self::BULK_META );
 		$saved         = get_post_meta( $post_id, self::META_KEY, true );
 		$previous      = ( is_array( $saved ) && isset( $saved['entities'] ) && is_array( $saved['entities'] ) ) ? $saved['entities'] : array();
@@ -742,7 +746,7 @@ final class Coywolf_SEO_AI {
 
 		$scan = get_transient( 'coywolf_seo_bulk_scan' );
 		if ( ! is_array( $scan ) ) {
-			$ids   = get_posts(
+			$ids       = get_posts(
 				array(
 					'post_type'      => $this->post_types,
 					'post_status'    => 'publish',
@@ -765,14 +769,14 @@ final class Coywolf_SEO_AI {
 					if ( '' === trim( $content ) ) {
 						continue;
 					}
-					$eligible++;
+					++$eligible;
 					$chars_all += strlen( $content );
 					$hash       = md5( get_the_title( $post ) . "\n" . $content . "\n" . $this->config_signature() );
 					$saved      = get_post_meta( $post_id, self::META_KEY, true );
 					if ( is_array( $saved ) && isset( $saved['hash'] ) && $saved['hash'] === $hash ) {
 						continue;
 					}
-					$stale++;
+					++$stale;
 					$chars += strlen( $content );
 				}
 			}
@@ -791,8 +795,8 @@ final class Coywolf_SEO_AI {
 		if ( $stale < 1 ) {
 			// Nothing stale — but a forced Re-analyze-all run still costs;
 			// give the UI those figures so it never claims "free".
-			$eligible    = (int) ( $scan['eligible'] ?? 0 );
-			$force_cost  = 0.0;
+			$eligible   = (int) ( $scan['eligible'] ?? 0 );
+			$force_cost = 0.0;
 			if ( $eligible > 0 ) {
 				$passes      = 1 + ( $this->descriptions_on() ? 1 : 0 );
 				$avg_in_post = (int) ceil( ( ( (int) ( $scan['chars_all'] ?? 0 ) / $eligible ) / 4 + 400 ) * $passes );
@@ -949,7 +953,7 @@ final class Coywolf_SEO_AI {
 		$total   = isset( $state['total'] ) ? (int) $state['total'] : 0;
 		$done    = isset( $state['done'] ) ? (int) $state['done'] : 0;
 		$percent = $total > 0 ? (int) floor( ( $done / $total ) * 100 ) : 0;
-		$labels = array(
+		$labels  = array(
 			'extract_submit'  => __( 'Submitting the entity-extraction batch…', 'coywolf-seo' ),
 			'extract_wait'    => __( 'Entity extraction processing at Anthropic (batch rates)…', 'coywolf-seo' ),
 			'ground'          => __( 'Grounding entities against Wikidata…', 'coywolf-seo' ),
@@ -960,7 +964,7 @@ final class Coywolf_SEO_AI {
 			'describe_wait'   => __( 'Meta descriptions processing at Anthropic (batch rates)…', 'coywolf-seo' ),
 			'finalize'        => __( 'Saving results…', 'coywolf-seo' ),
 		);
-		$stage  = isset( $state['stage'] ) ? (string) $state['stage'] : '';
+		$stage   = isset( $state['stage'] ) ? (string) $state['stage'] : '';
 		return array(
 			'status'        => isset( $state['status'] ) ? (string) $state['status'] : '',
 			'total'         => $total,
@@ -1035,14 +1039,14 @@ final class Coywolf_SEO_AI {
 	}
 
 	/**
-	 * The timeout for Anthropic generation calls, in seconds. Model
-	 * generation takes far longer than WordPress's 5-second HTTP default.
+	 * The timeout for AI generation calls, in seconds. Model generation takes
+	 * far longer than WordPress's 5-second HTTP default.
 	 *
 	 * @return float
 	 */
 	private function timeout() {
 		/**
-		 * Filters the Anthropic request timeout (seconds).
+		 * Filters the AI request timeout (seconds).
 		 *
 		 * @param int $timeout Timeout in seconds.
 		 */
@@ -1050,19 +1054,25 @@ final class Coywolf_SEO_AI {
 	}
 
 	/**
-	 * Floor the WordPress HTTP timeout for Anthropic API requests.
+	 * Floor the WordPress HTTP timeout for AI provider API requests.
 	 *
 	 * WordPress 7.0's bundled AI transport sends through the WordPress HTTP
 	 * API with its 5-second default — every generation call times out. The
 	 * SDK request options set the timeout too, but this filter guarantees
 	 * it for any call the SDK makes on its own (model discovery included).
+	 * Matches the API hosts of all supported providers (Anthropic, OpenAI,
+	 * and Google Gemini).
 	 *
 	 * @param array  $args Request arguments.
 	 * @param string $url  Request URL.
 	 * @return array
 	 */
 	public function extend_anthropic_timeout( $args, $url ) {
-		if ( is_string( $url ) && false !== strpos( $url, 'api.anthropic.com' ) ) {
+		if ( is_string( $url ) && (
+			false !== strpos( $url, 'api.anthropic.com' )
+			|| false !== strpos( $url, 'api.openai.com' )
+			|| false !== strpos( $url, 'generativelanguage.googleapis.com' )
+		) ) {
 			$timeout         = $this->timeout();
 			$args['timeout'] = isset( $args['timeout'] ) ? max( (float) $args['timeout'], $timeout ) : $timeout;
 		}
@@ -1085,20 +1095,26 @@ final class Coywolf_SEO_AI {
 	}
 
 	/**
-	 * The Claude model in use: the saved setting (or the default), still
-	 * overridable in code via the coywolf_seo_ai_model filter.
+	 * The model in use for the active provider: the saved setting (or the
+	 * provider's default), still overridable in code via the
+	 * coywolf_seo_ai_model filter (applied inside the provider base).
 	 *
 	 * @return string
 	 */
 	public function model() {
-		$saved = trim( (string) Coywolf_SEO_Options::get( 'ai_model' ) );
-		return (string) apply_filters( 'coywolf_seo_ai_model', '' !== $saved ? $saved : self::DEFAULT_MODEL );
+		/**
+		 * Filters the model used for schema enrichment and meta descriptions.
+		 *
+		 * @param string $model   Model ID.
+		 * @param string $service Active provider id (e.g. 'anthropic').
+		 */
+		return Coywolf_SEO_AI_Providers::current()->model();
 	}
 
 	/**
-	 * Models available to the saved key, from Anthropic's model list —
-	 * cached for 12 hours; empty without a key or on failure (the
-	 * settings page falls back to a curated list).
+	 * Models available to the saved key for the active provider — cached for
+	 * 12 hours, per service; empty without a key or on failure (the settings
+	 * page falls back to the provider's curated fallback_models()).
 	 *
 	 * @return array Rows of id/name.
 	 */
@@ -1107,37 +1123,16 @@ final class Coywolf_SEO_AI {
 		if ( '' === $key ) {
 			return array();
 		}
-		$cached = get_transient( 'coywolf_seo_ai_models' );
+		$cache_key = 'coywolf_seo_ai_models_' . Coywolf_SEO_AI_Providers::current_id();
+		$cached    = get_transient( $cache_key );
 		if ( is_array( $cached ) ) {
 			return $cached;
 		}
-		$response = wp_remote_get(
-			'https://api.anthropic.com/v1/models?limit=100',
-			array(
-				'timeout'    => 8,
-				'user-agent' => $this->user_agent(),
-				'headers'    => array(
-					'x-api-key'         => $key,
-					'anthropic-version' => '2023-06-01',
-				),
-			)
-		);
-		if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+		$models = Coywolf_SEO_AI_Providers::current()->list_models( $key );
+		if ( ! is_array( $models ) || empty( $models ) ) {
 			return array();
 		}
-		$body   = json_decode( wp_remote_retrieve_body( $response ), true );
-		$models = array();
-		foreach ( (array) ( $body['data'] ?? array() ) as $row ) {
-			if ( is_array( $row ) && ! empty( $row['id'] ) && 0 === strpos( (string) $row['id'], 'claude-' ) ) {
-				$models[] = array(
-					'id'   => (string) $row['id'],
-					'name' => ! empty( $row['display_name'] ) ? (string) $row['display_name'] : (string) $row['id'],
-				);
-			}
-		}
-		if ( ! empty( $models ) ) {
-			set_transient( 'coywolf_seo_ai_models', $models, 12 * HOUR_IN_SECONDS );
-		}
+		set_transient( $cache_key, $models, 12 * HOUR_IN_SECONDS );
 		return $models;
 	}
 
@@ -1168,62 +1163,30 @@ final class Coywolf_SEO_AI {
 	}
 
 	/**
-	 * The Anthropic API key: the saved setting, or the ANTHROPIC_API_KEY
-	 * constant/environment as a wp-config-style fallback.
+	 * The active provider's API key: the saved setting, or its wp-config
+	 * constant/environment fallback. The provider base already honours the
+	 * 'ai' master feature gate.
 	 *
 	 * @return string
 	 */
 	private function api_key() {
-		// Master toggle: when AI enrichment is off, behave as if no key exists
-		// anywhere — this also ignores the ANTHROPIC_API_KEY constant/env.
-		if ( ! Coywolf_SEO_Options::feature_enabled( 'ai' ) ) {
-			return '';
-		}
-		$key = (string) Coywolf_SEO_Options::get( 'ai_api_key' );
-		if ( '' !== $key ) {
-			return $key;
-		}
-		if ( defined( 'ANTHROPIC_API_KEY' ) && '' !== (string) ANTHROPIC_API_KEY ) {
-			return (string) ANTHROPIC_API_KEY;
-		}
-		$env = getenv( 'ANTHROPIC_API_KEY' );
-		return ( is_string( $env ) && '' !== $env ) ? $env : '';
+		return Coywolf_SEO_AI_Providers::current()->key();
 	}
 
 	/**
-	 * Where the active API key comes from, for the Settings indicator. Mirrors
-	 * api_key()'s precedence: a saved key wins over the wp-config constant,
-	 * which wins over the environment variable.
+	 * Where the active provider's API key comes from, for the Settings
+	 * indicator: a saved key wins over the wp-config constant, which wins over
+	 * the environment variable.
 	 *
 	 * @return array {
 	 *     @type string $source   Active source: 'saved'|'constant'|'env'|'' (none).
 	 *     @type bool   $saved    A key is saved in the database.
-	 *     @type bool   $constant ANTHROPIC_API_KEY is defined in wp-config.php.
-	 *     @type bool   $env      ANTHROPIC_API_KEY is set as an environment variable.
+	 *     @type bool   $constant The provider's key constant is defined in wp-config.php.
+	 *     @type bool   $env      The provider's key is set as an environment variable.
 	 * }
 	 */
 	public function key_status() {
-		$saved    = '' !== (string) Coywolf_SEO_Options::get( 'ai_api_key' );
-		$constant = defined( 'ANTHROPIC_API_KEY' ) && '' !== (string) ANTHROPIC_API_KEY;
-		$env_val  = getenv( 'ANTHROPIC_API_KEY' );
-		$env      = is_string( $env_val ) && '' !== $env_val;
-
-		if ( $saved ) {
-			$source = 'saved';
-		} elseif ( $constant ) {
-			$source = 'constant';
-		} elseif ( $env ) {
-			$source = 'env';
-		} else {
-			$source = '';
-		}
-
-		return array(
-			'source'   => $source,
-			'saved'    => $saved,
-			'constant' => $constant,
-			'env'      => $env,
-		);
+		return Coywolf_SEO_AI_Providers::current()->key_status();
 	}
 
 	/**
@@ -1396,9 +1359,9 @@ final class Coywolf_SEO_AI {
 		if ( ! empty( $saved['entities'] ) && is_array( $saved['entities'] ) ) {
 			foreach ( $saved['entities'] as $entity ) {
 				if ( ! empty( $entity['primary'] ) ) {
-					$about++;
+					++$about;
 				} else {
-					$mentions++;
+					++$mentions;
 				}
 			}
 		}
@@ -1636,8 +1599,8 @@ final class Coywolf_SEO_AI {
 	private function ground_candidates( array $mentions ) {
 		$ambiguous = array();
 		foreach ( $mentions as $i => $mention ) {
-			$candidates                  = $this->wikidata_search( $mention['name'] );
-			$mentions[ $i ]['qid']       = '';
+			$candidates                   = $this->wikidata_search( $mention['name'] );
+			$mentions[ $i ]['qid']        = '';
 			$mentions[ $i ]['candidates'] = $candidates;
 			if ( empty( $candidates ) ) {
 				continue; // No real item: the mention is dropped, never invented.
@@ -1798,9 +1761,10 @@ final class Coywolf_SEO_AI {
 	 * registers its autoloader), with its third-party internals scoped.
 	 * Loading our vendored copy of the same classes alongside it mixes the
 	 * two builds (Composer's autoloader prepends) and fatals deep inside
-	 * the SDK. So: when the client already exists, use it and only
-	 * autoload the Anthropic provider from our vendor directory; the full
-	 * vendored stack loads only on sites with no client at all (WP < 7.0).
+	 * the SDK. So: when the client already exists, use it and only autoload
+	 * the vendored provider classes (Anthropic, OpenAI, Google) from our
+	 * vendor directory; the full vendored stack loads only on sites with no
+	 * client at all (WP < 7.0).
 	 */
 	private function load_sdk() {
 		if ( self::$sdk_loaded ) {
@@ -1810,21 +1774,29 @@ final class Coywolf_SEO_AI {
 
 		if ( class_exists( 'WordPress\\AiClient\\AiClient' ) ) {
 			self::$site_provides_client = true;
-			if ( ! class_exists( 'WordPress\\AnthropicAiProvider\\Provider\\AnthropicProvider' ) ) {
-				spl_autoload_register(
-					static function ( $class_name ) {
-						$prefix = 'WordPress\\AnthropicAiProvider\\';
+			spl_autoload_register(
+				static function ( $class_name ) {
+					// Map each vendored provider namespace to its src/ dir, so
+					// whichever provider the site has not already supplied is
+					// loaded from our vendor copy.
+					$map = array(
+						'WordPress\\AnthropicAiProvider\\' => 'vendor/wordpress/ai-provider-for-anthropic/src/',
+						'WordPress\\OpenAiAiProvider\\'    => 'vendor/wordpress/ai-provider-for-openai/src/',
+						'WordPress\\GoogleAiProvider\\'    => 'vendor/wordpress/ai-provider-for-google/src/',
+					);
+					foreach ( $map as $prefix => $dir ) {
 						if ( 0 !== strpos( $class_name, $prefix ) ) {
-							return;
+							continue;
 						}
-						$file = COYWOLF_SEO_PATH . 'vendor/wordpress/ai-provider-for-anthropic/src/'
+						$file = COYWOLF_SEO_PATH . $dir
 							. str_replace( '\\', '/', substr( $class_name, strlen( $prefix ) ) ) . '.php';
 						if ( file_exists( $file ) ) {
 							require $file;
 						}
+						return;
 					}
-				);
-			}
+				}
+			);
 			return;
 		}
 
@@ -1833,7 +1805,7 @@ final class Coywolf_SEO_AI {
 	}
 
 	/**
-	 * Call Claude through the PHP AI Client with the Anthropic provider.
+	 * Generate text through the PHP AI Client with the active provider.
 	 *
 	 * @param string $system System instruction.
 	 * @param string $prompt User prompt.
@@ -1841,6 +1813,9 @@ final class Coywolf_SEO_AI {
 	 */
 	private function generate( $system, $prompt ) {
 		$this->load_sdk();
+
+		$provider    = Coywolf_SEO_AI_Providers::current();
+		$provider_id = $provider->provider_id();
 
 		$registry = AiClient::defaultRegistry();
 		if ( ! self::$site_provides_client ) {
@@ -1850,27 +1825,21 @@ final class Coywolf_SEO_AI {
 			require_once COYWOLF_SEO_PATH . 'includes/class-coywolf-seo-http-transporter.php';
 			$registry->setHttpTransporter( new Coywolf_SEO_Http_Transporter() );
 		}
-		if ( ! $registry->hasProvider( 'anthropic' ) ) {
-			$registry->registerProvider( AnthropicProvider::class );
+		if ( ! $registry->hasProvider( $provider_id ) ) {
+			$registry->registerProvider( $provider->provider_class() );
 		}
-		$key = (string) Coywolf_SEO_Options::get( 'ai_api_key' );
+		$key = $provider->key();
 		if ( '' !== $key ) {
-			$registry->setProviderRequestAuthentication( 'anthropic', new ApiKeyRequestAuthentication( $key ) );
+			$registry->setProviderRequestAuthentication( $provider_id, new ApiKeyRequestAuthentication( $key ) );
 		}
 
-		/**
-		 * Filters the Claude model used for schema enrichment.
-		 *
-		 * @param string $model Model ID.
-		 */
-		$model = $this->model();
-
+		$model   = $provider->model();
 		$options = new RequestOptions();
 		$options->setTimeout( $this->timeout() );
 
 		try {
 			return AiClient::prompt( $prompt, $registry )
-				->usingProvider( 'anthropic' )
+				->usingProvider( $provider_id )
 				->usingModelPreference( $model )
 				->usingSystemInstruction( $system )
 				->usingMaxTokens( 4000 )
@@ -1878,9 +1847,9 @@ final class Coywolf_SEO_AI {
 				->generateText();
 		} catch ( \Throwable $e ) {
 			// The pinned model may not be available to this key yet; let the
-			// provider pick its preferred Claude model instead.
+			// provider pick its preferred model instead.
 			return AiClient::prompt( $prompt, $registry )
-				->usingProvider( 'anthropic' )
+				->usingProvider( $provider_id )
 				->usingSystemInstruction( $system )
 				->usingMaxTokens( 4000 )
 				->usingRequestOptions( $options )
@@ -1895,9 +1864,9 @@ final class Coywolf_SEO_AI {
 	 * @return mixed Decoded value, or null.
 	 */
 	private function decode_json( $text ) {
-		$text = trim( (string) $text );
-		$text = preg_replace( '/^```(?:json)?\s*/i', '', $text );
-		$text = preg_replace( '/\s*```$/', '', (string) $text );
+		$text  = trim( (string) $text );
+		$text  = preg_replace( '/^```(?:json)?\s*/i', '', $text );
+		$text  = preg_replace( '/\s*```$/', '', (string) $text );
 		$start = strpbrk( $text, '[{' );
 		if ( false === $start ) {
 			return null;

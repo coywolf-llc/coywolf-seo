@@ -13,6 +13,8 @@ class ComposerStaticInit24de6fa3a9788a896f17387de805248a
     public static $prefixLengthsPsr4 = array (
         'W' =>
         array (
+            'WordPress\\OpenAiAiProvider\\' => 27,
+            'WordPress\\GoogleAiProvider\\' => 27,
             'WordPress\\AnthropicAiProvider\\' => 30,
             'WordPress\\AiClient\\' => 19,
         ),
@@ -36,6 +38,14 @@ class ComposerStaticInit24de6fa3a9788a896f17387de805248a
     );
 
     public static $prefixDirsPsr4 = array (
+        'WordPress\\OpenAiAiProvider\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/wordpress/ai-provider-for-openai/src',
+        ),
+        'WordPress\\GoogleAiProvider\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/wordpress/ai-provider-for-google/src',
+        ),
         'WordPress\\AnthropicAiProvider\\' =>
         array (
             0 => __DIR__ . '/..' . '/wordpress/ai-provider-for-anthropic/src',
@@ -256,6 +266,17 @@ class ComposerStaticInit24de6fa3a9788a896f17387de805248a
         'WordPress\\AnthropicAiProvider\\Metadata\\AnthropicModelMetadataDirectory' => __DIR__ . '/..' . '/wordpress/ai-provider-for-anthropic/src/Metadata/AnthropicModelMetadataDirectory.php',
         'WordPress\\AnthropicAiProvider\\Models\\AnthropicTextGenerationModel' => __DIR__ . '/..' . '/wordpress/ai-provider-for-anthropic/src/Models/AnthropicTextGenerationModel.php',
         'WordPress\\AnthropicAiProvider\\Provider\\AnthropicProvider' => __DIR__ . '/..' . '/wordpress/ai-provider-for-anthropic/src/Provider/AnthropicProvider.php',
+        'WordPress\\GoogleAiProvider\\Authentication\\GoogleApiKeyRequestAuthentication' => __DIR__ . '/..' . '/wordpress/ai-provider-for-google/src/Authentication/GoogleApiKeyRequestAuthentication.php',
+        'WordPress\\GoogleAiProvider\\Metadata\\GoogleModelMetadataDirectory' => __DIR__ . '/..' . '/wordpress/ai-provider-for-google/src/Metadata/GoogleModelMetadataDirectory.php',
+        'WordPress\\GoogleAiProvider\\Models\\GoogleImageGenerationModel' => __DIR__ . '/..' . '/wordpress/ai-provider-for-google/src/Models/GoogleImageGenerationModel.php',
+        'WordPress\\GoogleAiProvider\\Models\\GoogleTextAndImageGenerationModel' => __DIR__ . '/..' . '/wordpress/ai-provider-for-google/src/Models/GoogleTextAndImageGenerationModel.php',
+        'WordPress\\GoogleAiProvider\\Models\\GoogleTextGenerationModel' => __DIR__ . '/..' . '/wordpress/ai-provider-for-google/src/Models/GoogleTextGenerationModel.php',
+        'WordPress\\GoogleAiProvider\\Models\\WithAspectRatioTrait' => __DIR__ . '/..' . '/wordpress/ai-provider-for-google/src/Models/WithAspectRatioTrait.php',
+        'WordPress\\GoogleAiProvider\\Provider\\GoogleProvider' => __DIR__ . '/..' . '/wordpress/ai-provider-for-google/src/Provider/GoogleProvider.php',
+        'WordPress\\OpenAiAiProvider\\Metadata\\OpenAiModelMetadataDirectory' => __DIR__ . '/..' . '/wordpress/ai-provider-for-openai/src/Metadata/OpenAiModelMetadataDirectory.php',
+        'WordPress\\OpenAiAiProvider\\Models\\OpenAiImageGenerationModel' => __DIR__ . '/..' . '/wordpress/ai-provider-for-openai/src/Models/OpenAiImageGenerationModel.php',
+        'WordPress\\OpenAiAiProvider\\Models\\OpenAiTextGenerationModel' => __DIR__ . '/..' . '/wordpress/ai-provider-for-openai/src/Models/OpenAiTextGenerationModel.php',
+        'WordPress\\OpenAiAiProvider\\Provider\\OpenAiProvider' => __DIR__ . '/..' . '/wordpress/ai-provider-for-openai/src/Provider/OpenAiProvider.php',
     );
 
     public static function getInitializer(ClassLoader $loader)

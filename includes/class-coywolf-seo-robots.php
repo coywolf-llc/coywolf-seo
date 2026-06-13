@@ -901,11 +901,6 @@ final class Coywolf_SEO_Robots {
 		?>
 		<h2><?php esc_html_e( 'Robots.txt Manager', 'coywolf-seo' ); ?></h2>
 
-		<?php $this->render_notices(); ?>
-
-		<form method="post">
-			<?php wp_nonce_field( 'coywolf_seo_robots_settings' ); ?>
-
 			<h3><?php echo esc_html__( 'How robots.txt is managed', 'coywolf-seo' ); ?></h3>
 				<table class="form-table" role="presentation">
 					<tr>
@@ -989,11 +984,6 @@ final class Coywolf_SEO_Robots {
 						</td>
 					</tr>
 				</table>
-
-				<p class="submit">
-					<button type="submit" class="button button-primary" name="coywolf_seo_robots_action" value="save_settings"><?php echo esc_html__( 'Save Settings', 'coywolf-seo' ); ?></button>
-				</p>
-			</form>
 		<?php
 	}
 
@@ -1210,9 +1200,6 @@ final class Coywolf_SEO_Robots {
 				break;
 			case 'save_robots':
 				$this->handle_save_robots();
-				break;
-			case 'save_settings':
-				$this->handle_save_settings();
 				break;
 			case 'export':
 				$this->handle_export();
@@ -1557,11 +1544,20 @@ final class Coywolf_SEO_Robots {
 		<?php
 	}
 
-	private function handle_save_settings() {
-		check_admin_referer( 'coywolf_seo_robots_settings' );
+	/**
+	 * Persist the Robots.txt Manager settings fields and run the mode-switch side
+	 * effects. The fields live in the main Coywolf SEO settings form, so the nonce
+	 * and capability are already verified by that handler (Coywolf_SEO_Admin::
+	 * save_settings); this re-verifies the same nonce defensively and does not
+	 * redirect (the caller does).
+	 */
+	public function save_settings_fields() {
+		// Re-verify the main settings form nonce (already checked by the caller)
+		// so these reads are provably nonce-guarded on their own.
+		check_admin_referer( 'coywolf_seo_settings' );
 
-		// The serving mode is administrator-only, even though other roles with the
-		// SEO management capability can reach this handler via handle_actions().
+		// The serving mode is administrator-only; the main settings form is
+		// already gated on manage_options, but re-check defensively.
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
@@ -1607,8 +1603,6 @@ final class Coywolf_SEO_Robots {
 			$this->merge_wordpress_base();
 			update_option( self::OPT_WP_BASE, '1', false );
 		}
-
-		$this->redirect_with( self::PAGE_SETTINGS, array( 'coywolf_seo_robots_msg' => 'settings' ) );
 	}
 
 	/* ================================================================== *

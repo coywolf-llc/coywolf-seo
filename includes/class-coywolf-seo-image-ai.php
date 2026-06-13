@@ -1,12 +1,15 @@
 <?php
 /**
- * Claude API client.
+ * Image-analysis client.
  *
- * Sends an image or PDF attachment to the Anthropic Messages API (vision /
+ * Sends an image or PDF attachment to the active AI provider (vision /
  * document blocks) and turns the response into the four Media Library text
  * fields: alternative text, title, caption, and description. Also lists the
- * account's available models for the Settings screen and runs the connection
- * test.
+ * provider's available models for the Settings screen and runs the connection
+ * test. The HTTP call, key/model resolution, and pricing all come from the
+ * provider chosen on the Settings page; everything else (payload building,
+ * image re-encoding, the accessibility prompt, field sanitization, and saving)
+ * is provider-agnostic and lives here.
  *
  * Image payload strategy: the smallest intermediate size that is still
  * detailed enough (large → medium_large → original) is sent base64-encoded;
@@ -22,16 +25,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Claude API client for image analysis.
+ * Image-analysis client routed through the active AI provider.
  */
 final class Coywolf_SEO_Image_AI {
 
-	const API_BASE        = 'https://api.anthropic.com';
-	const API_VERSION     = '2023-06-01';
-	const DEFAULT_MODEL   = 'claude-opus-4-8';
-	const MODELS_CACHE    = 'coywolf_seo_image_models';
-	const MAX_TOKENS      = 1024;
-	const REQUEST_TIMEOUT = 90;
+	/**
+	 * Default model id, kept for the Image Text page model list (which adds the
+	 * Settings model and this default as always-selectable entries). The active
+	 * provider supplies the real default; this mirrors the historical Anthropic
+	 * default for that UI fallback only.
+	 */
+	const DEFAULT_MODEL = 'claude-opus-4-8';
+	const MODELS_CACHE  = 'coywolf_seo_image_models';
+	const MAX_TOKENS    = 1024;
 
 	/**
 	 * Rough per-image token estimates for the cost estimator: one downscaled
@@ -43,48 +49,29 @@ final class Coywolf_SEO_Image_AI {
 	const EST_OUTPUT_TOKENS = 250;
 
 	/**
-	 * USD per million tokens (input, output) by model-ID prefix. Most
-	 * specific prefix wins. Models that match nothing get no estimate
-	 * rather than a wrong one.
-	 */
-	const MODEL_PRICING = array(
-		'claude-fable'      => array( 10.0, 50.0 ),
-		'claude-opus-4-5'   => array( 5.0, 25.0 ),
-		'claude-opus-4-6'   => array( 5.0, 25.0 ),
-		'claude-opus-4-7'   => array( 5.0, 25.0 ),
-		'claude-opus-4-8'   => array( 5.0, 25.0 ),
-		'claude-opus'       => array( 15.0, 75.0 ),
-		'claude-3-opus'     => array( 15.0, 75.0 ),
-		'claude-sonnet'     => array( 3.0, 15.0 ),
-		'claude-3-7-sonnet' => array( 3.0, 15.0 ),
-		'claude-3-5-sonnet' => array( 3.0, 15.0 ),
-		'claude-haiku'      => array( 1.0, 5.0 ),
-		'claude-3-5-haiku'  => array( 0.8, 4.0 ),
-		'claude-3-haiku'    => array( 0.25, 1.25 ),
-	);
-
-	/**
-	 * Pricing for a model ID, by longest matching prefix.
+	 * Pricing for a model ID, by longest matching prefix, from the active
+	 * provider's standard (non-batch) price table.
 	 *
 	 * @param string $model_id Model ID.
 	 * @return array|null { input: float, output: float } USD/MTok, or null when unknown.
 	 */
 	public static function model_pricing( $model_id ) {
 		$model_id = (string) $model_id;
+		$prices   = Coywolf_SEO_AI_Providers::current()->standard_prices();
 		$best     = null;
 		$best_len = 0;
-		foreach ( self::MODEL_PRICING as $prefix => $price ) {
-			if ( 0 === strpos( $model_id, $prefix ) && strlen( $prefix ) > $best_len ) {
+		foreach ( $prices as $prefix => $price ) {
+			if ( 0 === strpos( $model_id, (string) $prefix ) && strlen( (string) $prefix ) > $best_len ) {
 				$best     = $price;
-				$best_len = strlen( $prefix );
+				$best_len = strlen( (string) $prefix );
 			}
 		}
 		if ( null === $best ) {
 			return null;
 		}
 		return array(
-			'input'  => $best[0],
-			'output' => $best[1],
+			'input'  => (float) $best[0],
+			'output' => (float) $best[1],
 		);
 	}
 
@@ -129,25 +116,14 @@ final class Coywolf_SEO_Image_AI {
 	const MAX_EDGE = 1568;
 
 	/**
-	 * Stored API key.
+	 * API key for the active provider. The provider's key() honours the master
+	 * AI feature gate (returns '' when AI enrichment is off) and resolves the
+	 * saved option > wp-config constant > environment variable precedence.
 	 *
 	 * @return string
 	 */
 	public function api_key() {
-		// Image Text is part of AI enrichment: when that master toggle is off,
-		// behave as if no key exists (also ignoring the wp-config constant).
-		if ( ! Coywolf_SEO_Options::feature_enabled( 'ai' ) ) {
-			return '';
-		}
-		$key = (string) Coywolf_SEO_Options::get( 'ai_api_key' );
-		if ( '' !== $key ) {
-			return $key;
-		}
-		if ( defined( 'ANTHROPIC_API_KEY' ) && '' !== (string) ANTHROPIC_API_KEY ) {
-			return (string) ANTHROPIC_API_KEY;
-		}
-		$env = getenv( 'ANTHROPIC_API_KEY' );
-		return ( is_string( $env ) && '' !== $env ) ? $env : '';
+		return Coywolf_SEO_AI_Providers::current()->key();
 	}
 
 	/**
@@ -160,49 +136,26 @@ final class Coywolf_SEO_Image_AI {
 	}
 
 	/**
-	 * Where the active API key comes from, for the Settings indicator. Mirrors
-	 * api_key()'s precedence: a saved key wins over the wp-config constant,
-	 * which wins over the environment variable.
+	 * Where the active provider's key comes from, for the Settings indicator.
 	 *
 	 * @return array {
 	 *     @type string $source   Active source: 'saved'|'constant'|'env'|'' (none).
 	 *     @type bool   $saved    A key is saved in the database.
-	 *     @type bool   $constant ANTHROPIC_API_KEY is defined in wp-config.php.
-	 *     @type bool   $env      ANTHROPIC_API_KEY is set as an environment variable.
+	 *     @type bool   $constant The provider's key constant is defined in wp-config.php.
+	 *     @type bool   $env      The provider's key constant is set as an environment variable.
 	 * }
 	 */
 	public function key_status() {
-		$saved    = '' !== (string) Coywolf_SEO_Options::get( 'ai_api_key' );
-		$constant = defined( 'ANTHROPIC_API_KEY' ) && '' !== (string) ANTHROPIC_API_KEY;
-		$env_val  = getenv( 'ANTHROPIC_API_KEY' );
-		$env      = is_string( $env_val ) && '' !== $env_val;
-
-		if ( $saved ) {
-			$source = 'saved';
-		} elseif ( $constant ) {
-			$source = 'constant';
-		} elseif ( $env ) {
-			$source = 'env';
-		} else {
-			$source = '';
-		}
-
-		return array(
-			'source'   => $source,
-			'saved'    => $saved,
-			'constant' => $constant,
-			'env'      => $env,
-		);
+		return Coywolf_SEO_AI_Providers::current()->key_status();
 	}
 
 	/**
-	 * Model to use for image analysis.
+	 * Model to use for image analysis (the active provider's chosen model).
 	 *
 	 * @return string
 	 */
 	public function model() {
-		$model = (string) Coywolf_SEO_Options::get( 'ai_model' );
-		return '' !== $model ? $model : self::DEFAULT_MODEL;
+		return Coywolf_SEO_AI_Providers::current()->model();
 	}
 
 	/**
@@ -218,7 +171,7 @@ final class Coywolf_SEO_Image_AI {
 		if ( ! $this->is_configured() ) {
 			return new WP_Error(
 				'coywolf_seo_no_key',
-				__( 'Add your Claude API key on the Settings page first.', 'coywolf-seo' )
+				__( 'Add your AI provider API key on the Settings page first.', 'coywolf-seo' )
 			);
 		}
 
@@ -227,72 +180,31 @@ final class Coywolf_SEO_Image_AI {
 			return $payload;
 		}
 
-		$model = is_string( $model ) && preg_match( '/^[a-z0-9._-]+$/i', $model ) ? $model : '';
-
 		$system = 'You write accessibility-first metadata for files in a WordPress media library, '
 			. 'following WCAG-aligned guidance for alternative text, titles, captions, and descriptions. '
 			. 'You write for the people who depend on this text — screen reader and braille users, and anyone on a '
 			. 'text-only or broken-image fallback — and never for search engines. '
 			. 'You respond with raw JSON only: a single JSON object, no markdown fences, no commentary.';
 
-		$body = array(
-			'model'      => '' !== $model ? $model : $this->model(),
-			'max_tokens' => self::MAX_TOKENS,
-			'system'     => $system,
-			'messages'   => array(
-				array(
-					'role'    => 'user',
-					'content' => array(
-						array(
-							'type'   => $payload['block'],
-							'source' => array(
-								'type'       => 'base64',
-								'media_type' => $payload['media_type'],
-								'data'       => $payload['data'],
-							),
-						),
-						array(
-							'type' => 'text',
-							'text' => $this->prompt( $attachment_id, 'document' === $payload['block'] ),
-						),
-					),
-				),
-			),
+		$provider  = Coywolf_SEO_AI_Providers::current();
+		$use_model = ( is_string( $model ) && preg_match( '/^[a-z0-9._-]+$/i', $model ) && '' !== $model ) ? $model : $provider->model();
+
+		$res = $provider->vision_generate(
+			$this->api_key(),
+			$use_model,
+			$payload,
+			$system,
+			$this->prompt( $attachment_id, 'document' === $payload['block'] ),
+			self::MAX_TOKENS
 		);
-
-		$response = wp_remote_post(
-			self::API_BASE . '/v1/messages',
-			array(
-				'timeout'    => self::REQUEST_TIMEOUT,
-				'user-agent' => $this->user_agent(),
-				'headers'    => array(
-					'x-api-key'         => $this->api_key(),
-					'anthropic-version' => self::API_VERSION,
-					'content-type'      => 'application/json',
-				),
-				'body'       => wp_json_encode( $body ),
-			)
-		);
-
-		if ( is_wp_error( $response ) ) {
-			return new WP_Error( 'coywolf_seo_api', $response->get_error_message() );
+		if ( is_wp_error( $res ) ) {
+			return $res;
 		}
-		$code = (int) wp_remote_retrieve_response_code( $response );
-		if ( $code < 200 || $code >= 300 ) {
-			return new WP_Error( 'coywolf_seo_api', $this->api_error( $response ) );
-		}
-
-		$data = json_decode( wp_remote_retrieve_body( $response ), true );
-		$text = '';
-		foreach ( (array) ( isset( $data['content'] ) ? $data['content'] : array() ) as $block ) {
-			if ( is_array( $block ) && isset( $block['type'] ) && 'text' === $block['type'] ) {
-				$text .= (string) $block['text'];
-			}
-		}
+		$text = (string) ( $res['text'] ?? '' );
 
 		$fields = $this->decode_json( $text );
 		if ( ! is_array( $fields ) ) {
-			return new WP_Error( 'coywolf_seo_api', __( 'Claude returned a response that could not be parsed. Try again.', 'coywolf-seo' ) );
+			return new WP_Error( 'coywolf_seo_api', __( 'The AI service returned a response that could not be parsed. Try again.', 'coywolf-seo' ) );
 		}
 
 		$clean = array();
@@ -306,7 +218,7 @@ final class Coywolf_SEO_Image_AI {
 			}
 		}
 		if ( '' === $clean['alt_text'] && '' === $clean['title'] ) {
-			return new WP_Error( 'coywolf_seo_api', __( 'Claude did not return usable image text. Try again.', 'coywolf-seo' ) );
+			return new WP_Error( 'coywolf_seo_api', __( 'The AI service did not return usable image text. Try again.', 'coywolf-seo' ) );
 		}
 		return $clean;
 	}
@@ -591,7 +503,10 @@ final class Coywolf_SEO_Image_AI {
 	}
 
 	/**
-	 * Claude models available to the stored key, cached for 12 hours.
+	 * Models selectable for image analysis from the active provider, cached for
+	 * 12 hours. The cache is scoped per service so switching providers does not
+	 * surface another provider's model list. Falls back to the provider's
+	 * curated list when a live fetch is unavailable.
 	 *
 	 * @return array[] { id, name }
 	 */
@@ -599,42 +514,23 @@ final class Coywolf_SEO_Image_AI {
 		if ( ! $this->is_configured() ) {
 			return array();
 		}
-		$cached = get_transient( self::MODELS_CACHE );
+		$provider  = Coywolf_SEO_AI_Providers::current();
+		$cache_key = self::MODELS_CACHE . '_' . Coywolf_SEO_AI_Providers::current_id();
+		$cached    = get_transient( $cache_key );
 		if ( is_array( $cached ) ) {
 			return $cached;
 		}
-		$response = wp_remote_get(
-			self::API_BASE . '/v1/models?limit=100',
-			array(
-				'timeout'    => 8,
-				'user-agent' => $this->user_agent(),
-				'headers'    => array(
-					'x-api-key'         => $this->api_key(),
-					'anthropic-version' => self::API_VERSION,
-				),
-			)
-		);
-		if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
-			return array();
+		$models = $provider->list_models( $this->api_key() );
+		if ( empty( $models ) ) {
+			return $provider->fallback_models();
 		}
-		$body   = json_decode( wp_remote_retrieve_body( $response ), true );
-		$models = array();
-		foreach ( (array) ( isset( $body['data'] ) ? $body['data'] : array() ) as $row ) {
-			if ( is_array( $row ) && ! empty( $row['id'] ) && 0 === strpos( (string) $row['id'], 'claude-' ) ) {
-				$models[] = array(
-					'id'   => (string) $row['id'],
-					'name' => ! empty( $row['display_name'] ) ? (string) $row['display_name'] : (string) $row['id'],
-				);
-			}
-		}
-		if ( ! empty( $models ) ) {
-			set_transient( self::MODELS_CACHE, $models, 12 * HOUR_IN_SECONDS );
-		}
+		set_transient( $cache_key, $models, 12 * HOUR_IN_SECONDS );
 		return $models;
 	}
 
 	/**
-	 * Cheap connection test: list models with the stored key.
+	 * Cheap connection test for the active provider: list its models with the
+	 * stored key.
 	 *
 	 * @return true|WP_Error
 	 */
@@ -642,64 +538,19 @@ final class Coywolf_SEO_Image_AI {
 		if ( ! $this->is_configured() ) {
 			return new WP_Error( 'coywolf_seo_no_key', __( 'No API key is saved yet.', 'coywolf-seo' ) );
 		}
-		$response = wp_remote_get(
-			self::API_BASE . '/v1/models?limit=1',
-			array(
-				'timeout'    => 10,
-				'user-agent' => $this->user_agent(),
-				'headers'    => array(
-					'x-api-key'         => $this->api_key(),
-					'anthropic-version' => self::API_VERSION,
-				),
-			)
-		);
-		if ( is_wp_error( $response ) ) {
-			return new WP_Error( 'coywolf_seo_api', $response->get_error_message() );
-		}
-		$code = (int) wp_remote_retrieve_response_code( $response );
-		if ( 200 !== $code ) {
-			return new WP_Error( 'coywolf_seo_api', $this->api_error( $response ) );
+		$models = Coywolf_SEO_AI_Providers::current()->list_models( $this->api_key() );
+		if ( empty( $models ) ) {
+			return new WP_Error( 'coywolf_seo_api', __( 'The AI service did not return any models. Check the API key on the Settings page.', 'coywolf-seo' ) );
 		}
 		return true;
 	}
 
 	/**
-	 * Drop the cached model list (called when the key changes).
+	 * Drop the cached model list for every provider (called when a key changes).
 	 */
 	public function flush_models_cache() {
-		delete_transient( self::MODELS_CACHE );
-	}
-
-	/**
-	 * Extract a readable error message from an Anthropic error response.
-	 *
-	 * @param array $response wp_remote_* response.
-	 * @return string
-	 */
-	private function api_error( $response ) {
-		$code = (int) wp_remote_retrieve_response_code( $response );
-		$body = json_decode( wp_remote_retrieve_body( $response ), true );
-		$msg  = '';
-		if ( is_array( $body ) && isset( $body['error']['message'] ) ) {
-			$msg = (string) $body['error']['message'];
+		foreach ( Coywolf_SEO_AI_Providers::ids() as $id ) {
+			delete_transient( self::MODELS_CACHE . '_' . $id );
 		}
-		if ( '' === $msg ) {
-			/* translators: %d: HTTP status code */
-			return sprintf( __( 'The Claude API returned HTTP %d.', 'coywolf-seo' ), $code );
-		}
-		if ( 401 === $code ) {
-			/* translators: %s: API error message */
-			return sprintf( __( 'Invalid API key (%s). Check the key on the Settings page.', 'coywolf-seo' ), $msg );
-		}
-		return $msg;
-	}
-
-	/**
-	 * Identify the site in outbound requests.
-	 *
-	 * @return string
-	 */
-	private function user_agent() {
-		return 'CoywolfSEO/' . Coywolf_SEO::VERSION . '; ' . home_url();
 	}
 }
