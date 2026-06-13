@@ -145,8 +145,8 @@ final class Coywolf_SEO_Admin {
 			</form>
 		<?php elseif ( 'running' === $coywolf_seo_bulk['status'] ) : ?>
 			<div id="coywolf-seo-bulk-progress" data-running="1">
-				<div class="coywolf-seo-progress"><div class="coywolf-seo-progress-bar" style="width:<?php echo esc_attr( (string) $coywolf_seo_bulk['percent'] ); ?>%"></div></div>
-				<p class="description coywolf-seo-bulk-text">
+				<div class="coywolf-seo-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?php echo esc_attr( (string) $coywolf_seo_bulk['percent'] ); ?>"><div class="coywolf-seo-progress-bar" style="width:<?php echo esc_attr( (string) $coywolf_seo_bulk['percent'] ); ?>%"></div></div>
+				<p class="description coywolf-seo-bulk-text" role="status" aria-live="polite" aria-atomic="true">
 					<?php
 					printf(
 						/* translators: 1: processed count, 2: total, 3: percent, 4: current stage. */
@@ -1087,7 +1087,7 @@ final class Coywolf_SEO_Admin {
 								</p>
 							<?php endif; ?>
 							<button type="button" class="button" id="coywolf-seo-ai-test"><?php esc_html_e( 'Test API access', 'coywolf-seo' ); ?></button>
-							<span class="description" id="coywolf-seo-ai-test-result"></span>
+							<span class="description" id="coywolf-seo-ai-test-result" role="status" aria-live="polite" aria-atomic="true"></span>
 						</td>
 					</tr>
 					</tbody>
@@ -1189,10 +1189,10 @@ final class Coywolf_SEO_Admin {
 					<tbody>
 					<tr>
 						<td colspan="2">
-							<div id="coywolf-seo-bulk-area" data-status="<?php echo esc_attr( Coywolf_SEO::instance()->ai()->bulk_status()['status'] ); ?>">
+							<div id="coywolf-seo-bulk-area" aria-live="polite" data-status="<?php echo esc_attr( Coywolf_SEO::instance()->ai()->bulk_status()['status'] ); ?>">
 								<?php $this->render_bulk_controls(); ?>
 							</div>
-							<p class="description" id="coywolf-seo-bulk-estimate" data-loading="<?php esc_attr_e( 'Calculating the estimated cost…', 'coywolf-seo' ); ?>"><em><?php esc_html_e( 'Calculating the estimated cost…', 'coywolf-seo' ); ?></em></p>
+							<p class="description" id="coywolf-seo-bulk-estimate" role="status" aria-live="polite" aria-atomic="true" data-loading="<?php esc_attr_e( 'Calculating the estimated cost…', 'coywolf-seo' ); ?>"><em><?php esc_html_e( 'Calculating the estimated cost…', 'coywolf-seo' ); ?></em></p>
 							<p class="description"><strong><?php esc_html_e( 'Use sparingly:', 'coywolf-seo' ); ?></strong> <?php esc_html_e( 'this runs the enabled AI features over every published post and page through Anthropic\'s Batches API at 50% of standard token prices. Results can take up to an hour (occasionally longer) and incur API costs each run — content already analyzed with the current settings is skipped automatically.', 'coywolf-seo' ); ?></p>
 							<?php $coywolf_seo_usage = Coywolf_SEO_AI_Batch::usage_summary( Coywolf_SEO::instance()->ai()->model() ); ?>
 							<?php if ( ! empty( $coywolf_seo_usage ) ) : ?>

@@ -236,7 +236,9 @@
 				}
 				var d = res.data;
 				var $box = $bulkArea.find( '#coywolf-seo-bulk-progress' );
-				$box.find( '.coywolf-seo-progress-bar' ).css( 'width', d.percent + '%' );
+				var $prog = $box.find( '.coywolf-seo-progress' );
+				$prog.find( '.coywolf-seo-progress-bar' ).css( 'width', d.percent + '%' );
+				$prog.attr( 'aria-valuenow', d.percent );
 				var bulkText = d.done + ' / ' + d.total + ' (' + d.percent + '%)';
 				if ( d.stage_label ) {
 					bulkText += ' — ' + d.stage_label;
@@ -397,10 +399,17 @@
 
 		// Redirects: quick-add extras, inline edit rows, delete confirm.
 		$( '#coywolf-seo-qa-more' ).on( 'click', function () {
+			var $btn = $( this );
+			var expanded = 'true' === $btn.attr( 'aria-expanded' );
+			$btn.attr( 'aria-expanded', expanded ? 'false' : 'true' );
 			$( '#coywolf-seo-qa-more-fields' ).slideToggle( 120 );
 		} );
 		$( document ).on( 'click', '.coywolf-seo-edit-toggle', function () {
-			$( '#coywolf-seo-edit-' + $( this ).data( 'rule' ) ).toggle();
+			var ruleId = $( this ).data( 'rule' );
+			var $row = $( '#coywolf-seo-edit-' + ruleId );
+			$row.toggle();
+			$( '.coywolf-seo-edit-toggle[data-rule="' + ruleId + '"]' )
+				.attr( 'aria-expanded', $row.is( ':visible' ) ? 'true' : 'false' );
 		} );
 		$( document ).on( 'submit', '.coywolf-seo-delete-form', function ( e ) {
 			if ( ! window.confirm( ( window.CoywolfSEOAdmin && CoywolfSEOAdmin.i18n.confirmDelete ) || 'Delete this redirect?' ) ) {

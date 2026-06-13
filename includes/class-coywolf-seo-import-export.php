@@ -169,7 +169,7 @@ final class Coywolf_SEO_Import_Export {
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data">
 						<input type="hidden" name="action" value="coywolf_seo_import" />
 						<?php wp_nonce_field( 'coywolf_seo_import' ); ?>
-						<input type="file" name="coywolf_seo_import_file" accept=".json,application/json" required />
+						<input type="file" name="coywolf_seo_import_file" id="coywolf-seo-import-file" accept=".json,application/json" required aria-label="<?php esc_attr_e( 'Import file (JSON)', 'coywolf-seo' ); ?>" />
 						<?php submit_button( __( 'Import settings', 'coywolf-seo' ), 'secondary', 'submit', false ); ?>
 					</form>
 					<p class="description"><?php esc_html_e( 'Replaces the current settings and author properties with the contents of an export file.', 'coywolf-seo' ); ?></p>

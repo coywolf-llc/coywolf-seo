@@ -127,9 +127,16 @@
 					update( 'canonical', v === config.permalink ? '' : v );
 				}
 			} ),
-			entityStatus
-				? el( 'p', { className: 'coywolf-seo-entity-status', style: { color: '#50575e', marginBottom: 0 } }, entityStatus )
-				: null,
+			el(
+				'p',
+				{
+					className: 'coywolf-seo-entity-status',
+					role: 'status',
+					'aria-live': 'polite',
+					style: { color: '#50575e', marginBottom: 0 }
+				},
+				entityStatus
+			),
 			config.aiEnabled && config.postId
 				? el(
 					Button,
