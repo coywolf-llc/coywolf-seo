@@ -181,6 +181,11 @@ final class Coywolf_SEO_Import_Export {
 		if ( $importers ) {
 			$importers->render_section();
 		}
+		// Robots.txt rules import/export (own JSON format, separate from the
+		// settings export above).
+		if ( Coywolf_SEO_Options::feature_enabled( 'robots' ) ) {
+			Coywolf_SEO::instance()->robots()->render_import_export_section();
+		}
 		?>
 		</div>
 		<?php

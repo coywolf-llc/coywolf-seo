@@ -1,0 +1,522 @@
+/**
+ * Coywolf Robots.txt Manager — admin styles.
+ */
+
+.coywolf-seo-robots-empty {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-left: 4px solid #2271b1;
+	padding: 12px 16px;
+	margin-top: 16px;
+	max-width: 640px;
+}
+
+/* Stack a rule's directive chips (an allow-exception rule has two). */
+.coywolf-seo-robots-directives {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 4px;
+}
+
+.coywolf-seo-robots-table code.coywolf-seo-robots-directive {
+	display: inline-block;
+	padding: 2px 6px;
+	font-size: 12px;
+	white-space: pre-wrap;
+	word-break: break-all;
+	border: 1px solid transparent;
+	border-radius: 3px;
+}
+
+/*
+ * Tint each directive chip by type so it stands out from the alternating row
+ * background. Text/background pairs meet WCAG 2.1 AA (>= 4.5:1 for this size):
+ *   Disallow  #8a1f23 on #fbeaea = 7.85:1
+ *   Allow     #0a6b22 on #e8f6ec = 6.00:1
+ */
+.coywolf-seo-robots-table code.coywolf-seo-robots-directive--disallow {
+	background: #fbeaea;
+	color: #8a1f23;
+	border-color: #f1c4c6;
+}
+
+.coywolf-seo-robots-table code.coywolf-seo-robots-directive--allow {
+	background: #e8f6ec;
+	color: #0a6b22;
+	border-color: #bfe3c9;
+}
+
+.coywolf-seo-robots-preview-h {
+	margin-top: 24px;
+}
+
+/* ----- Rule editor ----- */
+
+.coywolf-seo-robots-fields {
+	margin-top: 8px;
+}
+
+.coywolf-seo-robots-field {
+	margin: 0 0 10px;
+}
+
+.coywolf-seo-robots-field-label {
+	display: block;
+	font-weight: 600;
+	margin-bottom: 3px;
+}
+
+/* ----- Bots ----- */
+
+.coywolf-seo-robots-bots {
+	max-width: 720px;
+}
+
+.coywolf-seo-robots-custom {
+	margin: 10px 0 16px;
+	padding: 10px 12px;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+}
+
+.coywolf-seo-robots-custom-list {
+	margin: 6px 0 0;
+}
+
+.coywolf-seo-robots-custom-list li {
+	margin: 2px 0;
+}
+
+.coywolf-seo-robots-custom-list code {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	padding: 1px 6px;
+}
+
+/* Sitemap URLs can be long — let them wrap rather than overflow. */
+.coywolf-seo-robots-sitemap-list code {
+	word-break: break-all;
+}
+
+.coywolf-seo-robots-sitemaps-wrap {
+	margin-top: 12px;
+}
+
+/*
+ * When "All robots (*)" is checked, the custom-bot adder and the bot
+ * categories are disabled (see admin.js); dim them so it's clear why they
+ * can't be edited.
+ */
+.coywolf-seo-robots-bots-locked .coywolf-seo-robots-custom,
+.coywolf-seo-robots-bots-locked .coywolf-seo-robots-cat {
+	opacity: 0.5;
+}
+
+.coywolf-seo-robots-cat {
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	margin: 0 0 6px;
+	background: #fff;
+}
+
+.coywolf-seo-robots-cat > summary {
+	cursor: pointer;
+	padding: 8px 12px;
+	list-style: none;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.coywolf-seo-robots-cat > summary::-webkit-details-marker {
+	display: none;
+}
+
+.coywolf-seo-robots-cat > summary::before {
+	content: "\25B6";
+	font-size: 10px;
+	color: #787c82;
+	transition: transform 0.15s ease;
+}
+
+.coywolf-seo-robots-cat[open] > summary::before {
+	transform: rotate( 90deg );
+}
+
+.coywolf-seo-robots-cat-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.coywolf-seo-robots-cat-count {
+	color: #787c82;
+}
+
+.coywolf-seo-robots-cat-actions {
+	padding: 4px 12px;
+	border-top: 1px solid #f0f0f1;
+	background: #fbfbfc;
+}
+
+/* The long bot lists are forced to a fixed height and scroll. */
+.coywolf-seo-robots-botlist {
+	max-height: 220px;
+	overflow-y: auto;
+	margin: 0;
+	/* Indent the list and keep room for the checkbox in the marker position. */
+	padding: 8px 12px 8px 28px;
+	list-style: none;
+	border-top: 1px solid #f0f0f1;
+}
+
+.coywolf-seo-robots-botlist li {
+	margin: 0 0 4px;
+	line-height: 1.5;
+}
+
+/*
+ * Hanging indent: the checkbox occupies the list-marker position and the
+ * label text flows in a second column, so wrapped lines align under the
+ * start of the first-line text rather than under the checkbox.
+ */
+.coywolf-seo-robots-botlist label {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	column-gap: 6px;
+	align-items: start;
+}
+
+.coywolf-seo-robots-botlist label input[type="checkbox"] {
+	margin-top: 3px;
+}
+
+.coywolf-seo-robots-bot-text {
+	display: inline;
+}
+
+.coywolf-seo-robots-bot-op {
+	color: #787c82;
+	font-size: 12px;
+}
+
+.coywolf-seo-robots-botlist code {
+	font-size: 11px;
+	background: #f6f7f7;
+	padding: 0 4px;
+}
+
+/* ----- Modal (deactivation restore/keep prompt) ----- */
+
+.coywolf-seo-robots-modal {
+	position: fixed;
+	inset: 0;
+	background: rgba( 0, 0, 0, 0.5 );
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 100000;
+}
+
+.coywolf-seo-robots-modal-box {
+	background: #fff;
+	border-radius: 4px;
+	padding: 20px 24px;
+	max-width: 520px;
+	width: calc( 100% - 40px );
+	box-shadow: 0 4px 24px rgba( 0, 0, 0, 0.2 );
+}
+
+.coywolf-seo-robots-modal-box h2 {
+	margin-top: 0;
+}
+
+.coywolf-seo-robots-modal-actions {
+	margin-bottom: 0;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 8px;
+}
+
+/* The "Cancel" link-button has no padding by default, so its label looks
+   cramped next to the real buttons; give it matching breathing room. */
+.coywolf-seo-robots-modal-actions .button-link {
+	padding: 4px 10px;
+}
+
+/* ----- Conflict notice (blocks save until resolved) ----- */
+
+.coywolf-seo-robots-conflict-list {
+	list-style: disc;
+	margin: 4px 0 8px 20px;
+}
+
+/* ----- Testing tool ----- */
+
+.coywolf-seo-robots-test-result {
+	display: inline-block;
+	padding: 8px 12px;
+	border-radius: 4px;
+	border: 1px solid #dcdcde;
+	background: #f6f7f7;
+	max-width: 640px;
+}
+
+.coywolf-seo-robots-test-blocked {
+	background: #fcf0f1;
+	border-color: #d63638;
+	color: #8a1f23;
+}
+
+.coywolf-seo-robots-test-allowed {
+	background: #edfaef;
+	border-color: #00a32a;
+	color: #0a6b22;
+}
+
+.coywolf-seo-robots-test-none,
+.coywolf-seo-robots-test-pending {
+	background: #f6f7f7;
+	border-color: #dcdcde;
+	color: #50575e;
+}
+
+.coywolf-seo-robots-test-detail {
+	font-family: Consolas, Monaco, monospace;
+	font-size: 12px;
+	color: #50575e;
+}
+
+/* ----- Settings ----- */
+
+.coywolf-seo-robots-ok {
+	color: #0a6b22;
+	font-weight: 600;
+}
+
+.coywolf-seo-robots-bad {
+	color: #8a1f23;
+	font-weight: 600;
+}
+
+/* ----- Import / Export (Settings) ----- */
+
+/* Keep the file picker and the Import button on one tidy baseline-aligned row. */
+.coywolf-seo-robots-import-form {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+}
+
+/* ----- Robots.txt copy-to-clipboard button ----- */
+
+/* JS wraps the textarea in this, so the button can be pinned to the textarea's
+   top-right corner (and stays there as the textarea is resized). */
+.coywolf-seo-robots-copy-wrap {
+	position: relative;
+}
+
+.coywolf-seo-robots-copy-btn {
+	position: absolute;
+	top: 8px;
+	/* Sit clear of the textarea's always-on vertical scrollbar (~12px) with a
+	   comfortable gap from the right edge. */
+	right: 28px;
+	z-index: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	padding: 0;
+	color: #50575e;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.coywolf-seo-robots-copy-btn:hover {
+	color: #1d2327;
+	background: #f6f7f7;
+	border-color: #8c8f94;
+}
+
+.coywolf-seo-robots-copy-btn:focus-visible {
+	outline: 2px solid #2271b1;
+	outline-offset: 1px;
+}
+
+.coywolf-seo-robots-copy-btn svg {
+	width: 16px;
+	height: 16px;
+}
+
+/* The "Copied" tooltip, sitting just to the LEFT of the button. */
+.coywolf-seo-robots-copy-feedback {
+	position: absolute;
+	top: 14px;
+	right: 68px;
+	padding: 3px 8px;
+	font-size: 12px;
+	line-height: 1.4;
+	color: #fff;
+	white-space: nowrap;
+	background: #1d2327;
+	border-radius: 4px;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.15s ease;
+}
+
+.coywolf-seo-robots-copy-feedback.is-visible {
+	opacity: 1;
+}
+
+/* ----- Current robots.txt preview ----- */
+
+textarea.coywolf-seo-robots-current {
+	background: #ffffff;
+	white-space: pre;
+	resize: vertical;
+	/* Always render the vertical scrollbar so it is obvious the box scrolls,
+	   even on platforms that hide overlay scrollbars until interaction. */
+	overflow-y: scroll;
+	overflow-x: auto;
+	scrollbar-gutter: stable;
+	scrollbar-width: thin;
+}
+
+textarea.coywolf-seo-robots-current::-webkit-scrollbar {
+	width: 12px;
+	height: 12px;
+	-webkit-appearance: none;
+}
+
+textarea.coywolf-seo-robots-current::-webkit-scrollbar-thumb {
+	border-radius: 6px;
+	background: #c3c4c7;
+	border: 3px solid #ffffff;
+}
+
+textarea.coywolf-seo-robots-current::-webkit-scrollbar-track {
+	background: #ffffff;
+}
+
+/* ----- Virtual/physical conflict warning ----- */
+
+/* A <div>, not a <p>: a <p> can't contain <form>, so the browser hoists the
+   form children out and the flex container ends up empty — which left these
+   buttons block-stacked and touching. Keep them in a left-aligned vertical
+   stack so each button keeps its own label width, now with real gaps. */
+.coywolf-seo-robots-resolve-actions {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+.coywolf-seo-robots-resolve-actions form {
+	margin: 0;
+}
+
+/* ----- Edit Rule: submit row + destructive Delete button ----- */
+
+/* Lay Update/Cancel out on the left and push Delete to the far right, all on
+   one baseline-centered row so the three buttons line up horizontally. */
+.coywolf-seo-robots-edit .submit {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+/* A bordered button (not a bare link) themed red to read as destructive.
+   It inherits WordPress's .button box; we only recolor it and push it right. */
+.coywolf-seo-robots-edit-delete.button {
+	margin-left: auto;
+	color: #b32d2e;
+	border-color: #b32d2e;
+}
+
+.coywolf-seo-robots-edit-delete.button:hover,
+.coywolf-seo-robots-edit-delete.button:focus {
+	color: #842029;
+	border-color: #842029;
+	background: #fcf0f1;
+}
+
+/* ----- Documentation page (rendered readme.md) ----- */
+
+.coywolf-seo-robots-doc-body {
+	max-width: 50rem;
+	margin-top: 12px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 8px 24px 24px;
+	line-height: 1.6;
+}
+
+.coywolf-seo-robots-doc-body h1 {
+	font-size: 1.8em;
+	margin: 0.6em 0 0.3em;
+}
+
+.coywolf-seo-robots-doc-body h2 {
+	font-size: 1.4em;
+	margin: 1.4em 0 0.4em;
+	padding-top: 0.6em;
+	border-top: 1px solid #f0f0f1;
+}
+
+.coywolf-seo-robots-doc-body h3 {
+	font-size: 1.15em;
+	margin: 1.2em 0 0.3em;
+}
+
+.coywolf-seo-robots-doc-body ul,
+.coywolf-seo-robots-doc-body ol {
+	margin: 0.4em 0 1em 1.6em;
+}
+
+.coywolf-seo-robots-doc-body li {
+	margin: 0.25em 0;
+	list-style: disc;
+}
+
+.coywolf-seo-robots-doc-body ol li {
+	list-style: decimal;
+}
+
+.coywolf-seo-robots-doc-image {
+	display: block;
+	max-width: 100%;
+	height: auto;
+	margin: 0.75em 0 1.25em;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+}
+
+.coywolf-seo-robots-doc-body code {
+	background: #f6f7f7;
+	border: 1px solid #e2e4e7;
+	border-radius: 3px;
+	padding: 1px 5px;
+	font-size: 0.9em;
+}
+
+.coywolf-seo-robots-doc-body table {
+	margin: 0.6em 0 1.2em;
+}
+
+.coywolf-seo-robots-doc-body table td code {
+	white-space: nowrap;
+}

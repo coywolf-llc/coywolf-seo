@@ -197,6 +197,15 @@ final class Coywolf_SEO {
 	private $link_manager;
 
 	/**
+	 * Robots.txt Manager (rules table, virtual/physical robots.txt). Like the
+	 * Link Manager it also runs on non-admin requests (the robots_txt filter),
+	 * and init() no-ops every hook when the Robots.txt feature is turned off.
+	 *
+	 * @var Coywolf_SEO_Robots
+	 */
+	private $robots;
+
+	/**
 	 * Create (once) and return the plugin instance.
 	 *
 	 * @return Coywolf_SEO
@@ -284,6 +293,11 @@ final class Coywolf_SEO {
 		$this->link_manager = new Coywolf_SEO_Link_Manager();
 		$this->link_manager->init();
 
+		// Not admin-gated: the Robots.txt Manager filters robots_txt on the front
+		// end (virtual mode). init() no-ops every hook when the feature is off.
+		$this->robots = Coywolf_SEO_Robots::instance();
+		$this->robots->init();
+
 		if ( is_admin() ) {
 			$this->admin = new Coywolf_SEO_Admin();
 			$this->admin->init();
@@ -345,6 +359,17 @@ final class Coywolf_SEO {
 	}
 
 	/**
+	 * Robots.txt Manager accessor (the Admin menu renders its All Rules / Add
+	 * Rule / Robots.txt pages; the Settings and Import/Export pages render its
+	 * sections).
+	 *
+	 * @return Coywolf_SEO_Robots
+	 */
+	public function robots() {
+		return $this->robots;
+	}
+
+	/**
 	 * Import/Export module accessor (the Settings page renders its section).
 	 *
 	 * @return Coywolf_SEO_Import_Export
@@ -400,6 +425,9 @@ final class Coywolf_SEO {
 		Coywolf_SEO_Admin::sync_capability( (string) Coywolf_SEO_Options::get( 'access_role' ) );
 		Coywolf_SEO_Redirects::install();
 		Coywolf_SEO_Link_Manager::install_tables();
+		// Robots.txt takeover: backs up the existing robots.txt, seeds the mode,
+		// and imports current rules (no-op data-wise if already set up).
+		Coywolf_SEO_Robots::on_activate();
 		flush_rewrite_rules();
 		self::purge_known_caches();
 		// One-time reminder for caches this plugin cannot purge itself.
@@ -441,5 +469,8 @@ final class Coywolf_SEO {
 		flush_rewrite_rules();
 		wp_unschedule_hook( Coywolf_SEO_AI::CRON_HOOK );
 		wp_unschedule_hook( Coywolf_SEO_AI::BULK_HOOK );
+		// Unwrap the managed robots.txt block so the file survives as a plain,
+		// unmanaged robots.txt (physical mode); virtual mode just stops serving.
+		Coywolf_SEO_Robots::on_deactivate();
 	}
 }

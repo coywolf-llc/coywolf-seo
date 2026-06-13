@@ -53,6 +53,12 @@ final class Coywolf_SEO_Admin {
 		if ( Coywolf_SEO_Options::feature_enabled( 'links' ) ) {
 			remove_submenu_page( self::SLUG_SITE, Coywolf_SEO_Link_Manager::EDIT_SLUG );
 		}
+		// Robots.txt Add Rule + editor pages stay routable but show no menu item;
+		// both are reached from the All Rules page.
+		if ( Coywolf_SEO_Options::feature_enabled( 'robots' ) ) {
+			remove_submenu_page( self::SLUG_SITE, Coywolf_SEO_Robots::PAGE_EDIT );
+			remove_submenu_page( self::SLUG_SITE, Coywolf_SEO_Robots::PAGE_ROBOTS );
+		}
 	}
 
 	/**
@@ -338,6 +344,37 @@ final class Coywolf_SEO_Admin {
 				array( Coywolf_SEO::instance()->redirects_admin(), 'render' )
 			);
 		}
+		// Robots.txt Manager — the "Robots.txt" menu item lands on the All Rules
+		// page; hidden when the feature is turned off.
+		if ( Coywolf_SEO_Options::feature_enabled( 'robots' ) ) {
+			add_submenu_page(
+				self::SLUG_SITE,
+				__( 'Robots.txt', 'coywolf-seo' ),
+				__( 'Robots.txt', 'coywolf-seo' ),
+				self::CAPABILITY,
+				Coywolf_SEO_Robots::PAGE_LIST,
+				array( Coywolf_SEO::instance()->robots(), 'render_list_page' )
+			);
+			// Hidden Add Rule + Robots.txt editor pages (reached from All Rules).
+			// Registered under the real parent so admin.php routing works, then
+			// removed from the menu UI on admin_head (hide_hidden_pages()).
+			add_submenu_page(
+				self::SLUG_SITE,
+				__( 'Add Rule', 'coywolf-seo' ),
+				__( 'Add Rule', 'coywolf-seo' ),
+				self::CAPABILITY,
+				Coywolf_SEO_Robots::PAGE_EDIT,
+				array( Coywolf_SEO::instance()->robots(), 'render_edit_page' )
+			);
+			add_submenu_page(
+				self::SLUG_SITE,
+				__( 'Edit Robots.txt', 'coywolf-seo' ),
+				__( 'Edit Robots.txt', 'coywolf-seo' ),
+				self::CAPABILITY,
+				Coywolf_SEO_Robots::PAGE_ROBOTS,
+				array( Coywolf_SEO::instance()->robots(), 'render_robots_page' )
+			);
+		}
 		add_submenu_page(
 			self::SLUG_SITE,
 			__( 'Settings', 'coywolf-seo' ),
@@ -602,7 +639,7 @@ final class Coywolf_SEO_Admin {
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized field-by-field in Coywolf_SEO_Options::sanitize().
 		$raw = isset( $_POST['coywolf_seo'] ) && is_array( $_POST['coywolf_seo'] ) ? wp_unslash( $_POST['coywolf_seo'] ) : array();
 
-		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'sitemap_exclude_posts', 'sitemap_exclude_pages', 'sitemap_exclude_categories', 'sitemap_exclude_users', 'news_enabled', 'news_include_posts', 'news_include_pages', 'ai_descriptions', 'image_text_write_alt', 'image_text_write_title', 'image_text_write_caption', 'image_text_write_description', 'image_text_overwrite', 'feature_ai_off', 'feature_schema_off', 'feature_sitemaps_off', 'feature_links_off', 'feature_redirects_off' ) as $key ) {
+		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'sitemap_exclude_posts', 'sitemap_exclude_pages', 'sitemap_exclude_categories', 'sitemap_exclude_users', 'news_enabled', 'news_include_posts', 'news_include_pages', 'ai_descriptions', 'image_text_write_alt', 'image_text_write_title', 'image_text_write_caption', 'image_text_write_description', 'image_text_overwrite', 'feature_ai_off', 'feature_schema_off', 'feature_sitemaps_off', 'feature_links_off', 'feature_redirects_off', 'feature_robots_off' ) as $key ) {
 			$raw[ $key ] = ! empty( $raw[ $key ] );
 		}
 		// Entity detection: its checkbox is disabled (so omitted from POST) when
@@ -1382,10 +1419,29 @@ final class Coywolf_SEO_Admin {
 							<p class="description"><?php esc_html_e( 'Hides the Redirects page and stops serving redirects, letting another redirect plugin handle them. Your redirect rules are kept.', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Robots.txt Manager', 'coywolf-seo' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="coywolf_seo[feature_robots_off]" value="1" <?php checked( $o['feature_robots_off'] ); ?> />
+								<?php esc_html_e( 'Turn off the Robots.txt Manager', 'coywolf-seo' ); ?>
+							</label>
+							<p class="description"><?php esc_html_e( 'Hides the Robots.txt pages and stops managing robots.txt (in virtual mode WordPress serves its default again; a physical robots.txt is left as-is). Your rules and settings are kept.', 'coywolf-seo' ); ?></p>
+						</td>
+					</tr>
 				</table>
 
 				<?php submit_button( __( 'Save Settings', 'coywolf-seo' ) ); ?>
 			</form>
+
+			<?php
+			// Robots.txt Manager settings render their own self-contained form
+			// (mode switches write/remove the physical file), so they live outside
+			// the main settings form — placed after </form> to avoid nested forms.
+			if ( Coywolf_SEO_Options::feature_enabled( 'robots' ) ) {
+				Coywolf_SEO::instance()->robots()->render_settings_section();
+			}
+			?>
 
 			<?php if ( Coywolf_SEO_Options::feature_enabled( 'ai' ) ) : ?>
 			<h2><?php esc_html_e( 'Enrich all content', 'coywolf-seo' ); ?></h2>
