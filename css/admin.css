@@ -102,6 +102,12 @@
 	transition: width 0.4s ease;
 }
 
+@media ( prefers-reduced-motion: reduce ) {
+	.coywolf-seo-progress-bar {
+		transition: none;
+	}
+}
+
 /* Redirects screen. */
 
 .coywolf-seo-panel {
@@ -130,7 +136,7 @@
 	padding: 4px 12px 8px;
 }
 
-.coywolf-seo-deletion-notice h3 {
+.coywolf-seo-deletion-notice h2 {
 	margin: 6px 0 4px;
 	font-size: 13px;
 }

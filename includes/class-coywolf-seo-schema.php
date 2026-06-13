@@ -39,15 +39,16 @@ final class Coywolf_SEO_Schema {
 		if ( empty( $graph ) ) {
 			return;
 		}
-		$data = array(
+		$data  = array(
 			'@context' => 'https://schema.org',
 			'@graph'   => array_values( $graph ),
 		);
-		$json = wp_json_encode( $data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+		$flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG;
+		$json  = wp_json_encode( $data, $flags );
 		if ( false === $json || null === $json ) {
 			// Invalid UTF-8 somewhere in the content: retry with
 			// substitution rather than silently printing nothing.
-			$json = wp_json_encode( $data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE );
+			$json = wp_json_encode( $data, $flags | JSON_INVALID_UTF8_SUBSTITUTE );
 		}
 		if ( ! $json ) {
 			return;

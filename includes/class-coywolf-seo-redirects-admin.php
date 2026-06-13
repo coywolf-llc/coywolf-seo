@@ -79,7 +79,7 @@ final class Coywolf_SEO_Redirects_Admin {
 		}
 		?>
 		<div class="notice coywolf-seo-pending coywolf-seo-deletion-notice">
-			<h3><?php esc_html_e( 'What should happen to the deleted URL?', 'coywolf-seo' ); ?></h3>
+			<h2><?php esc_html_e( 'What should happen to the deleted URL?', 'coywolf-seo' ); ?></h2>
 			<table class="coywolf-seo-decision-table">
 				<tbody>
 					<?php foreach ( $rows as $row ) : ?>
@@ -453,7 +453,7 @@ final class Coywolf_SEO_Redirects_Admin {
 							<?php endforeach; ?>
 						</select>
 						<button type="submit" class="button button-primary"><?php esc_html_e( 'Add', 'coywolf-seo' ); ?></button>
-						<button type="button" class="button-link" id="coywolf-seo-qa-more"><?php esc_html_e( 'More options', 'coywolf-seo' ); ?></button>
+						<button type="button" class="button-link" id="coywolf-seo-qa-more" aria-expanded="false" aria-controls="coywolf-seo-qa-more-fields"><?php esc_html_e( 'More options', 'coywolf-seo' ); ?></button>
 					</div>
 					<div class="coywolf-seo-quick-more" id="coywolf-seo-qa-more-fields" style="display:none">
 						<label>
@@ -483,7 +483,7 @@ final class Coywolf_SEO_Redirects_Admin {
 					<input type="text" name="test_url" id="coywolf-seo-test-url" class="regular-text" placeholder="<?php esc_attr_e( '/some-path/?with=query', 'coywolf-seo' ); ?>" value="<?php echo esc_attr( $test_url ); ?>" />
 					<button type="submit" class="button"><?php esc_html_e( 'Test', 'coywolf-seo' ); ?></button>
 					<?php if ( null !== $test_result ) : ?>
-						<span class="coywolf-seo-test-result">
+						<span class="coywolf-seo-test-result" role="status" aria-live="polite">
 							<?php if ( empty( $test_result['matched'] ) ) : ?>
 								<?php esc_html_e( 'No rule matches — WordPress handles it normally.', 'coywolf-seo' ); ?>
 							<?php elseif ( 410 === (int) $test_result['action'] ) : ?>
@@ -606,7 +606,7 @@ final class Coywolf_SEO_Redirects_Admin {
 							<td><?php echo esc_html( number_format_i18n( (int) $rule->hits ) ); ?></td>
 							<td><?php echo $rule->last_hit ? esc_html( gmdate( 'M j, Y', strtotime( $rule->last_hit ) ) ) : '—'; ?></td>
 							<td class="coywolf-seo-cell-actions">
-								<button type="button" class="button-link coywolf-seo-edit-toggle" data-rule="<?php echo esc_attr( (string) $rule->id ); ?>"><?php esc_html_e( 'Edit', 'coywolf-seo' ); ?></button>
+								<button type="button" class="button-link coywolf-seo-edit-toggle" data-rule="<?php echo esc_attr( (string) $rule->id ); ?>" aria-expanded="false" aria-controls="coywolf-seo-edit-<?php echo esc_attr( (string) $rule->id ); ?>"><?php esc_html_e( 'Edit', 'coywolf-seo' ); ?></button>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form coywolf-seo-delete-form">
 									<input type="hidden" name="action" value="coywolf_seo_redirect_row" />
 									<?php wp_nonce_field( 'coywolf_seo_redirect_row' ); ?>

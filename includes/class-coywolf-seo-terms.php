@@ -121,7 +121,7 @@ final class Coywolf_SEO_Terms {
 			<p><?php esc_html_e( 'Used for the page title and the Open Graph title. Leave blank to use the name.', 'coywolf-seo' ); ?></p>
 		</div>
 		<div class="form-field" id="coywolf-seo-term-og-row">
-			<label><?php esc_html_e( 'Open Graph image', 'coywolf-seo' ); ?></label>
+			<label for="coywolf-seo-term-og-select"><?php esc_html_e( 'Open Graph image', 'coywolf-seo' ); ?></label>
 			<?php $this->render_og_picker( 0 ); ?>
 		</div>
 		<?php

@@ -156,25 +156,28 @@ final class Coywolf_SEO_AI {
 			// and configuration never enter the batch at all.
 			$queue   = array();
 			$skipped = 0;
-			foreach ( $ids as $post_id ) {
-				$post = get_post( $post_id );
-				if ( ! $post ) {
-					continue;
-				}
-				$content = $this->plain_content( $post );
-				if ( '' === trim( $content ) ) {
-					$skipped++;
-					continue;
-				}
-				if ( ! $force ) {
-					$hash  = md5( get_the_title( $post ) . "\n" . $content . "\n" . $this->config_signature() );
-					$saved = get_post_meta( $post_id, self::META_KEY, true );
-					if ( is_array( $saved ) && isset( $saved['hash'] ) && $saved['hash'] === $hash ) {
+			foreach ( array_chunk( $ids, 200 ) as $chunk ) {
+				_prime_post_caches( $chunk, false, true ); // prime post + meta caches; term cache not needed.
+				foreach ( $chunk as $post_id ) {
+					$post = get_post( $post_id );
+					if ( ! $post ) {
+						continue;
+					}
+					$content = $this->plain_content( $post );
+					if ( '' === trim( $content ) ) {
 						$skipped++;
 						continue;
 					}
+					if ( ! $force ) {
+						$hash  = md5( get_the_title( $post ) . "\n" . $content . "\n" . $this->config_signature() );
+						$saved = get_post_meta( $post_id, self::META_KEY, true );
+						if ( is_array( $saved ) && isset( $saved['hash'] ) && $saved['hash'] === $hash ) {
+							$skipped++;
+							continue;
+						}
+					}
+					$queue[] = (int) $post_id;
 				}
-				$queue[] = (int) $post_id;
 			}
 
 			update_option(
@@ -751,24 +754,27 @@ final class Coywolf_SEO_AI {
 			$chars     = 0;
 			$eligible  = 0;
 			$chars_all = 0;
-			foreach ( $ids as $post_id ) {
-				$post = get_post( $post_id );
-				if ( ! $post ) {
-					continue;
+			foreach ( array_chunk( $ids, 200 ) as $chunk ) {
+				_prime_post_caches( $chunk, false, true ); // prime post + meta caches; term cache not needed.
+				foreach ( $chunk as $post_id ) {
+					$post = get_post( $post_id );
+					if ( ! $post ) {
+						continue;
+					}
+					$content = $this->plain_content( $post );
+					if ( '' === trim( $content ) ) {
+						continue;
+					}
+					$eligible++;
+					$chars_all += strlen( $content );
+					$hash       = md5( get_the_title( $post ) . "\n" . $content . "\n" . $this->config_signature() );
+					$saved      = get_post_meta( $post_id, self::META_KEY, true );
+					if ( is_array( $saved ) && isset( $saved['hash'] ) && $saved['hash'] === $hash ) {
+						continue;
+					}
+					$stale++;
+					$chars += strlen( $content );
 				}
-				$content = $this->plain_content( $post );
-				if ( '' === trim( $content ) ) {
-					continue;
-				}
-				$eligible++;
-				$chars_all += strlen( $content );
-				$hash       = md5( get_the_title( $post ) . "\n" . $content . "\n" . $this->config_signature() );
-				$saved      = get_post_meta( $post_id, self::META_KEY, true );
-				if ( is_array( $saved ) && isset( $saved['hash'] ) && $saved['hash'] === $hash ) {
-					continue;
-				}
-				$stale++;
-				$chars += strlen( $content );
 			}
 			$scan = array(
 				'stale'     => $stale,

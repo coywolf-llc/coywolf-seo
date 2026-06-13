@@ -182,7 +182,9 @@ final class Coywolf_SEO_Redirects_Import {
 
 			$target = '';
 			if ( ! $is_410 ) {
-				$target = maybe_unserialize( (string) $row->action_data );
+				$raw = (string) $row->action_data;
+				// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_unserialize -- allowed_classes=false blocks object injection.
+				$target = is_serialized( $raw ) ? unserialize( $raw, array( 'allowed_classes' => false ) ) : $raw;
 				if ( is_array( $target ) ) {
 					$target = isset( $target['url'] ) ? (string) $target['url'] : '';
 				}
