@@ -77,6 +77,13 @@ final class Coywolf_SEO_Options {
 			'ai_descriptions'      => false,
 			'ai_model'             => '',
 			'ai_api_key'           => '',
+			// Image Text defaults (Claude-written alt/title/caption/description).
+			'image_text_write_alt'         => true,
+			'image_text_write_title'       => true,
+			'image_text_write_caption'     => true,
+			'image_text_write_description' => true,
+			'image_text_overwrite'         => false,
+			'image_text_instructions'      => '',
 		);
 	}
 
@@ -161,11 +168,20 @@ final class Coywolf_SEO_Options {
 			'news_include_pages',
 			'ai_enabled',
 			'ai_descriptions',
+			'image_text_write_alt',
+			'image_text_write_title',
+			'image_text_write_caption',
+			'image_text_write_description',
+			'image_text_overwrite',
 		);
 		foreach ( $booleans as $key ) {
 			if ( array_key_exists( $key, $raw ) ) {
 				$out[ $key ] = ! empty( $raw[ $key ] );
 			}
+		}
+
+		if ( isset( $raw['image_text_instructions'] ) ) {
+			$out['image_text_instructions'] = sanitize_textarea_field( $raw['image_text_instructions'] );
 		}
 
 		if ( isset( $raw['og_image_id'] ) ) {

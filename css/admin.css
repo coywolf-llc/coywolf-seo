@@ -459,3 +459,140 @@
 	background: none;
 	padding: 0;
 }
+
+/* ------------------------------------------------------------------ *
+ * Image Text screen
+ * ------------------------------------------------------------------ */
+.coywolf-seo-it-panel {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	box-shadow: 0 1px 1px rgba( 0, 0, 0, 0.04 );
+	margin: 16px 0;
+	padding: 16px 20px;
+}
+
+.coywolf-seo-it-panel h2 {
+	margin-top: 0;
+}
+
+.coywolf-seo-it-progress {
+	background: #f0f0f1;
+	border-radius: 4px;
+	height: 28px;
+	margin: 12px 0;
+	max-width: 640px;
+	overflow: hidden;
+	position: relative;
+}
+
+.coywolf-seo-it-progress-bar {
+	background: #2271b1;
+	height: 100%;
+	transition: width 0.3s ease;
+	width: 0;
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.coywolf-seo-it-progress-bar {
+		transition: none;
+	}
+}
+
+.coywolf-seo-it-progress-text {
+	color: #1d2327;
+	font-size: 12px;
+	left: 12px;
+	line-height: 28px;
+	position: absolute;
+	text-shadow: 0 0 4px #fff;
+	top: 0;
+	white-space: nowrap;
+}
+
+.coywolf-seo-it-current {
+	color: #646970;
+	font-style: italic;
+}
+
+.coywolf-seo-it-stats {
+	max-width: 640px;
+}
+
+.coywolf-seo-it-check {
+	display: block;
+	margin: 6px 0;
+}
+
+#coywolf-seo-it-ai-fields .coywolf-seo-it-check {
+	display: inline-block;
+	margin-right: 16px;
+}
+
+.coywolf-seo-it-indent {
+	margin: 0 0 8px 24px;
+	max-width: 640px;
+}
+
+.coywolf-seo-it-estimate {
+	margin: 12px 0 !important;
+	max-width: 640px;
+}
+
+.coywolf-seo-it-estimate p {
+	margin: 4px 0;
+}
+
+.coywolf-seo-it-estimate-empty,
+.coywolf-seo-it-estimate-all {
+	font-weight: 600;
+}
+
+.coywolf-seo-it-estimate-note {
+	margin-top: 8px !important;
+}
+
+#coywolf-seo-it-ai-errors {
+	margin: 12px 0;
+	max-width: 640px;
+}
+
+#coywolf-seo-it-ai-errors summary {
+	color: #b32d2e;
+	cursor: pointer;
+}
+
+.coywolf-seo-it-ok {
+	color: #007017;
+}
+
+.coywolf-seo-it-err {
+	color: #b32d2e;
+}
+
+.coywolf-seo-it-tools {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	align-items: center;
+}
+
+.coywolf-seo-it-tools-status {
+	font-size: 12px;
+}
+
+.coywolf-seo-it-editor-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+.coywolf-seo-it-editor-notice {
+	margin: 8px 0 0;
+	color: #646970;
+}
+
+.coywolf-seo-it-image-text .hidden {
+	display: none;
+}
