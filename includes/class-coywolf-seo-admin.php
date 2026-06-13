@@ -275,6 +275,14 @@ final class Coywolf_SEO_Admin {
 			Coywolf_SEO_Authors::SLUG,
 			array( Coywolf_SEO::instance()->authors(), 'render' )
 		);
+		add_submenu_page(
+			self::SLUG_SITE,
+			__( 'Image Text', 'coywolf-seo' ),
+			__( 'Image Text', 'coywolf-seo' ),
+			self::CAPABILITY,
+			Coywolf_SEO_Image_Text::SLUG,
+			array( Coywolf_SEO::instance()->image_text(), 'render_page' )
+		);
 		$pending      = Coywolf_SEO::instance()->redirects()->pending_count();
 		$bubble       = $pending > 0 ? ' <span class="awaiting-mod">' . esc_html( (string) $pending ) . '</span>' : '';
 		add_submenu_page(
@@ -470,6 +478,8 @@ final class Coywolf_SEO_Admin {
 			$message = __( 'Settings imported.', 'coywolf-seo' );
 		} elseif ( 'ai-key-removed' === $saved ) {
 			$message = __( 'The API key has been removed.', 'coywolf-seo' );
+		} elseif ( 'image-text' === $saved ) {
+			$message = __( 'Extra instructions saved.', 'coywolf-seo' );
 		} elseif ( 'import-error' === $saved ) {
 			printf( '<div class="notice notice-error is-dismissible"><p>%s</p></div>', esc_html__( 'The file could not be imported. Use an unmodified Coywolf SEO export file.', 'coywolf-seo' ) );
 			return;
@@ -542,7 +552,7 @@ final class Coywolf_SEO_Admin {
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized field-by-field in Coywolf_SEO_Options::sanitize().
 		$raw = isset( $_POST['coywolf_seo'] ) && is_array( $_POST['coywolf_seo'] ) ? wp_unslash( $_POST['coywolf_seo'] ) : array();
 
-		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'sitemap_exclude_posts', 'sitemap_exclude_pages', 'sitemap_exclude_categories', 'sitemap_exclude_users', 'news_enabled', 'news_include_posts', 'news_include_pages', 'ai_enabled', 'ai_descriptions' ) as $key ) {
+		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'sitemap_exclude_posts', 'sitemap_exclude_pages', 'sitemap_exclude_categories', 'sitemap_exclude_users', 'news_enabled', 'news_include_posts', 'news_include_pages', 'ai_enabled', 'ai_descriptions', 'image_text_write_alt', 'image_text_write_title', 'image_text_write_caption', 'image_text_write_description', 'image_text_overwrite' ) as $key ) {
 			$raw[ $key ] = ! empty( $raw[ $key ] );
 		}
 		if ( empty( $raw['news_cats'] ) ) {
@@ -1091,6 +1101,44 @@ final class Coywolf_SEO_Admin {
 						</td>
 					</tr>
 					</tbody>
+				</table>
+
+				<h2><?php esc_html_e( 'Image Text defaults', 'coywolf-seo' ); ?></h2>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Fields to write', 'coywolf-seo' ); ?></th>
+						<td>
+							<fieldset>
+								<legend class="screen-reader-text"><?php esc_html_e( 'Fields to write', 'coywolf-seo' ); ?></legend>
+								<label>
+									<input type="checkbox" name="coywolf_seo[image_text_write_alt]" value="1" <?php checked( $o['image_text_write_alt'] ); ?> />
+									<?php esc_html_e( 'Alternative text', 'coywolf-seo' ); ?>
+								</label><br />
+								<label>
+									<input type="checkbox" name="coywolf_seo[image_text_write_title]" value="1" <?php checked( $o['image_text_write_title'] ); ?> />
+									<?php esc_html_e( 'Title', 'coywolf-seo' ); ?>
+								</label><br />
+								<label>
+									<input type="checkbox" name="coywolf_seo[image_text_write_caption]" value="1" <?php checked( $o['image_text_write_caption'] ); ?> />
+									<?php esc_html_e( 'Caption', 'coywolf-seo' ); ?>
+								</label><br />
+								<label>
+									<input type="checkbox" name="coywolf_seo[image_text_write_description]" value="1" <?php checked( $o['image_text_write_description'] ); ?> />
+									<?php esc_html_e( 'Description', 'coywolf-seo' ); ?>
+								</label>
+							</fieldset>
+							<p class="description"><?php esc_html_e( 'Preselected on the Image Text screen; each run can change them. The API key and per-run model are configured under AI enrichment above.', 'coywolf-seo' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Existing text', 'coywolf-seo' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="coywolf_seo[image_text_overwrite]" value="1" <?php checked( $o['image_text_overwrite'] ); ?> />
+								<?php esc_html_e( 'Overwrite text that already exists (default: only fill empty fields)', 'coywolf-seo' ); ?>
+							</label>
+						</td>
+					</tr>
 				</table>
 
 				<h2><?php esc_html_e( 'IndexNow', 'coywolf-seo' ); ?></h2>

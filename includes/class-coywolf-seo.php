@@ -180,6 +180,13 @@ final class Coywolf_SEO {
 	private $redirects_import = null;
 
 	/**
+	 * Image Text module (admin page, REST endpoints, block-editor panel).
+	 *
+	 * @var Coywolf_SEO_Image_Text
+	 */
+	private $image_text;
+
+	/**
 	 * Create (once) and return the plugin instance.
 	 *
 	 * @return Coywolf_SEO
@@ -249,6 +256,12 @@ final class Coywolf_SEO {
 		$this->metabox = new Coywolf_SEO_Metabox();
 		$this->metabox->init();
 
+		// Not admin-gated: the per-image generate endpoint and the block-editor
+		// panel run through the REST API (where is_admin() is false), so the
+		// routes and editor integration must register on every request.
+		$this->image_text = new Coywolf_SEO_Image_Text();
+		$this->image_text->init();
+
 		if ( is_admin() ) {
 			$this->admin = new Coywolf_SEO_Admin();
 			$this->admin->init();
@@ -289,6 +302,15 @@ final class Coywolf_SEO {
 	 */
 	public function authors() {
 		return $this->authors;
+	}
+
+	/**
+	 * Image Text module accessor (the Admin menu renders its page).
+	 *
+	 * @return Coywolf_SEO_Image_Text
+	 */
+	public function image_text() {
+		return $this->image_text;
 	}
 
 	/**
