@@ -35,6 +35,9 @@ final class Coywolf_SEO_Sitemaps {
 	 * @return array
 	 */
 	public function filter_post_types( $post_types ) {
+		if ( ! Coywolf_SEO_Options::feature_enabled( 'sitemaps' ) ) {
+			return $post_types;
+		}
 		if ( Coywolf_SEO_Options::get( 'sitemap_exclude_posts' ) ) {
 			unset( $post_types['post'] );
 		}
@@ -51,6 +54,9 @@ final class Coywolf_SEO_Sitemaps {
 	 * @return array
 	 */
 	public function filter_taxonomies( $taxonomies ) {
+		if ( ! Coywolf_SEO_Options::feature_enabled( 'sitemaps' ) ) {
+			return $taxonomies;
+		}
 		if ( Coywolf_SEO_Options::get( 'sitemap_exclude_categories' ) ) {
 			unset( $taxonomies['category'] );
 		}
@@ -65,6 +71,9 @@ final class Coywolf_SEO_Sitemaps {
 	 * @return WP_Sitemaps_Provider|false
 	 */
 	public function filter_providers( $provider, $name ) {
+		if ( ! Coywolf_SEO_Options::feature_enabled( 'sitemaps' ) ) {
+			return $provider;
+		}
 		if ( 'users' === $name && Coywolf_SEO_Options::get( 'sitemap_exclude_users' ) ) {
 			return false;
 		}

@@ -134,6 +134,11 @@ final class Coywolf_SEO_Image_AI {
 	 * @return string
 	 */
 	public function api_key() {
+		// Image Text is part of AI enrichment: when that master toggle is off,
+		// behave as if no key exists (also ignoring the wp-config constant).
+		if ( ! Coywolf_SEO_Options::feature_enabled( 'ai' ) ) {
+			return '';
+		}
 		$key = (string) Coywolf_SEO_Options::get( 'ai_api_key' );
 		if ( '' !== $key ) {
 			return $key;

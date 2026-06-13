@@ -51,7 +51,7 @@ final class Coywolf_SEO_News_Sitemap {
 	 * @return bool
 	 */
 	private function enabled() {
-		return (bool) Coywolf_SEO_Options::get( 'news_enabled' );
+		return Coywolf_SEO_Options::feature_enabled( 'sitemaps' ) && (bool) Coywolf_SEO_Options::get( 'news_enabled' );
 	}
 
 	/**

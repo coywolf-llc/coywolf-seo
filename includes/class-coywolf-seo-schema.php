@@ -35,6 +35,11 @@ final class Coywolf_SEO_Schema {
 	 * Print the JSON-LD graph for managed contexts.
 	 */
 	public function output() {
+		// Master toggle: when Schema.org markup is turned off, emit no JSON-LD
+		// at all (stored entities/settings are preserved, just not output).
+		if ( ! Coywolf_SEO_Options::feature_enabled( 'schema' ) ) {
+			return;
+		}
 		$graph = $this->build_graph();
 		if ( empty( $graph ) ) {
 			return;
