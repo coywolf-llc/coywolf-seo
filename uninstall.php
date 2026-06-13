@@ -49,6 +49,21 @@ foreach ( array( 'coywolf_seo_redirects', 'coywolf_seo_404s', 'coywolf_seo_delet
 	$wpdb->query( "DROP TABLE IF EXISTS `{$coywolf_seo_table_name}`" );
 }
 
+// Link Manager tables, options, and the background re-check cron.
+foreach ( array( 'coywolf_seo_lm_links', 'coywolf_seo_lm_occurrences' ) as $coywolf_seo_lm_table ) {
+	$coywolf_seo_table_name = $wpdb->prefix . $coywolf_seo_lm_table;
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix and a literal; %i needs WP 6.2+.
+	$wpdb->query( "DROP TABLE IF EXISTS `{$coywolf_seo_table_name}`" );
+}
+delete_option( 'coywolf_seo_lm_state' );
+delete_option( 'coywolf_seo_lm_ignores' );
+delete_option( 'coywolf_seo_lm_url_cache' );
+delete_option( 'coywolf_seo_lm_cancel' );
+delete_option( 'coywolf_seo_lm_analyzed' );
+delete_option( 'coywolf_seo_lm_recheck_queue' );
+delete_option( 'coywolf_seo_lm_db_version' );
+wp_unschedule_hook( 'coywolf_seo_lm_drain_recheck' );
+
 // The admin capability, from every role that has it.
 foreach ( wp_roles()->role_objects as $coywolf_seo_role ) {
 	if ( $coywolf_seo_role->has_cap( 'coywolf_seo_manage' ) ) {

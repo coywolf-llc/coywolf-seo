@@ -227,6 +227,11 @@ final class Coywolf_SEO_Redirects {
 		if ( is_admin() ) {
 			return;
 		}
+		// When the Redirects feature is turned off, the engine does nothing so
+		// another redirect plugin can handle the request.
+		if ( ! Coywolf_SEO_Options::feature_enabled( 'redirects' ) ) {
+			return;
+		}
 		// Never die() inside CLI/cron bootstraps, and leave a lockout
 		// escape hatch: define COYWOLF_SEO_DISABLE_REDIRECTS in
 		// wp-config.php to switch the engine off entirely.

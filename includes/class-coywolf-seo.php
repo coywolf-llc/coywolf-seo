@@ -187,6 +187,16 @@ final class Coywolf_SEO {
 	private $image_text;
 
 	/**
+	 * Link Manager module (admin page, AJAX endpoints, event-driven indexing,
+	 * background re-check cron). Constructed unconditionally so its non-admin
+	 * hooks (AJAX worker, cron, indexing) are available; init() no-ops its
+	 * runtime hooks when the Link Manager feature is turned off.
+	 *
+	 * @var Coywolf_SEO_Link_Manager
+	 */
+	private $link_manager;
+
+	/**
 	 * Create (once) and return the plugin instance.
 	 *
 	 * @return Coywolf_SEO
@@ -241,8 +251,14 @@ final class Coywolf_SEO {
 		$this->import_export = new Coywolf_SEO_Import_Export();
 		$this->import_export->init();
 
+		// The object is always constructed so accessors (e.g. pending_count())
+		// never fatal, but the redirect-serving hooks register only while the
+		// Redirects feature is on — turning it off lets another redirect plugin
+		// handle the requests. The stored rules are kept either way.
 		$this->redirects = new Coywolf_SEO_Redirects();
-		$this->redirects->init();
+		if ( Coywolf_SEO_Options::feature_enabled( 'redirects' ) ) {
+			$this->redirects->init();
+		}
 
 		$this->toc = new Coywolf_SEO_TOC();
 		$this->toc->init();
@@ -261,6 +277,12 @@ final class Coywolf_SEO {
 		// routes and editor integration must register on every request.
 		$this->image_text = new Coywolf_SEO_Image_Text();
 		$this->image_text->init();
+
+		// Not admin-gated: the Link Manager runs AJAX workers, WP-Cron re-checks,
+		// and event-driven indexing on non-admin requests too. init() no-ops its
+		// runtime hooks when the Link Manager feature is turned off.
+		$this->link_manager = new Coywolf_SEO_Link_Manager();
+		$this->link_manager->init();
 
 		if ( is_admin() ) {
 			$this->admin = new Coywolf_SEO_Admin();
@@ -311,6 +333,15 @@ final class Coywolf_SEO {
 	 */
 	public function image_text() {
 		return $this->image_text;
+	}
+
+	/**
+	 * Link Manager module accessor (the Admin menu renders its page).
+	 *
+	 * @return Coywolf_SEO_Link_Manager
+	 */
+	public function link_manager() {
+		return $this->link_manager;
 	}
 
 	/**
@@ -368,6 +399,7 @@ final class Coywolf_SEO {
 	public static function on_activate() {
 		Coywolf_SEO_Admin::sync_capability( (string) Coywolf_SEO_Options::get( 'access_role' ) );
 		Coywolf_SEO_Redirects::install();
+		Coywolf_SEO_Link_Manager::install_tables();
 		flush_rewrite_rules();
 		self::purge_known_caches();
 		// One-time reminder for caches this plugin cannot purge itself.
