@@ -152,6 +152,13 @@ final class Coywolf_SEO {
 	private $toc;
 
 	/**
+	 * Core Image block mobile-alternative module.
+	 *
+	 * @var Coywolf_SEO_Mobile_Image
+	 */
+	private $mobile_image;
+
+	/**
 	 * Duplicate Post row action (admin only).
 	 *
 	 * @var Coywolf_SEO_Duplicate|null
@@ -232,6 +239,9 @@ final class Coywolf_SEO {
 
 		$this->toc = new Coywolf_SEO_TOC();
 		$this->toc->init();
+
+		$this->mobile_image = new Coywolf_SEO_Mobile_Image();
+		$this->mobile_image->init();
 
 		// Not admin-gated: the block editor reads and saves the SEO meta
 		// through the REST API, where is_admin() is false — the meta must

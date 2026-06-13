@@ -66,6 +66,7 @@ require_once __DIR__ . '/includes/class-coywolf-seo-redirects.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-redirects-admin.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-redirects-import.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-toc.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-mobile-image.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-duplicate.php';
 require_once __DIR__ . '/includes/class-coywolf-seo.php';
 
