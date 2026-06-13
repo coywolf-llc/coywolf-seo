@@ -282,7 +282,7 @@ final class Coywolf_SEO_Link_Manager {
 					/* translators: %s: number of selected links. */
 					'confirmUnignoreBulk'   => __( 'Stop ignoring %s selected link(s)? Any domain or wildcard rule that also matches other links is removed, so those links return to the list too.', 'coywolf-seo' ),
 					'confirmUnignoreOne'    => __( 'Stop ignoring this link? If it was ignored by a domain or wildcard rule, that rule is removed, so other links it matches return to the list too.', 'coywolf-seo' ),
-					'noIgnoredLinks'        => __( 'No ignored links yet. Use “Add rule” above, or a link’s Ignore actions, to ignore links.', 'coywolf-seo' ),
+					'noIgnoredLinks'        => __( 'No ignored links yet. Use “Add ignore rule” above, or a link’s Ignore actions, to ignore links.', 'coywolf-seo' ),
 					'replaceLink'           => __( 'Replace', 'coywolf-seo' ),
 					'replaceTitle'          => __( 'Replace link', 'coywolf-seo' ),
 					'replaceMsg'            => __( 'Replace this link with its redirect destination?', 'coywolf-seo' ),
@@ -310,33 +310,35 @@ final class Coywolf_SEO_Link_Manager {
 		}
 		?>
 		<div class="wrap coywolf-seo-lm">
-			<h1 class="wp-heading-inline"><?php echo esc_html__( 'All Links', 'coywolf-seo' ); ?></h1>
-			<button type="button" class="button button-primary coywolf-seo-lm-title-action" id="coywolf-seo-lm-analyze" style="display:none;">
-				<?php echo esc_html__( 'Analyze all links', 'coywolf-seo' ); ?>
-			</button>
-			<button type="button" class="button coywolf-seo-lm-title-action" id="coywolf-seo-lm-cancel" style="display:none;">
-				<?php echo esc_html__( 'Cancel', 'coywolf-seo' ); ?>
-			</button>
-			<hr class="wp-header-end" />
-
-			<div class="coywolf-seo-lm-ignore-add">
-				<label for="coywolf-seo-lm-ignore-type" class="screen-reader-text">
-					<?php echo esc_html__( 'Rule type', 'coywolf-seo' ); ?>
-				</label>
-				<select id="coywolf-seo-lm-ignore-type">
-					<option value="domain"><?php echo esc_html__( 'Domain', 'coywolf-seo' ); ?></option>
-					<option value="url"><?php echo esc_html__( 'Exact URL', 'coywolf-seo' ); ?></option>
-					<option value="wildcard"><?php echo esc_html__( 'Wildcard', 'coywolf-seo' ); ?></option>
-				</select>
-				<label for="coywolf-seo-lm-ignore-value" class="screen-reader-text">
-					<?php echo esc_html__( 'Rule value', 'coywolf-seo' ); ?>
-				</label>
-				<input type="text" id="coywolf-seo-lm-ignore-value" class="regular-text"
-					placeholder="<?php echo esc_attr__( 'example.com, https://example.com/page, or https://example.com/visit/*', 'coywolf-seo' ); ?>" />
-				<button type="button" class="button" id="coywolf-seo-lm-ignore-add-btn">
-					<?php echo esc_html__( 'Add rule', 'coywolf-seo' ); ?>
+			<div class="coywolf-seo-lm-heading-row">
+				<h1 class="wp-heading-inline"><?php echo esc_html__( 'All Links', 'coywolf-seo' ); ?></h1>
+				<button type="button" class="button button-primary coywolf-seo-lm-title-action" id="coywolf-seo-lm-analyze" style="display:none;">
+					<?php echo esc_html__( 'Analyze all links', 'coywolf-seo' ); ?>
 				</button>
+				<button type="button" class="button coywolf-seo-lm-title-action" id="coywolf-seo-lm-cancel" style="display:none;">
+					<?php echo esc_html__( 'Cancel', 'coywolf-seo' ); ?>
+				</button>
+				<div class="coywolf-seo-lm-ignore-add">
+					<label for="coywolf-seo-lm-ignore-type" class="screen-reader-text">
+						<?php echo esc_html__( 'Rule type', 'coywolf-seo' ); ?>
+					</label>
+					<select id="coywolf-seo-lm-ignore-type">
+						<option value="domain"><?php echo esc_html__( 'Domain', 'coywolf-seo' ); ?></option>
+						<option value="url"><?php echo esc_html__( 'Exact URL', 'coywolf-seo' ); ?></option>
+						<option value="wildcard"><?php echo esc_html__( 'Wildcard', 'coywolf-seo' ); ?></option>
+					</select>
+					<label for="coywolf-seo-lm-ignore-value" class="screen-reader-text">
+						<?php echo esc_html__( 'Rule value', 'coywolf-seo' ); ?>
+					</label>
+					<input type="text" id="coywolf-seo-lm-ignore-value" class="regular-text"
+						placeholder="<?php echo esc_attr__( 'example.com, https://example.com/page, or https://example.com/visit/*', 'coywolf-seo' ); ?>" />
+					<button type="button" class="button" id="coywolf-seo-lm-ignore-add-btn">
+						<?php echo esc_html__( 'Add ignore rule', 'coywolf-seo' ); ?>
+					</button>
+				</div>
 			</div>
+
+			<hr class="wp-header-end" />
 
 			<div id="coywolf-seo-lm-progress" class="coywolf-seo-lm-progress" style="display:none;">
 				<div class="coywolf-seo-lm-progress-head">

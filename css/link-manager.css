@@ -404,14 +404,39 @@
 	border-top: 5px solid #50575e;
 }
 
-/* Add-rule controls (above the All Links table) */
+/* Heading row: the H1, the Analyze/Cancel buttons, and the add-ignore-rule
+   controls share one flex line, vertically centered, with the controls pushed
+   to the right so they sit horizontally aligned with the "Analyze all links"
+   button. Wraps on narrow screens instead of overflowing. */
+.coywolf-seo-lm-heading-row {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.coywolf-seo-lm-heading-row .wp-heading-inline {
+	margin: 0;
+}
+
+/* The row gap handles spacing, so the title-action buttons drop their own
+   left margin inside the flex row. */
+.coywolf-seo-lm-heading-row .coywolf-seo-lm-title-action {
+	margin-left: 0;
+}
+
+/* Add-ignore-rule controls pushed to the right edge of the heading row. */
 .coywolf-seo-lm-ignore-add {
-	margin: 0.5em 0 1em;
+	margin-left: auto;
+	display: flex;
+	align-items: center;
+	gap: 6px;
 }
 
 .coywolf-seo-lm-ignore-add select,
 .coywolf-seo-lm-ignore-add input {
-	margin-right: 6px;
+	margin: 0;
 	vertical-align: middle;
 }
 
