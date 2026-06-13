@@ -1,0 +1,23 @@
+[
+ { "slug": "agi-agent-2", "from": "AGI", "to": "AGIAgent" },
+ { "slug": "better-uptime", "from": "Better", "to": "BetterUptime" },
+ { "slug": "cartai-agentic-commerce-as-a-service", "from": "CartAI", "to": "CartAIBot" },
+ { "slug": "daric2", "from": "Daric2", "to": "Cloudflare-Crawler" },
+ { "slug": "daric3", "from": "Daric3", "to": "Cloudflare-Crawler" },
+ { "slug": "daric4", "from": "Daric4", "to": "Cloudflare-Crawler" },
+ { "slug": "drift-agent", "from": "Drift", "to": "DriftBot" },
+ { "slug": "ghost-inspector", "from": "Ghost", "to": "GhostInspector" },
+ { "slug": "henry-shopping-agent", "from": "Henry", "to": "HenryBot" },
+ { "slug": "letsencrypt", "from": "Encrypt", "to": "LetsEncrypt" },
+ { "slug": "library-of-congress-web-archiving", "from": "Library", "to": "LCWebArchiving" },
+ { "slug": "nostra", "from": "Nostra", "to": "NostraBot" },
+ { "slug": "pricey", "from": "Pricey", "to": "PriceyBot" },
+ { "slug": "quartr-crawler", "from": "Quartr", "to": "QuartrCrawler" },
+ { "slug": "qualys", "from": "SSL", "to": "Qualys" },
+ { "slug": "serverdensity", "from": "Server", "to": "ServerDensity" },
+ { "slug": "visually-io-shopify-editor", "from": "Visually.io", "to": "Visually" },
+ { "slug": "wave-streaming-platform", "from": "WAVE", "to": "WaveBot" },
+ { "slug": "wp-time-capsule", "from": "WP", "to": "WPTimeCapsule" },
+ { "slug": "wpmu-dev-broken-link-checker", "from": "WPMU", "to": "WPMUDEV-Broken-Link-Checker" },
+ { "slug": "wp-umbrella-bot", "from": "umbrella", "to": "WPUmbrella" }
+]

@@ -1,0 +1,3416 @@
+{
+ "2checkout": {
+  "token": "2checkout",
+  "confidence": "medium",
+  "source": "pattern"
+ },
+ "360monitoring": {
+  "token": "monitoring360bot",
+  "aliases": [
+   "monitoring360",
+   "user_agent"
+  ],
+  "confidence": "high",
+  "source": "https://docs.360monitoring.com/docs/monitoring-bot-and-cloudflare-settings"
+ },
+ "aasa": {
+  "token": "AASA-Bot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "accessible-web-bot": {
+  "token": "AccessibleWebBot",
+  "aliases": [
+   "HeadlessChrome"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "accessstatus": {
+  "token": "AccessStatus",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "acquia-optimize-monsido": {
+  "token": "Monsidobot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "activecomply-bot": {
+  "token": "ActiveComply",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "adagiobot": {
+  "token": "Adagiobot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "addsearchbot": {
+  "token": "AddSearchBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "addthis": {
+  "token": "AddThis",
+  "aliases": [
+   "AddThis.com"
+  ],
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "adidxbot": {
+  "token": "adidxbot",
+  "confidence": "high",
+  "source": "https://www.bing.com/webmaster/help/which-crawlers-does-bing-use-8c184ec0"
+ },
+ "adstxtcrawler": {
+  "token": "AdsTxtCrawler",
+  "aliases": [
+   "InteractiveAdvertisingBureau"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "advailo-kuma": {
+  "token": "Advailo",
+  "confidence": "medium",
+  "source": "https://radar.cloudflare.com/bots/directory/advailo-kuma"
+ },
+ "adyen": {
+  "token": "Adyen",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "aftership-magento-2": {
+  "token": "AfterShip",
+  "confidence": "medium",
+  "source": "https://radar.cloudflare.com/bots/directory/aftership-magento-2"
+ },
+ "agency-analytics-crawler": {
+  "token": "RSiteAuditor",
+  "aliases": [
+   "aa"
+  ],
+  "confidence": "high",
+  "source": "https://help.agencyanalytics.com/en/articles/3469586-allow-our-site-auditor-via-robots-txt-and-firewall"
+ },
+ "agencytoolspro-uptime-monitoring-bot": {
+  "token": "AgencyToolsPro",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "agi-agent-2": {
+  "token": "AGIAgent",
+  "confidence": "high",
+  "source": "https://www.theagi.company/agent"
+ },
+ "ahrefsbot": {
+  "token": "AhrefsBot",
+  "confidence": "high",
+  "source": "known"
+ },
+ "ahrefssiteaudit": {
+  "token": "AhrefsSiteAudit",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "akismet": {
+  "token": "Akismet",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "alertsite": {
+  "token": "AlertSite",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "algolia": {
+  "token": "Algolia",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "allafrica-crawler": {
+  "token": "AllAfrica",
+  "aliases": [
+   "NewsBot"
+  ],
+  "confidence": "medium",
+  "source": "https://knownagents.com/agents/allafrica-newsbot"
+ },
+ "alli-ai-bot": {
+  "token": "AlliAI",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "amazon-bedrock-agentcore-browser-ap-northeast-1": {
+  "token": "bedrockbot",
+  "confidence": "high",
+  "source": "https://github.com/ai-robots-txt/ai.robots.txt"
+ },
+ "amazon-bedrock-agentcore-browser-ap-south-1": {
+  "token": "bedrockbot",
+  "confidence": "high",
+  "source": "https://github.com/ai-robots-txt/ai.robots.txt"
+ },
+ "amazon-bedrock-agentcore-browser-ap-southeast-1": {
+  "token": "bedrockbot",
+  "confidence": "high",
+  "source": "https://github.com/ai-robots-txt/ai.robots.txt"
+ },
+ "amazon-bedrock-agentcore-browser-ap-southeast-2": {
+  "token": "bedrockbot",
+  "confidence": "high",
+  "source": "https://github.com/ai-robots-txt/ai.robots.txt"
+ },
+ "amazon-bedrock-agentcore-browser-eu-central-1": {
+  "token": "bedrockbot",
+  "confidence": "high",
+  "source": "https://github.com/ai-robots-txt/ai.robots.txt"
+ },
+ "amazon-bedrock-agentcore-browser-eu-west-1": {
+  "token": "bedrockbot",
+  "confidence": "high",
+  "source": "https://github.com/ai-robots-txt/ai.robots.txt"
+ },
+ "amazon-bedrock-agentcore-browser-us-east": {
+  "token": "bedrockbot",
+  "confidence": "high",
+  "source": "https://github.com/ai-robots-txt/ai.robots.txt"
+ },
+ "amazon-bedrock-agentcore-browser-us-east-2": {
+  "token": "bedrockbot",
+  "confidence": "high",
+  "source": "https://github.com/ai-robots-txt/ai.robots.txt"
+ },
+ "amazon-bedrock-agentcore-browser-us-west": {
+  "token": "bedrockbot",
+  "confidence": "high",
+  "source": "https://github.com/ai-robots-txt/ai.robots.txt"
+ },
+ "amazon-bot": {
+  "token": "Amazonbot",
+  "confidence": "high",
+  "source": "https://github.com/ai-robots-txt/ai.robots.txt"
+ },
+ "amazon-buyforme": {
+  "token": "AmazonBuyForMe",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "amazon-contxtbot": {
+  "token": "contxbot",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "amazon-kendra": {
+  "token": "amazon-kendra",
+  "aliases": [
+   "amazon-kendra-web-crawler",
+   "amazon-kendra-"
+  ],
+  "confidence": "high",
+  "source": "https://github.com/ai-robots-txt/ai.robots.txt"
+ },
+ "amazonadbot": {
+  "token": "AmazonAdBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "anchor-browser": {
+  "token": "Anchor",
+  "confidence": "high",
+  "source": "https://docs.anchorbrowser.io/"
+ },
+ "apify-website-content-crawler": {
+  "token": "ApifyWebsiteContentCrawler",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "appcastbot": {
+  "token": "AppcastParsingBot",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "apple": {
+  "token": "Applebot",
+  "confidence": "high",
+  "source": "https://github.com/ai-robots-txt/ai.robots.txt"
+ },
+ "arachnid-shield-api": {
+  "token": "Arachnid",
+  "confidence": "high",
+  "source": "https://projectarachnid.com/en/#shield"
+ },
+ "archive-org-bot": {
+  "token": "archive.org_bot",
+  "aliases": [
+   "special_archiver"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "area-360": {
+  "token": "A360-Search",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "arena-bot": {
+  "token": "ArenaBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "arquivo": {
+  "token": "Arquivo-web-crawler",
+  "aliases": [
+   "heritrix"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "artemis-web-reader": {
+  "token": "artemis",
+  "confidence": "medium",
+  "source": "https://artemis.jamesg.blog/bot"
+ },
+ "atlassian-bot": {
+  "token": "atlassian-bot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "attracta": {
+  "token": "Attracta",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "audisto-crawler": {
+  "token": "audisto",
+  "aliases": [
+   "audisto-essential"
+  ],
+  "confidence": "high",
+  "source": "https://audisto.com/bot"
+ },
+ "authory": {
+  "token": "Authory",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "automaton": {
+  "token": "AutomatonHeadlessChrome",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "automattic-tumblr": {
+  "token": "Tumblr",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "awario": {
+  "token": "AwarioSmartBot",
+  "aliases": [
+   "AwarioRssBot",
+   "AwarioBot",
+   "Awario"
+  ],
+  "confidence": "high",
+  "source": "https://awario.com/bots.html"
+ },
+ "babbar-barkrowler": {
+  "token": "Barkrowler",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "baidu": {
+  "token": "Baiduspider",
+  "aliases": [
+   "Baiduspider-render"
+  ],
+  "confidence": "high",
+  "source": "known"
+ },
+ "baidu-ads": {
+  "token": "Baidu-ADS",
+  "confidence": "high",
+  "source": "pattern"
+ },
+ "bazqux": {
+  "token": "BazQux",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "bestchange-bot": {
+  "token": "BestChange",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "better-uptime": {
+  "token": "BetterUptime",
+  "confidence": "high",
+  "source": "https://betteruptime.com/faq"
+ },
+ "bibliotheque-nacional-de-france": {
+  "token": "bnf.fr_bot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "big-sur-ai": {
+  "token": "bigsur.ai",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "bigscootsmonitor": {
+  "token": "BigScootsMonitor",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "bigupdatabot": {
+  "token": "BigUpDataBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "binarycanary": {
+  "token": "Chirp",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "bing": {
+  "token": "bingbot",
+  "confidence": "high",
+  "source": "https://www.bing.com/bingbot.htm"
+ },
+ "bingpreview": {
+  "token": "BingPreview",
+  "aliases": [
+   "IEMobile"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "bitbucket": {
+  "token": "Bitbucket-Webhooks",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "black-duck-fast-dynamic": {
+  "token": "FastDAST",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "blexbot": {
+  "token": "BLEXBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "bling-erp": {
+  "token": "BlingERP",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "blockaid": {
+  "token": "36b1546a5700e52eb2972b3f92b314fa",
+  "confidence": "high",
+  "source": "https://radar.cloudflare.com/bots/directory/blockaid"
+ },
+ "blogtrottr": {
+  "token": "Blogtrottr",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "blogvault": {
+  "token": "BlogVault",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "bluesky-app": {
+  "token": "Bluesky",
+  "aliases": [
+   "Cardyb"
+  ],
+  "confidence": "high",
+  "source": "https://knownagents.com/agents/bluesky"
+ },
+ "boardgameprices-bot": {
+  "token": "BoardGamePrices",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "boneybadgerbot": {
+  "token": "Honeybadger",
+  "confidence": "high",
+  "source": "https://knownagents.com/agents/honeybadger-uptime-check"
+ },
+ "borderxbot-2": {
+  "token": "BorderxBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "botify": {
+  "token": "botify",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "bravebot": {
+  "token": "Bravebot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "brightedgebot": {
+  "token": "BrightEdge",
+  "confidence": "high",
+  "source": "https://support.brightedge.com/hc/en-us/articles/31090803710349-BrightEdge-Crawler-User-Agent"
+ },
+ "browserbase": {
+  "token": "Browserbase",
+  "confidence": "high",
+  "source": "https://browserbase.com"
+ },
+ "brynson-compliance-bot": {
+  "token": "BrynsonComplianceBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "bufferlinkpreviewbot": {
+  "token": "BufferLinkPreviewBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "bugsnag": {
+  "token": "BugsNag",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "builtwith": {
+  "token": "BuiltWith",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "bushbaby": {
+  "token": "bushbaby",
+  "confidence": "medium",
+  "source": "pattern"
+ },
+ "buttondown-rss-feed-parser": {
+  "token": "Buttondown",
+  "aliases": [
+   "RSS-Feed-Parser"
+  ],
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "bytedance-toutiao": {
+  "token": "Bytespider",
+  "aliases": [
+   "zhanzhang.toutiao.com"
+  ],
+  "confidence": "high",
+  "source": "https://zhanzhang.toutiao.com/docs/intro/26899"
+ },
+ "caliperbot": {
+  "token": "Caliperbot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "capitalonebot": {
+  "token": "CapitalOneBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "cartai-agentic-commerce-as-a-service": {
+  "token": "CartAIBot",
+  "confidence": "high",
+  "source": "https://docs.cartai.ai/docs/introduction"
+ },
+ "catchpoint": {
+  "token": "Catchpoint",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "cert-chief": {
+  "token": "CertChief",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "cf-digicert-dcv": {
+  "token": "DigiCert",
+  "confidence": "high",
+  "source": "https://datadome.co/bots/cloudflare-digicert-dcv/"
+ },
+ "channable-importer": {
+  "token": "channable",
+  "confidence": "medium",
+  "source": "https://knownagents.com/agents/channable"
+ },
+ "channel3bot": {
+  "token": "Channel3Bot",
+  "aliases": [
+   "Channel3"
+  ],
+  "confidence": "high",
+  "source": "https://trychannel3.com/channel3bot"
+ },
+ "chargebee": {
+  "token": "ChargeBee",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "chatgpt-agent": {
+  "token": "ChatGPT-User",
+  "confidence": "high",
+  "source": "https://developers.openai.com/api/docs/bots"
+ },
+ "chatgpt-user": {
+  "token": "ChatGPT-User",
+  "confidence": "high",
+  "source": "https://developers.openai.com/api/docs/bots"
+ },
+ "checkly": {
+  "token": "Checkly",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "checkview-24": {
+  "token": "CheckView",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "chrome-lighthouse": {
+  "token": "Chrome-Lighthouse",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "citibotsitecrawler": {
+  "token": "CitibotSiteCrawler",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "claude-searchbot": {
+  "token": "Claude-SearchBot",
+  "confidence": "high",
+  "source": "https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler"
+ },
+ "cledara-saas-management-agent": {
+  "token": "CledaraBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "clickagy": {
+  "token": "Clickagy",
+  "confidence": "medium",
+  "source": "https://datadome.co/bots/clickagy-intelligence-bot/"
+ },
+ "cloudflare-ai-search": {
+  "token": "Cloudflare-AI-Search",
+  "confidence": "high",
+  "source": "https://developers.cloudflare.com/ai-search"
+ },
+ "cloudflare-browser-rendering": {
+  "token": "Cloudflare-Traffic",
+  "confidence": "high",
+  "source": "https://cloudflare.com"
+ },
+ "cloudflare-browser-rendering-crawler": {
+  "token": "CloudflareBrowserRenderingCrawler",
+  "confidence": "high",
+  "source": "https://developers.cloudflare.com/browser-run/reference/robots-txt/"
+ },
+ "cloudflare-chv": {
+  "token": "Cloudflare",
+  "confidence": "low",
+  "source": "https://developers.cloudflare.com/fundamentals/reference/cloudflare-site-crawling/"
+ },
+ "cloudflare-collapsify": {
+  "token": "Collapsify",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "cloudflare-customerslo-prober": {
+  "token": "Cloudflare",
+  "confidence": "low",
+  "source": "ua"
+ },
+ "cloudflare-diagnostics": {
+  "token": "CloudflareDiagnostics",
+  "aliases": [
+   "Cloudflare-diagnostics"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "cloudflare-health-checks": {
+  "token": "Cloudflare-Healthchecks",
+  "confidence": "high",
+  "source": "https://developers.cloudflare.com/fundamentals/reference/cloudflare-site-crawling/"
+ },
+ "cloudflare-observatory-curly": {
+  "token": "curly-",
+  "confidence": "medium",
+  "source": "pattern"
+ },
+ "cloudflare-prefetch": {
+  "token": "CloudFlare-Prefetch",
+  "confidence": "high",
+  "source": "https://developers.cloudflare.com/fundamentals/reference/cloudflare-site-crawling/"
+ },
+ "cloudflare-purge": {
+  "token": "Cloudflare-Purge",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "cloudflare-radar-url-scanner": {
+  "token": "Cloudflare",
+  "aliases": [
+   "Cloudflare-Radar"
+  ],
+  "confidence": "low",
+  "source": "https://knownagents.com/agents/cloudflare-radar-url-scanner"
+ },
+ "cloudflare-speedtest": {
+  "token": "Cloudflare",
+  "confidence": "low",
+  "source": "ua"
+ },
+ "cloudflare-ssl-detector": {
+  "token": "Cloudflare-SSLDetector",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "cloudflare-stream-webhook": {
+  "token": "Cloudflare",
+  "confidence": "low",
+  "source": "ua"
+ },
+ "cloudflare-traffic-manager": {
+  "token": "Cloudflare-Traffic-Manager",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "cloudflare-validator": {
+  "token": "Cloudflare-Validator",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "cloudflare-web-scanner": {
+  "token": "CloudflareWebScanner",
+  "confidence": "high",
+  "source": "https://developers.cloudflare.com/ai-crawl-control"
+ },
+ "cloudflarecsup": {
+  "token": "cloudflare-csup",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "cloudtrellis": {
+  "token": "Cloudtrellis",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "cludobot": {
+  "token": "cludo.com",
+  "confidence": "high",
+  "source": "https://knownagents.com/agents/cludo-com"
+ },
+ "coccocbot": {
+  "token": "coccocbot",
+  "aliases": [
+   "coccocbot-fast",
+   "coccocbot-image",
+   "coccocbot-web"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "cognitiveseo": {
+  "token": "JamesBOT",
+  "confidence": "high",
+  "source": "cognitiveSEO documents the JamesBOT user-agent"
+ },
+ "coinbase": {
+  "token": "weipay-webhooks",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "composer": {
+  "token": "Composer",
+  "confidence": "high",
+  "source": "https://trycomposer.ai/home"
+ },
+ "consentcheck": {
+  "token": "ConsentCheckBot",
+  "aliases": [
+   "consentcheck"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "contentking": {
+  "token": "ContentKing",
+  "confidence": "high",
+  "source": "https://www.contentkingapp.com/support/robots-txt-monitoring/"
+ },
+ "contentsquare-static-resource-scraper": {
+  "token": "ContentSquare",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "contextualbot": {
+  "token": "ContextualBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "convermaxbot": {
+  "token": "Convermax",
+  "aliases": [
+   "ConvermaxBot"
+  ],
+  "confidence": "high",
+  "source": "https://docs.convermax.com/indexer/"
+ },
+ "cookie-hub": {
+  "token": "CookieHub",
+  "aliases": [
+   "CookieHubScan",
+   "CookieHubVerify"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "cookiebot": {
+  "token": "Cookiebot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "cookiemaestro": {
+  "token": "cookie-maestro",
+  "confidence": "high",
+  "source": "https://www.cookiemaestro.com/documentatie/limit-cookie-maestro-using-robots-txt"
+ },
+ "cookieyesbot": {
+  "token": "CookieYesbot",
+  "confidence": "high",
+  "source": "https://www.cookieyes.com/documentation/cookieyesbot"
+ },
+ "cotoyogi": {
+  "token": "Cotoyogi",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "coveobot": {
+  "token": "Coveobot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "cozi-icalendar": {
+  "token": "Cozi-iCalendar-FeedReader",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "crawlson": {
+  "token": "Crawlson",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "crazy-egg-bot": {
+  "token": "Crazy",
+  "confidence": "low",
+  "source": "https://knownagents.com/agents/crazy-egg"
+ },
+ "criteobot": {
+  "token": "CriteoBot",
+  "confidence": "high",
+  "source": "https://www.criteo.com/criteo-crawler/"
+ },
+ "criticalcssbot": {
+  "token": "Criticalcss.com",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "cronjob": {
+  "token": "cron-job.org",
+  "confidence": "medium",
+  "source": "pattern"
+ },
+ "cxensebot": {
+  "token": "cXensebot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "cybaa-bot": {
+  "token": "CybaaBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "daric2": {
+  "token": "Cloudflare-Crawler",
+  "confidence": "high",
+  "source": "https://developers.cloudflare.com/ai-crawl-control/"
+ },
+ "daric3": {
+  "token": "Cloudflare-Crawler",
+  "confidence": "high",
+  "source": "https://developers.cloudflare.com/ai-crawl-control/"
+ },
+ "daric4": {
+  "token": "Cloudflare-Crawler",
+  "confidence": "high",
+  "source": "https://developers.cloudflare.com/ai-crawl-control/"
+ },
+ "datadog-synthetic-bot": {
+  "token": "DatadogSynthetics",
+  "aliases": [
+   "Datadog"
+  ],
+  "confidence": "high",
+  "source": "https://docs.datadoghq.com/synthetics/guide/identify_synthetics_bots/"
+ },
+ "dataforseo-bot": {
+  "token": "DataForSeoBot",
+  "confidence": "high",
+  "source": "https://dataforseo.com/dataforseo-bot"
+ },
+ "dataforseo-siteauditor": {
+  "token": "RSiteAuditor",
+  "confidence": "high",
+  "source": "https://dataforseo.com/help-center/troubleshooting-onpage-api"
+ },
+ "dataprovider-com": {
+  "token": "Dataprovider.com",
+  "aliases": [
+   "Dataprovider"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "datenbank": {
+  "token": "netEstate",
+  "confidence": "high",
+  "source": "https://knownagents.com/agents/netestate-ne-crawler"
+ },
+ "daum": {
+  "token": "Daum",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "deadlinkchecker": {
+  "token": "deadlinkchecker",
+  "aliases": [
+   "www.deadlinkchecker.com"
+  ],
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "deck-agent": {
+  "token": "DeckAgent",
+  "aliases": [
+   "DeckAI"
+  ],
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "deepcrawl": {
+  "token": "lumar",
+  "aliases": [
+   "deepcrawl",
+   "deepcrawl.com"
+  ],
+  "confidence": "high",
+  "source": "https://www.lumar.io/spdr/"
+ },
+ "detectify": {
+  "token": "Detectify",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "determ": {
+  "token": "Mediatoolkitbot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "devin": {
+  "token": "Devin",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "digicert-dcv": {
+  "token": "DigiCert",
+  "confidence": "high",
+  "source": "https://www.digicert.com/"
+ },
+ "direqt-anomura": {
+  "token": "Anomura",
+  "confidence": "high",
+  "source": "https://docs.direqt-search.com/direqt-bots/direqt-crawlers-and-user-agents"
+ },
+ "discord-bot": {
+  "token": "Discordbot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "dlvr-it-feed-fetcher": {
+  "token": "dlvr.it",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "dotbot": {
+  "token": "DotBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "dotcom-monitor": {
+  "token": "DMBrowser",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "doubleverify": {
+  "token": "Leikibot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "drata": {
+  "token": "Dratabot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "drift-agent": {
+  "token": "DriftBot",
+  "confidence": "high",
+  "source": "https://www.getdrift.ai"
+ },
+ "drlinkcheck": {
+  "token": "Dlc",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "duckassistbot": {
+  "token": "DuckAssistBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "duckduckbot": {
+  "token": "DuckDuckBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "eRepublik-tools": {
+  "token": "eRepublik.tools",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "easybill-import-manager": {
+  "token": "easybill-ImportManager",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "easycron": {
+  "token": "EasyCron",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "easydns": {
+  "token": "easyDNS",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "easyscan": {
+  "token": "EasyScan",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "echoboxbot": {
+  "token": "EchoboxBot",
+  "aliases": [
+   "w4mwnpbXf3MFAbxOkJRw"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "elmahio-uptimebot": {
+  "token": "elmahio-uptimebot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "embedly": {
+  "token": "Embedly",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "emoneybot": {
+  "token": "eMoneyBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "epivoz-crawler": {
+  "token": "EpivozCrawler",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "evo-uptime-bot": {
+  "token": "EvoUptimeBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "exodus-movement": {
+  "token": "ExodusMovement",
+  "aliases": [
+   "GlobalCoinHeight"
+  ],
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "ezoicbot": {
+  "token": "EzoicBot",
+  "aliases": [
+   "EzoicBot-Sitespeed",
+   "EzoicBot-UptimeOwl",
+   "EzoicBot-AdsTxt",
+   "EzoicBot-Nicheiq",
+   "EzoicBot-IntegrationCheck",
+   "EzLynx"
+  ],
+  "confidence": "high",
+  "source": "https://www.ezoic.com/bot/"
+ },
+ "facebook": {
+  "token": "facebookexternalhit",
+  "aliases": [
+   "facebookcatalog",
+   "meta-externalagent",
+   "meta-externalfetcher"
+  ],
+  "confidence": "high",
+  "source": "https://developers.facebook.com/docs/sharing/webmasters/web-crawlers"
+ },
+ "factset-spyderbot": {
+  "token": "factset_spyderbot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "fastmail-bot": {
+  "token": "FastmailUA",
+  "confidence": "high",
+  "source": "https://www.fastmail.com/policies/bots/"
+ },
+ "fdl-stats-bot": {
+  "token": "FDL",
+  "confidence": "medium",
+  "source": "https://darkvisitors.com/agents/fdl-stats-bot"
+ },
+ "fedicaapp": {
+  "token": "Fedicabot",
+  "aliases": [
+   "Fedica",
+   "FedicaApp"
+  ],
+  "confidence": "high",
+  "source": "https://fedica.com/info/fedicabot"
+ },
+ "fedreporter-bot-for-ffiec-2": {
+  "token": "FedReporterDataBot",
+  "aliases": [
+   "FedReporterDataBot-Testing"
+  ],
+  "confidence": "high",
+  "source": "https://fedreporter.net/FedReporterBotDocumentation/Readme.txt"
+ },
+ "feedbin": {
+  "token": "Feedbin",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "feeder": {
+  "token": "feeder.co",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "feedly": {
+  "token": "Feedly",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "feedotter": {
+  "token": "FeedOtter",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "feedwind": {
+  "token": "Feedwind",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "firmlyai-bot": {
+  "token": "FirmlyAI",
+  "confidence": "high",
+  "source": "https://www.firmly.ai/"
+ },
+ "fishbot": {
+  "token": "FishBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "fit-feeds-fetcher": {
+  "token": "follow.it",
+  "aliases": [
+   "Specificfeeds",
+   "FeedBurner"
+  ],
+  "confidence": "medium",
+  "source": "pattern"
+ },
+ "flashy-php-1-0-0": {
+  "token": "Flashy-PHP",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "flipboard": {
+  "token": "FlipboardProxy",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "flipboardrss": {
+  "token": "FlipboardRSS",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "flockwp": {
+  "token": "FlockWP",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "foregenix-threatview-webscan": {
+  "token": "Foregenix",
+  "confidence": "medium",
+  "source": "https://ometrix.ai/en/bot/foregenix-threatviewwebscan"
+ },
+ "foureff": {
+  "token": "4f.at",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "freespoke": {
+  "token": "Freespoke",
+  "aliases": [
+   "crawler.freespoke.com"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "freshping": {
+  "token": "FreshpingBot",
+  "aliases": [
+   "Freshping"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "fullfact-ingest": {
+  "token": "FullFact",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "fullstorybot": {
+  "token": "FullStoryBot",
+  "confidence": "high",
+  "source": "https://help.fullstory.com/spp-ref/343521-what-is-the-fullstorybot"
+ },
+ "funnelback": {
+  "token": "Funnelback",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "gatus": {
+  "token": "Gatus",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "ghost-inspector": {
+  "token": "GhostInspector",
+  "confidence": "high",
+  "source": "https://ghostinspector.com"
+ },
+ "gigabot": {
+  "token": "Gigabot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "google": {
+  "token": "Googlebot",
+  "aliases": [
+   "Googlebot-Image",
+   "Googlebot-News",
+   "Googlebot-Video"
+  ],
+  "confidence": "high",
+  "source": "https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers"
+ },
+ "google-adwords-express": {
+  "token": "Google-AdWords-Express",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "google-adwords-instant": {
+  "token": "Google-Adwords-Instant",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "google-agent": {
+  "token": "Google-Agent",
+  "confidence": "high",
+  "source": "https://developers.google.com/crawling/docs/crawlers-fetchers/google-user-triggered-fetchers"
+ },
+ "google-businesslinkverification": {
+  "token": "Google-BusinessLinkVerification",
+  "aliases": [
+   "Google-BusinessLinkVerifi"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "google-calendar-importer-2": {
+  "token": "Google-Calendar-Importer",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "google-cloudvertexbot": {
+  "token": "Google-CloudVertexBot",
+  "aliases": [
+   "CloudVertexBot"
+  ],
+  "confidence": "high",
+  "source": "https://developers.google.com/search/docs/crawling-indexing/google-common-crawlers"
+ },
+ "google-digital-asset-links": {
+  "token": "GoogleAssociationService",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "google-firebase-bot": {
+  "token": "Google-Firebase",
+  "confidence": "high",
+  "source": "https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers"
+ },
+ "google-flights-search-spackle": {
+  "token": "Google-Flights-Search-Spackle",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "google-inspection-tool": {
+  "token": "Google-InspectionTool",
+  "aliases": [
+   "Googlebot"
+  ],
+  "confidence": "high",
+  "source": "https://developers.google.com/search/docs/crawling-indexing/overview-google-crawlers#google-inspectiontool"
+ },
+ "google-other": {
+  "token": "GoogleOther",
+  "confidence": "high",
+  "source": "https://developers.google.com/search/docs/crawling-indexing/google-common-crawlers"
+ },
+ "google-pagerenderer-3": {
+  "token": "Google-PageRenderer",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "google-publisher-center": {
+  "token": "GoogleProducer",
+  "confidence": "high",
+  "source": "https://developers.google.com/search/docs/crawling-indexing/google-user-triggered-fetchers#googleproducer"
+ },
+ "google-safety": {
+  "token": "Google-Safety",
+  "confidence": "high",
+  "source": "https://developers.google.com/search/docs/crawling-indexing/google-special-case-crawlers"
+ },
+ "google-scholar": {
+  "token": "Googlebot-IA",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "google-site-verification": {
+  "token": "Google-Site-Verification",
+  "confidence": "high",
+  "source": "https://developers.google.com/search/docs/crawling-indexing/google-user-triggered-fetchers"
+ },
+ "google-travelads-live": {
+  "token": "Google-TravelAds-Live",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "google-trust-services": {
+  "token": "Google-Trust-Services",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "google-web-snippet-2": {
+  "token": "Google-PageRenderer",
+  "confidence": "high",
+  "source": "https://darkvisitors.com/agents/google-pagerenderer"
+ },
+ "google-xrawler": {
+  "token": "google-xrawler",
+  "confidence": "high",
+  "source": "https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers"
+ },
+ "googleads": {
+  "token": "AdsBot-Google",
+  "aliases": [
+   "AdsBot-Google-Mobile"
+  ],
+  "confidence": "high",
+  "source": "https://support.google.com/webmasters/answer/1061943?hl=en"
+ },
+ "googleapi": {
+  "token": "APIs-Google",
+  "confidence": "high",
+  "source": "https://developers.google.com/webmasters/APIs-Google.html"
+ },
+ "googlebotimages": {
+  "token": "Googlebot-Image",
+  "confidence": "high",
+  "source": "https://support.google.com/webmasters/answer/1061943?hl=en"
+ },
+ "googlebotvideos": {
+  "token": "Googlebot-Video",
+  "confidence": "high",
+  "source": "https://support.google.com/webmasters/answer/1061943?hl=en"
+ },
+ "googledata": {
+  "token": "Google-Structured-Data-Testing-Tool",
+  "aliases": [
+   "Google-Structured-Data-Testing"
+  ],
+  "confidence": "high",
+  "source": "https://darkvisitors.com/agents/google-structured-data-testing-tool"
+ },
+ "googledisplayads": {
+  "token": "Google-Display-Ads-Bot",
+  "confidence": "high",
+  "source": "https://support.google.com/adsense/answer/99376"
+ },
+ "googlefeedfetcher": {
+  "token": "FeedFetcher-Google",
+  "confidence": "high",
+  "source": "https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers"
+ },
+ "googleimageproxy": {
+  "token": "GoogleImageProxy",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "googlemedia": {
+  "token": "Mediapartners-Google",
+  "aliases": [
+   "Mediapartners"
+  ],
+  "confidence": "high",
+  "source": "https://support.google.com/webmasters/answer/1061943?hl=en"
+ },
+ "googlereadaloud": {
+  "token": "Google-Read-Aloud",
+  "aliases": [
+   "answer"
+  ],
+  "confidence": "high",
+  "source": "https://support.google.com/webmasters/answer/1061943?hl=en"
+ },
+ "gopay": {
+  "token": "GoPay",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "gptbot": {
+  "token": "GPTBot",
+  "confidence": "high",
+  "source": "https://platform.openai.com/docs/gptbot"
+ },
+ "grafana-labs": {
+  "token": "synthetic-monitoring-agent",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "grafana-synthetic-monitoring-2": {
+  "token": "synthetic-monitoring-agent",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "grapeshot": {
+  "token": "GrapeshotCrawler",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "groovinads": {
+  "token": "GroovinaAdsbot",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "gtmetrix": {
+  "token": "GTmetrix",
+  "confidence": "high",
+  "source": "https://datadome.co/bots/gtmetrix/"
+ },
+ "guestpostsbot": {
+  "token": "GuestpostsBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "haiku-searchbot": {
+  "token": "Haiku-SearchBot",
+  "confidence": "high",
+  "source": "https://www.haiku.fr/robots-doc"
+ },
+ "hatena": {
+  "token": "Hatena",
+  "aliases": [
+   "HatenaBlog-bot",
+   "Hatena-Favicon",
+   "HatenaBookmark",
+   "Scissors",
+   "Antenna",
+   "UserAgent"
+  ],
+  "confidence": "medium",
+  "source": "https://developer.hatena.ne.jp/ja/documents/other/apis/useragents/"
+ },
+ "hecbot": {
+  "token": "hecBot",
+  "confidence": "high",
+  "source": "https://www.checkpoint.com/harmony/email-security/"
+ },
+ "hellowork-bot": {
+  "token": "HelloworkJobPostingBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "helpfeel-notabot": {
+  "token": "Notabot",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "henry-shopping-agent": {
+  "token": "HenryBot",
+  "confidence": "high",
+  "source": "https://docs.henrylabs.ai/"
+ },
+ "hetrixtools": {
+  "token": "HetrixTools",
+  "confidence": "high",
+  "source": "https://hetrixtools.com/uptime-monitor-bot/"
+ },
+ "hey-email-privacy-proxy-2": {
+  "token": "hey.com",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "hifibot": {
+  "token": "HIFIBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "hosttracker": {
+  "token": "HostTracker",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "hotjar": {
+  "token": "Hotjar",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "hstspreload-bot": {
+  "token": "hstspreload-bot",
+  "confidence": "high",
+  "source": "pattern"
+ },
+ "hubspot-crawler": {
+  "token": "HubSpot",
+  "confidence": "medium",
+  "source": "https://knowledge.hubspot.com/cos-general/customize-your-robots-txt-file"
+ },
+ "hubspot-feed-fetcher": {
+  "token": "HubSpot-FeedFetcher",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "hubspot-page-fetcher": {
+  "token": "HubSpot",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "huckabot": {
+  "token": "Huckabot",
+  "confidence": "high",
+  "source": "pattern"
+ },
+ "hypemachine": {
+  "token": "Hype",
+  "aliases": [
+   "Machine"
+  ],
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "ias-crawler": {
+  "token": "ias_crawler",
+  "aliases": [
+   "ias_wombles"
+  ],
+  "confidence": "high",
+  "source": "http://integralads.com/site-indexing-policy/"
+ },
+ "iboubot-3": {
+  "token": "IbouBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "icccrawler": {
+  "token": "ICC-Crawler",
+  "confidence": "high",
+  "source": "pattern"
+ },
+ "idealo-2": {
+  "token": "idealo-bot",
+  "confidence": "high",
+  "source": "pattern"
+ },
+ "iframely": {
+  "token": "Iframely",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "ifttt-rss-feed-service": {
+  "token": "IFTTT",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "indeedjobbot": {
+  "token": "IndeedJobBot",
+  "confidence": "high",
+  "source": "pattern"
+ },
+ "innguma-fetcher": {
+  "token": "Innguma",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "innologica": {
+  "token": "Inoreader",
+  "aliases": [
+   "inoreader.com"
+  ],
+  "confidence": "high",
+  "source": "https://www.inoreader.com/feed-fetcher"
+ },
+ "instapaper": {
+  "token": "Instapaper",
+  "aliases": [
+   "Instaparser"
+  ],
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "integromatbot": {
+  "token": "Integromat",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "internet-archive-archive-it": {
+  "token": "archive.org_bot",
+  "aliases": [
+   "Archive-It",
+   "special_archiver",
+   "heritrix"
+  ],
+  "confidence": "high",
+  "source": "https://support.archive-it.org/hc/en-us/articles/115001081186-Archive-It-Crawling-Technology"
+ },
+ "internet-archive-bot": {
+  "token": "IABot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "isdownbot": {
+  "token": "IsDownBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "jagged-pixel-uptime": {
+  "token": "UptimeBot",
+  "aliases": [
+   "www.getuptime.co"
+  ],
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "jetpack": {
+  "token": "jetmon",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "jobswithgptcom-bot": {
+  "token": "jobswithgptcom-bot",
+  "aliases": [
+   "jobswithgptcom"
+  ],
+  "confidence": "high",
+  "source": "https://jobswithgpt.com/bot.html"
+ },
+ "jumio": {
+  "token": "Jumio",
+  "confidence": "low",
+  "source": "ua"
+ },
+ "kagi": {
+  "token": "Kagibot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "kakaotalk-scrap-2": {
+  "token": "kakaotalk-scrap",
+  "aliases": [
+   "scrap"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "kargobot-artemis": {
+  "token": "KargoBot-Artemis",
+  "aliases": [
+   "KargoBot-Artemis-Mobile"
+  ],
+  "confidence": "high",
+  "source": "https://darkvisitors.com/agents/kargobot-artemis"
+ },
+ "kb-dk-bot": {
+  "token": "netarkivindsamling",
+  "aliases": [
+   "kb.dk_bot",
+   "heritrix"
+  ],
+  "confidence": "medium",
+  "source": "https://www.kb.dk/en/find-materials/collections/netarkivet/guide-website-owners"
+ },
+ "kernel": {
+  "token": "Kernel",
+  "confidence": "high",
+  "source": "https://www.kernel.sh/docs"
+ },
+ "kinsta-bot": {
+  "token": "kinsta-bot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "klaviyo": {
+  "token": "Klaviyo",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "klaviyoaibot": {
+  "token": "KlaviyoAIBot",
+  "confidence": "high",
+  "source": "https://help.klaviyo.com/hc/en-us/articles/40496146232219"
+ },
+ "known-agent": {
+  "token": "Known",
+  "aliases": [
+   "Known-Agent"
+  ],
+  "confidence": "low",
+  "source": "https://knownagents.com/agents/known-agent"
+ },
+ "legalmonster": {
+  "token": "LegalMonster",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "letsencrypt": {
+  "token": "LetsEncrypt",
+  "confidence": "high",
+  "source": "https://letsencrypt.org"
+ },
+ "level-9-search-bot": {
+  "token": "Level9SearchBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "library-of-congress-web-archiving": {
+  "token": "LCWebArchiving",
+  "confidence": "high",
+  "source": "https://www.loc.gov/programs/web-archiving/for-site-owners"
+ },
+ "line-ogp-scraper": {
+  "token": "line-poker",
+  "aliases": [
+   "facebookexternalhit"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "liner-bot": {
+  "token": "LinerBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "linespider": {
+  "token": "Linespider",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "link-cli": {
+  "excluded": true,
+  "source": "https://link.com/agents (signed agent; no robots.txt user-agent token)"
+ },
+ "linkcheckerpro": {
+  "token": "LinkCheckerBot",
+  "aliases": [
+   "linkchecker.pro"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "linkedin": {
+  "token": "LinkedInBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "linksindexerbot": {
+  "token": "LinksIndexerBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "linktiger": {
+  "token": "LinkTiger",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "logicmonitor": {
+  "token": "LogicMonitor",
+  "aliases": [
+   "SiteMonitor"
+  ],
+  "confidence": "high",
+  "source": "https://darkvisitors.com/agents/logicmonitor-sitemonitor"
+ },
+ "loomlybot": {
+  "token": "LoomlyBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "macrobondbot": {
+  "token": "Macrobondbot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "magibot": {
+  "token": "MagiBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "magnetmebot": {
+  "token": "Magnet.me-web",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "magpiecrawler": {
+  "token": "magpie-crawler",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "mail-ru-bot": {
+  "token": "Mail.RU_Bot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "mainwp": {
+  "token": "MainWP",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "make-com-2": {
+  "token": "make.com",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "make-platform": {
+  "token": "Make",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "managewp": {
+  "token": "ManageWP",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "manus-bot": {
+  "token": "Manus-User",
+  "confidence": "high",
+  "source": "https://knownagents.com/agents/manus-user"
+ },
+ "marginaliabot": {
+  "token": "search.marginalia.nu",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "marketgoo": {
+  "token": "MarketGoo",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "mars-finder": {
+  "token": "marsfinder",
+  "aliases": [
+   "dbot"
+  ],
+  "confidence": "high",
+  "source": "https://marsflag.zohodesk.com/portal/ja/kb/articles/mars-finder%E7%94%A8%E3%81%AErobots-txt%E3%81%AE%E8%A8%AD%E5%AE%9A%E3%82%92%E6%95%99%E3%81%88%E3%81%A6%E3%81%8F%E3%81%A0%E3%81%95%E3%81%84"
+ },
+ "mavifinds-bot": {
+  "token": "Mavifinds",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "media-monitoring-bot": {
+  "token": "MediaMonitoringBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "mediaboardbot": {
+  "token": "mediaboardbot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "medialogiabot": {
+  "token": "MedialogiaBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "mediavine-metadata-parser": {
+  "token": "MediavineMetadataParser",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "melonmesabot": {
+  "token": "CentComBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "meta-externalads": {
+  "token": "meta-externalads",
+  "confidence": "high",
+  "source": "https://developers.facebook.com/docs/sharing/webmasters/web-crawlers/"
+ },
+ "meta-externalagent": {
+  "token": "meta-externalagent",
+  "confidence": "high",
+  "source": "https://developers.facebook.com/docs/sharing/webmasters/web-crawlers/"
+ },
+ "meta-externalfetcher": {
+  "token": "meta-externalfetcher",
+  "confidence": "high",
+  "source": "https://developers.facebook.com/docs/sharing/webmasters/web-crawlers/"
+ },
+ "meta-web-indexer": {
+  "token": "meta-webindexer",
+  "confidence": "high",
+  "source": "https://developers.facebook.com/docs/sharing/webmasters/web-crawlers/"
+ },
+ "metorik": {
+  "token": "Metorik",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "mgidbot": {
+  "token": "MgidBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "microsoftpreview": {
+  "token": "MicrosoftPreview",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "mirrorwebcrawler": {
+  "token": "mirrorweb",
+  "aliases": [
+   "MirrorWebCrawler"
+  ],
+  "confidence": "high",
+  "source": "https://knownagents.com/agents/mirrorweb"
+ },
+ "missinglettrbot": {
+  "token": "MissinglettrBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "mistralai-user": {
+  "token": "MistralAI-User",
+  "aliases": [
+   "MistralAI-Index"
+  ],
+  "confidence": "high",
+  "source": "https://docs.mistral.ai/robots/"
+ },
+ "mj12bot": {
+  "token": "MJ12bot",
+  "confidence": "high",
+  "source": "known"
+ },
+ "modular-ds": {
+  "token": "ModularConnector",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "mojeekbot": {
+  "token": "MojeekBot",
+  "confidence": "high",
+  "source": "https://www.mojeek.com/bot.html"
+ },
+ "molliebot": {
+  "token": "Mollie",
+  "confidence": "medium",
+  "source": "https://docs.mollie.com/docs/integration-partners-user-agent-strings"
+ },
+ "mon-spark": {
+  "token": "MonSpark",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "monitage": {
+  "token": "MonitageUptime",
+  "aliases": [
+   "Monitage"
+  ],
+  "confidence": "high",
+  "source": "https://community.fastly.com/t/verified-bot-monitage/4178"
+ },
+ "monitis": {
+  "token": "monitis",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "monitorss": {
+  "token": "MonitoRSS",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "montasticmonitor": {
+  "token": "montastic-monitor",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "montonio-webhooks": {
+  "token": "MontonioWebhooks",
+  "confidence": "high",
+  "source": "https://docs.montonio.com/api/stargate/guides/webhooks"
+ },
+ "motominerbot": {
+  "token": "MotoMinerBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "mrgbot": {
+  "token": "MRGbot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "msnbot": {
+  "token": "msnbot",
+  "confidence": "high",
+  "source": "known"
+ },
+ "muck-rack-scraper": {
+  "token": "MuckRack",
+  "aliases": [
+   "MuckRackFeedParser",
+   "muckrack.com"
+  ],
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "mushilabs-clearscopebot": {
+  "token": "Clearscopebot",
+  "confidence": "high",
+  "source": "https://www.clearscope.io/support/articles/clearscopebot"
+ },
+ "nava-labs-asp-dev": {
+  "token": "Nava",
+  "confidence": "medium",
+  "source": "https://dev.labs-asp.navateam.com/bot-disclosure"
+ },
+ "naver": {
+  "token": "Yeti",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "neevabot": {
+  "token": "Neevabot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "nekuda-payment-executor": {
+  "token": "Nekuda",
+  "confidence": "high",
+  "source": "https://docs.nekuda.ai/payment-executor"
+ },
+ "netcraft": {
+  "token": "NetcraftSurveyAgent",
+  "aliases": [
+   "Netcraft"
+  ],
+  "confidence": "high",
+  "source": "https://knownagents.com/agents/netcraftsurveyagent"
+ },
+ "netumo": {
+  "token": "netumo",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "netvigie": {
+  "token": "NETVIGIE",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "new-york-times-newsgathering": {
+  "token": "nyt_scraping",
+  "confidence": "high",
+  "source": "https://knownagents.com/agents/scrapingnytimes-com"
+ },
+ "newrelic": {
+  "token": "NewRelicbot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "news-blur": {
+  "token": "NewsBlur",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "newsbank": {
+  "token": "NewsBank",
+  "aliases": [
+   "NewsBank.com",
+   "NewsBank.comMobile"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "newsnow": {
+  "token": "NewsNow",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "nitro": {
+  "token": "Nitro-Warmup-Agent",
+  "aliases": [
+   "Nitro-Webhook-Agent",
+   "Nitro-Optimizer-Agent",
+   "Nitro-"
+  ],
+  "confidence": "high",
+  "source": "https://radar.cloudflare.com/bots/directory/nitro"
+ },
+ "nixstats": {
+  "token": "NIXStatsbot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "nodeping": {
+  "token": "NodePing",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "noibu": {
+  "token": "Noibu",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "noorobot": {
+  "token": "noorobot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "nooshub": {
+  "token": "Nooshub",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "nostocrawlerbot": {
+  "token": "NostoCrawlerBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "nostra": {
+  "token": "NostraBot",
+  "confidence": "high",
+  "source": "https://www.nostra.ai/edge-optimization"
+ },
+ "notion-automation": {
+  "token": "NotionAutomation",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "novellum-ai-crawl": {
+  "token": "Novellum",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "oai-adsbot": {
+  "token": "OAI-AdsBot",
+  "confidence": "high",
+  "source": "https://developers.openai.com/api/docs/bots"
+ },
+ "oai-searchbot": {
+  "token": "OAI-SearchBot",
+  "confidence": "high",
+  "source": "https://platform.openai.com/docs/bots"
+ },
+ "ohdear": {
+  "token": "OhDear.app",
+  "aliases": [
+   "OhDear"
+  ],
+  "confidence": "high",
+  "source": "https://ohdear.app/docs/faq/what-is-the-oh-dear-checker"
+ },
+ "okx-dolphin-crawler": {
+  "token": "OKX-dolphin-crawler",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "omnisend": {
+  "token": "Omnisend",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "oncrawl": {
+  "token": "Oncrawl",
+  "aliases": [
+   "www.oncrawl.com"
+  ],
+  "confidence": "high",
+  "source": "https://knownagents.com/agents/oncrawl"
+ },
+ "onetrust-cmp-scanner": {
+  "token": "OneTrust",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "online-webceo-bot": {
+  "token": "online-webceo-bot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "onlineornot": {
+  "token": "OnlineOrNot",
+  "aliases": [
+   "OnlineOrNot.com_bot"
+  ],
+  "confidence": "high",
+  "source": "https://knownagents.com/agents/onlineornot"
+ },
+ "opengraphbot": {
+  "token": "OpenGraph.io",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "openrss": {
+  "token": "OpenRSS",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "orlo-link-preview": {
+  "token": "Orlo-LinkPreview",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "outbrain": {
+  "token": "outbrain",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "outsell-url-validator": {
+  "token": "OutsellURLValidator",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "overcast": {
+  "token": "Overcast",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "ozon-web-grabber": {
+  "token": "OdklBot",
+  "confidence": "high",
+  "source": "https://udger.com/resources/ua-list/bot-detail?bot=OdklBot"
+ },
+ "paddle-webhooks": {
+  "token": "Paddle",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "paesslermonitoring": {
+  "token": "PRTGCloudBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "panopta": {
+  "token": "Panopta",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "parsely": {
+  "token": "parse.ly",
+  "aliases": [
+   "parsely.com"
+  ],
+  "confidence": "high",
+  "source": "https://docs.parse.ly/crawler/"
+ },
+ "particlenewsbot": {
+  "token": "ParticleNewsBot",
+  "confidence": "high",
+  "source": "https://particle.news/bot"
+ },
+ "payhawk-invoice-fetching-bot": {
+  "token": "Payhawk",
+  "confidence": "high",
+  "source": "https://payhawk.com/help/overview-of-the-financial-controller-agent"
+ },
+ "paypal": {
+  "token": "PayPal",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "payroll-bot": {
+  "token": "AdpResearchBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "pci-qualys": {
+  "token": "cf-qualys-scanner",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "perplexity-user-4": {
+  "token": "Perplexity-User",
+  "confidence": "high",
+  "source": "https://docs.perplexity.ai/guides/bots"
+ },
+ "petalbot": {
+  "token": "PetalBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "pingdom": {
+  "token": "Pingdom.com_bot",
+  "aliases": [
+   "pingbot",
+   "PingdomPageSpeed",
+   "PingdomTMS"
+  ],
+  "confidence": "high",
+  "source": "https://knownagents.com/agents/pingdom-com-bot"
+ },
+ "pingping": {
+  "token": "pingping.io",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "pingpingbot": {
+  "token": "pingping.io",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "pinterest": {
+  "token": "Pinterestbot",
+  "aliases": [
+   "Pinterest",
+   "pinterest.com"
+  ],
+  "confidence": "high",
+  "source": "https://help.pinterest.com/en/business/article/pinterestbot"
+ },
+ "pocketcasts-feed-parser": {
+  "token": "PocketCasts",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "polar": {
+  "token": "polar.sh",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "potions": {
+  "token": "Potions",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "prerender": {
+  "token": "Prerender",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "press-engine-bot": {
+  "token": "PressEngineBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "pricey": {
+  "token": "PriceyBot",
+  "confidence": "high",
+  "source": "https://www.pricey.jp"
+ },
+ "printfriendly": {
+  "token": "PrintFriendly.com",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "pro-sitemaps": {
+  "token": "Pro-Sitemaps",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "probely": {
+  "token": "ProbelySPDR",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "productsup-crawler": {
+  "token": "productsup.io",
+  "aliases": [
+   "Productsup"
+  ],
+  "confidence": "medium",
+  "source": "https://help.productsup.com/en/29437-29446-import-data-by-crawling-your-website.html"
+ },
+ "project-honeypot": {
+  "token": "Verispider",
+  "aliases": [
+   "PHPot"
+  ],
+  "confidence": "high",
+  "source": "https://radar.cloudflare.com/bots/directory/project-honeypot"
+ },
+ "project-shield-urlcheck": {
+  "token": "ProjectShield-UrlCheck",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "protopage": {
+  "token": "Protopage",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "proximic": {
+  "token": "proximic",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "pulsetic-8": {
+  "token": "pulsetic.com",
+  "confidence": "high",
+  "source": "https://help.pulsetic.com/article/198-pulsetic-user-agent"
+ },
+ "pwabuilder": {
+  "token": "PWABuilderHttpAgent",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "qatechbot": {
+  "token": "QATechBot",
+  "confidence": "high",
+  "source": "https://qa.tech"
+ },
+ "qualifiedbot": {
+  "token": "QualifiedBot",
+  "confidence": "high",
+  "source": "https://www.qualified.com/legal/qualified-crawler-user-agent"
+ },
+ "qualys": {
+  "token": "Qualys",
+  "confidence": "high",
+  "source": "https://www.qualys.com/"
+ },
+ "quantcastbot": {
+  "token": "Quantcastbot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "quartr-crawler": {
+  "token": "QuartrCrawler",
+  "confidence": "high",
+  "source": "https://quartr.com"
+ },
+ "quickpay-callback": {
+  "token": "Quickpay",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "qwantbot": {
+  "token": "Qwantbot",
+  "aliases": [
+   "Qwantbot-junior",
+   "Qwantbot-news",
+   "Qwantbot-official",
+   "Qwantbot-wikidata",
+   "Qwantbot-opt"
+  ],
+  "confidence": "high",
+  "source": "https://help.qwant.com/bot/"
+ },
+ "rackspace": {
+  "token": "Rackspace",
+  "aliases": [
+   "Monitoring"
+  ],
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "rakutenusabot-image": {
+  "token": "rakutenusabot-image",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "razorpay-webhook-3": {
+  "token": "Razorpay",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "readable": {
+  "token": "Readable",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "recurly": {
+  "token": "Recurly",
+  "aliases": [
+   "Webhooks"
+  ],
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "redactus-proxy-service": {
+  "token": "Redactus",
+  "confidence": "high",
+  "source": "https://bot.redactus.co.uk/proxy"
+ },
+ "redactus-web-classifier": {
+  "token": "RedactusWebClassifier",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "reelevant": {
+  "token": "Reelevant",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "retool": {
+  "token": "Retool",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "retrolistecom": {
+  "token": "RetroListeCOM",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "revvim": {
+  "token": "RevvimGort",
+  "confidence": "high",
+  "source": "https://knownagents.com/operators/revvim"
+ },
+ "reward-gateway": {
+  "token": "reward-gateway",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "rigor": {
+  "token": "Rigor",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "robinbot": {
+  "token": "Robinbot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "rogerbot": {
+  "token": "rogerbot",
+  "aliases": [
+   "rogerbot-crawler"
+  ],
+  "confidence": "high",
+  "source": "https://moz.com/help/moz-procedures/crawlers/rogerbot"
+ },
+ "rss2tg-bot": {
+  "token": "rss2tg_bot",
+  "aliases": [
+   "rss2tg"
+  ],
+  "confidence": "low",
+  "source": "ua"
+ },
+ "rssapi": {
+  "token": "RSSAPI",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "ryebot": {
+  "token": "RyeBot",
+  "confidence": "high",
+  "source": "https://rye.com/docs/api-v2-experimental/ryebot"
+ },
+ "salesforce": {
+  "token": "SFDC-Callout",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "salesviewer": {
+  "token": "page-preview-tool",
+  "aliases": [
+   "SalesViewerBot"
+  ],
+  "confidence": "high",
+  "source": "https://knownagents.com/agents/page-preview-tool"
+ },
+ "sansec-security-monitor": {
+  "token": "Sansec",
+  "confidence": "medium",
+  "source": "https://knownagents.com/agents/sansec-security-monitor"
+ },
+ "scavobot": {
+  "token": "ScavoBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "scour-rss-bot": {
+  "token": "ScourRSSBot",
+  "aliases": [
+   "Scour",
+   "ScourBot",
+   "scour.ing"
+  ],
+  "confidence": "high",
+  "source": "https://scour.ing/bot"
+ },
+ "se-ranking-bot": {
+  "token": "SEBot-WA",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "searchatlas-bot": {
+  "token": "SearchAtlas",
+  "aliases": [
+   "SearchAtlas-Research"
+  ],
+  "confidence": "high",
+  "source": "https://knownagents.com/agents/searchatlas"
+ },
+ "securityheaders": {
+  "token": "SecurityHeaders",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "seekport": {
+  "token": "SeekportBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "semrush-ba": {
+  "token": "SemrushBot-BA",
+  "confidence": "high",
+  "source": "https://www.semrush.com/bot/"
+ },
+ "semrush-bl": {
+  "token": "SemrushBot",
+  "confidence": "high",
+  "source": "https://www.semrush.com/bot/"
+ },
+ "semrush-lb": {
+  "token": "SemrushBot",
+  "confidence": "high",
+  "source": "https://www.semrush.com/bot/"
+ },
+ "semrush-sa": {
+  "token": "SemrushBot-SA",
+  "aliases": [
+   "SiteAuditBot"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "semrush-si": {
+  "token": "SemrushBot-SI",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "semrush-siteauditbot": {
+  "token": "SiteAuditBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "semrush-swa": {
+  "token": "SemrushBot-SWA",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "semrushbot-ocob": {
+  "token": "SemrushBot-OCOB",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "sendgrid": {
+  "token": "SendGrid",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "sentry": {
+  "token": "sentry",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "sentry-uptime-monitoring": {
+  "token": "SentryUptimeBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "seo-audit-check-bot": {
+  "token": "seo-audit-check-bot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "seo4ajax": {
+  "token": "s4a",
+  "aliases": [
+   "seo4ajax.com"
+  ],
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "seobilitybot": {
+  "token": "SeobilityBot",
+  "aliases": [
+   "Seobility"
+  ],
+  "confidence": "high",
+  "source": "https://www.seobility.net/sites/bot.html"
+ },
+ "sequelwpbpt": {
+  "token": "SequelWP",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "serankingbacklinksbot": {
+  "token": "SERankingBacklinksBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "serpstatbot-6": {
+  "token": "serpstatbot",
+  "aliases": [
+   "curl"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "serverdensity": {
+  "token": "ServerDensity",
+  "confidence": "high",
+  "source": "https://www.stackpath.com/"
+ },
+ "serverhunter": {
+  "token": "ServerHunterSpider",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "seznam": {
+  "token": "SeznamBot",
+  "confidence": "high",
+  "source": "https://napoveda.seznam.cz/en/seznambot-crawler/"
+ },
+ "shapbot": {
+  "token": "ShapBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "shopify-captain-hook": {
+  "token": "Shopify-Captain-Hook",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "shortwave-image-fetcher": {
+  "token": "Shortwave",
+  "confidence": "medium",
+  "source": "https://radar.cloudflare.com/bots/directory/shortwave-image-fetcher"
+ },
+ "silktidebot": {
+  "token": "SilktideBot",
+  "aliases": [
+   "Silktide",
+   "articles"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "silvestro": {
+  "token": "Silvestro",
+  "confidence": "high",
+  "source": "https://silverstream.ai"
+ },
+ "sistrix-optimizer": {
+  "token": "SISTRIX",
+  "confidence": "medium",
+  "source": "https://www.sistrix.com/faq/uptime"
+ },
+ "site-search-360": {
+  "token": "SiteSearch360",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "site24x7": {
+  "token": "site24x7",
+  "aliases": [
+   "site24x7.com"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "sitecheck-sitecrawl": {
+  "token": "SiteCheck-sitecrawl",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "siteimprove-linkcheck": {
+  "token": "LinkCheck",
+  "confidence": "medium",
+  "source": "https://knownagents.com/agents/linkcheck-by-siteimprove-com"
+ },
+ "sitelock": {
+  "token": "SiteLockSpider",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "siteuptime": {
+  "token": "SiteUptime",
+  "aliases": [
+   "SiteUptime.com"
+  ],
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "skroutzbot": {
+  "token": "SkroutzBot",
+  "confidence": "high",
+  "source": "https://knownagents.com/agents/skroutzbot"
+ },
+ "skroutzimagebot": {
+  "token": "Skroutz",
+  "aliases": [
+   "SkroutzBot"
+  ],
+  "confidence": "medium",
+  "source": "https://knownagents.com/agents/skroutz-imagebot"
+ },
+ "skypeuripreview": {
+  "token": "SkypeUriPreview",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "slackbot": {
+  "token": "Slackbot",
+  "aliases": [
+   "Slackbot-LinkExpanding"
+  ],
+  "confidence": "high",
+  "source": "https://api.slack.com/robots"
+ },
+ "slackbotimg": {
+  "token": "Slack-ImgProxy",
+  "confidence": "high",
+  "source": "https://api.slack.com/robots"
+ },
+ "slickstream": {
+  "token": "SlickBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "slopsearch": {
+  "token": "slopsearch",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "smarsh": {
+  "token": "SmarshBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "smartologybot-2": {
+  "token": "SmartologyBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "smtnetpmbot": {
+  "token": "SMTnetPMBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "snipcart": {
+  "token": "Snipcart",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "solarwinds-observability": {
+  "token": "solarwinds",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "sora-caisse-pos": {
+  "token": "Sora",
+  "aliases": [
+   "Sora-POS",
+   "POS"
+  ],
+  "confidence": "low",
+  "source": "https://radar.cloudflare.com/bots/directory/sora-caisse-pos"
+ },
+ "spark-shipping": {
+  "token": "SparkShipping",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "sparkpost": {
+  "token": "SparkPost",
+  "confidence": "high",
+  "source": "pattern"
+ },
+ "spectate": {
+  "token": "Spectate",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "splunk-attack-analyzer": {
+  "token": "TwinWaveScanner",
+  "confidence": "high",
+  "source": "https://radar.cloudflare.com/bots/directory/splunk-attack-analyzer"
+ },
+ "splunk-synthetics": {
+  "token": "Splunk",
+  "confidence": "medium",
+  "source": "https://knownagents.com/agents/splunk-synthetics"
+ },
+ "spyglasses-bot": {
+  "token": "SpyglassesBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "stape-scanner": {
+  "token": "Stape",
+  "confidence": "medium",
+  "source": "https://stape.io/helpdesk/documentation/stape-scanner"
+ },
+ "statabot": {
+  "token": "Statabot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "statistikaustria": {
+  "token": "StatistikAustria",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "statsdronebot": {
+  "token": "StatsDroneBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "statuscake": {
+  "token": "statuscake",
+  "aliases": [
+   "StatusCake_Pagespeed_Indev"
+  ],
+  "confidence": "high",
+  "source": "https://knownagents.com/agents/statuscake"
+ },
+ "steam-chat": {
+  "token": "SteamChat",
+  "aliases": [
+   "SteamChatURLLookup",
+   "SteamChatImageProxy"
+  ],
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "storebot-google": {
+  "token": "Storebot-Google",
+  "confidence": "high",
+  "source": "https://developers.google.com/search/docs/crawling-indexing/overview-google-crawlers"
+ },
+ "stripe": {
+  "token": "Stripe",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "stripe-apple-pay-verify-ownership": {
+  "token": "oslopartner",
+  "confidence": "medium",
+  "source": "https://developer.apple.com/forums/thread/704234"
+ },
+ "stripebot": {
+  "token": "Stripebot",
+  "confidence": "high",
+  "source": "https://docs.stripe.com/stripebot-crawler"
+ },
+ "sucuri": {
+  "token": "Sucuri",
+  "confidence": "high",
+  "source": "https://radar.cloudflare.com/bots/directory/sucuri"
+ },
+ "svix-webhooks": {
+  "token": "Svix-Webhooks",
+  "aliases": [
+   "Webhooks",
+   "sender-9YMgn"
+  ],
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "swifteq-link-checker": {
+  "token": "SwifteqLinkChecker",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "taboola": {
+  "token": "Taboolabot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "telegrambot": {
+  "token": "TelegramBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "termly": {
+  "token": "TermlyBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "termlybot-2": {
+  "token": "TermlyBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "terracotta": {
+  "token": "Terracotta",
+  "aliases": [
+   "Terracotta-News"
+  ],
+  "confidence": "high",
+  "source": "https://github.com/CeramicTeam/CeramicTerracotta"
+ },
+ "theskinnyai": {
+  "token": "TheSkinnyAI-Crawler",
+  "aliases": [
+   "TheSkinnyCrawler"
+  ],
+  "confidence": "high",
+  "source": "https://theskinnyai.com/bot-docs/"
+ },
+ "thousand-eyes": {
+  "token": "TE/1.0",
+  "confidence": "high",
+  "source": "https://docs.thousandeyes.com/product-documentation/tests/excluding-thousandeyes-agents-from-google-analytics"
+ },
+ "trellis-services": {
+  "token": "Trellis-Services",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "trendictionbot": {
+  "token": "trendictionbot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "trustly": {
+  "token": "Trustly",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "ttd-content": {
+  "token": "TTD-Content",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "turnitinbot": {
+  "token": "TurnitinBot",
+  "aliases": [
+   "Turnitin",
+   "bit.ly"
+  ],
+  "confidence": "high",
+  "source": "https://www.turnitin.com/robot/crawlerinfo.html"
+ },
+ "twilioproxy": {
+  "token": "TwilioProxy",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "twinagent": {
+  "token": "TwinAgent",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "twitterbot": {
+  "token": "Twitterbot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "upday": {
+  "token": "upday",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "updown": {
+  "token": "updown.io",
+  "confidence": "high",
+  "source": "https://darkvisitors.com/agents/updown-io-daemon"
+ },
+ "upstash-qstash": {
+  "token": "Upstash-QStash",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "uptime": {
+  "token": "Uptime",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "uptime-monitoring": {
+  "token": "UptimeMonitoring",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "uptime-robot": {
+  "token": "UptimeRobot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "uptimebot": {
+  "token": "UptimeBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "uptimerobot": {
+  "token": "UptimeRobot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "uptimia": {
+  "token": "Uptimia",
+  "aliases": [
+   "www.uptimia.com"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "uptrends": {
+  "token": "uptrends",
+  "confidence": "high",
+  "source": "https://knownagents.com/agents/uptrends"
+ },
+ "vaultpress": {
+  "token": "VaultPress",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "ventus-agent": {
+  "token": "Ventus",
+  "confidence": "high",
+  "source": "https://dev.ventus.ai/bot"
+ },
+ "videootvbot": {
+  "token": "videootvBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "virustotalscan": {
+  "token": "VirusTotalScan",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "visually-io-shopify-editor": {
+  "token": "Visually",
+  "confidence": "high",
+  "source": "https://help.visually.io/visually.io-editor-cloudflare-signed-agent"
+ },
+ "w3-validator-services": {
+  "token": "W3C-checklink",
+  "confidence": "high",
+  "source": "pattern"
+ },
+ "wardbot": {
+  "token": "WARDBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "watchbot": {
+  "token": "Watchbot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "watchful": {
+  "token": "WebsiteOps",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "wave-streaming-platform": {
+  "token": "WaveBot",
+  "confidence": "high",
+  "source": "https://wave.online"
+ },
+ "wave-streaming-platform-2": {
+  "token": "WaveBot",
+  "confidence": "high",
+  "source": "https://wave.online"
+ },
+ "wayflyer": {
+  "token": "Wayflyer",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "web-spider-mount": {
+  "token": "WSM",
+  "aliases": [
+   "webspidermount"
+  ],
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "webpagetest": {
+  "token": "PTST",
+  "aliases": [
+   "webpagetest"
+  ],
+  "confidence": "high",
+  "source": "https://darkvisitors.com/agents/webpagetest"
+ },
+ "websitepulse": {
+  "token": "websitepulse",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "webstatus247": {
+  "token": "Webstatus247",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "webtotem": {
+  "token": "WTotemBot",
+  "aliases": [
+   "WTotem"
+  ],
+  "confidence": "high",
+  "source": "https://docs.wtotem.com/en/wtotembot"
+ },
+ "wikimedia-citoid": {
+  "token": "Citoid",
+  "confidence": "high",
+  "source": "https://radar.cloudflare.com/bots/directory/wikimedia-citoid"
+ },
+ "wikimedia-zotero": {
+  "token": "ZoteroTranslationServer",
+  "confidence": "high",
+  "source": "https://radar.cloudflare.com/bots/directory/wikimedia-zotero"
+ },
+ "wkndhealthcheckbot": {
+  "token": "wknd-bot",
+  "confidence": "high",
+  "source": "pattern"
+ },
+ "wordcountbot": {
+  "token": "WordCountBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "wordfence-central": {
+  "token": "Wordfence",
+  "confidence": "high",
+  "source": "https://www.wordfence.com/help/central/connect/#troubleshooting-connection-issues"
+ },
+ "wordline": {
+  "token": "Worldline",
+  "confidence": "high",
+  "source": "https://secure.ogone.com/"
+ },
+ "wordpress-namecheap": {
+  "token": "WordPress",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "worldpay": {
+  "token": "WJHRO",
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "wormly": {
+  "token": "WormlyBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "wovn-crawler-3": {
+  "token": "WovnCrawler",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "wp-time-capsule": {
+  "token": "WPTimeCapsule",
+  "confidence": "high",
+  "source": "user-provided"
+ },
+ "wp-umbrella": {
+  "token": "WPUmbrella",
+  "confidence": "high",
+  "source": "https://knownagents.com/agents/wpumbrella"
+ },
+ "wp-umbrella-bot": {
+  "token": "WPUmbrella",
+  "confidence": "high",
+  "source": "https://wp-umbrella.com"
+ },
+ "wpmu-dev-broken-link-checker": {
+  "token": "WPMUDEV-Broken-Link-Checker",
+  "confidence": "high",
+  "source": "https://wpmudev.com/docs/hub-2-0/broken-link-checker-2/"
+ },
+ "wpmudev-uptime-monitor-5-0": {
+  "token": "WPMUDEV",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "xy-archive-compliance-bot": {
+  "token": "XY-Archive-Compliance",
+  "aliases": [
+   "XY-Archive-Compliance-Crawler",
+   "XY-Archive-Compliance-Archiver"
+  ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "yahoo-japan": {
+  "token": "YJ-SAD",
+  "confidence": "high",
+  "source": "baseline"
+ },
+ "yahoo-jp-seo": {
+  "token": "J-BRW",
+  "confidence": "high",
+  "source": "baseline"
+ },
+ "yahoo-mail-proxy": {
+  "token": "YahooMailProxy",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "yahooadmonitor": {
+  "token": "yahoo.adquality.lwd.desktop",
+  "aliases": [
+   "yahoo.adquality"
+  ],
+  "confidence": "medium",
+  "source": "ua"
+ },
+ "yahoocache": {
+  "token": "YahooCacheSystem",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "yahoojapan": {
+  "token": "YJ-DLC",
+  "aliases": [
+   "J-DLC"
+  ],
+  "confidence": "medium",
+  "source": "https://support.yahoo-net.jp/PccSearch/s/article/H000007955"
+ },
+ "yahoolinkpreview": {
+  "token": "Yahoo",
+  "confidence": "low",
+  "source": "https://help.yahoo.com/kb/mail/yahoo-link-preview-SLN23615.html"
+ },
+ "yahoomailproxy": {
+  "token": "YahooMailProxy",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "yahooslurp": {
+  "token": "Slurp",
+  "aliases": [
+   "sieve-gq1"
+  ],
+  "confidence": "high",
+  "source": "https://help.yahoo.com/kb/SLN22600.html"
+ },
+ "yandex": {
+  "token": "YandexBot",
+  "aliases": [
+   "Yandex"
+  ],
+  "confidence": "high",
+  "source": "https://yandex.com/support/webmaster/robot-workings/check-yandex-robots.html"
+ },
+ "yextbot": {
+  "token": "YextBot",
+  "aliases": [
+   "HeadlessChrome"
+  ],
+  "confidence": "high",
+  "source": "https://radar.cloudflare.com/bots/directory/yextbot"
+ },
+ "ygs-group-falconer-scraper": {
+  "token": "ygs-scraper-bot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "yokoy-group": {
+  "token": "YokoyGroupAG",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "youbot": {
+  "token": "YouBot",
+  "confidence": "high",
+  "source": "https://docs.you.com/youbot"
+ },
+ "zapier": {
+  "token": "Zapier",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "zendesk-webhook": {
+  "token": "Zendesk",
+  "confidence": "low",
+  "source": "https://radar.cloudflare.com/bots/directory/zendesk-webhook"
+ },
+ "zipchatbot": {
+  "token": "ZipchatBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "zoominfobot": {
+  "token": "ZoominfoBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "zumbot": {
+  "token": "ZumBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "zvelo-bot": {
+  "token": "ZveloBot",
+  "aliases": [
+   "zvelo-bot",
+   "Zvelo"
+  ],
+  "confidence": "low",
+  "source": "https://www.webmasterworld.com/search_engine_spiders/4433677.htm"
+ }
+}

@@ -1,0 +1,164 @@
+[
+	{
+		"name": "Anthropic AI",
+		"operator": "Anthropic",
+		"category": "AI_CRAWLER",
+		"description": "Anthropic's older AI data-collection crawler (anthropic-ai).",
+		"slug": "anthropic-ai",
+		"userAgents": ["anthropic-ai"],
+		"userAgentPatterns": ["anthropic-ai"]
+	},
+	{
+		"name": "ClaudeBot",
+		"operator": "Anthropic",
+		"category": "AI_CRAWLER",
+		"description": "Anthropic's Claude crawler; collects content to train and operate Claude.",
+		"slug": "claudebot",
+		"userAgents": ["ClaudeBot"],
+		"userAgentPatterns": ["ClaudeBot"]
+	},
+	{
+		"name": "Claude-Web",
+		"operator": "Anthropic",
+		"category": "AI_CRAWLER",
+		"description": "Anthropic's Claude web crawler.",
+		"slug": "claude-web",
+		"userAgents": ["Claude-Web"],
+		"userAgentPatterns": ["Claude-Web"]
+	},
+	{
+		"name": "CCBot",
+		"operator": "Common Crawl",
+		"category": "AI_CRAWLER",
+		"description": "Common Crawl's bot; its public archive is widely used to train AI models.",
+		"slug": "ccbot",
+		"userAgents": ["CCBot"],
+		"userAgentPatterns": ["CCBot"]
+	},
+	{
+		"name": "Google-Extended",
+		"operator": "Google",
+		"category": "AI_CRAWLER",
+		"description": "Google's AI opt-out token controlling use of your content for Gemini/Vertex AI training. Does not affect Search ranking.",
+		"slug": "google-extended",
+		"userAgents": ["Google-Extended"],
+		"userAgentPatterns": ["Google-Extended"]
+	},
+	{
+		"name": "Applebot-Extended",
+		"operator": "Apple",
+		"category": "AI_CRAWLER",
+		"description": "Apple's AI opt-out token controlling use of your content to train Apple's generative models. Does not affect Siri/Spotlight indexing.",
+		"slug": "applebot-extended",
+		"userAgents": ["Applebot-Extended"],
+		"userAgentPatterns": ["Applebot-Extended"]
+	},
+	{
+		"name": "Cohere AI",
+		"operator": "Cohere",
+		"category": "AI_CRAWLER",
+		"description": "Cohere's AI data-collection crawler.",
+		"slug": "cohere-ai",
+		"userAgents": ["cohere-ai"],
+		"userAgentPatterns": ["cohere-ai"]
+	},
+	{
+		"name": "FacebookBot",
+		"operator": "Meta",
+		"category": "AI_CRAWLER",
+		"description": "Meta's crawler used to improve the language models powering its AI products.",
+		"slug": "facebookbot",
+		"userAgents": ["FacebookBot"],
+		"userAgentPatterns": ["FacebookBot"]
+	},
+	{
+		"name": "ImageSift",
+		"operator": "ImageSift",
+		"category": "AI_CRAWLER",
+		"description": "ImageSift (The Hive) image crawler; collects images for AI datasets.",
+		"slug": "imagesiftbot",
+		"userAgents": ["ImagesiftBot"],
+		"userAgentPatterns": ["ImagesiftBot"]
+	},
+	{
+		"name": "Omgili",
+		"operator": "Webz.io",
+		"category": "AI_CRAWLER",
+		"description": "Webz.io crawler; harvested data is resold, including for AI training.",
+		"slug": "omgili",
+		"userAgents": ["Omgili"],
+		"userAgentPatterns": ["Omgili"]
+	},
+	{
+		"name": "Omgilibot",
+		"operator": "Webz.io",
+		"category": "AI_CRAWLER",
+		"description": "Webz.io crawler (Omgilibot); harvested data is resold, including for AI training.",
+		"slug": "omgilibot",
+		"userAgents": ["Omgilibot"],
+		"userAgentPatterns": ["Omgilibot"]
+	},
+	{
+		"name": "Peer39 Crawler",
+		"operator": "Peer39",
+		"category": "AI_CRAWLER",
+		"description": "Peer39's advertising/AI content crawler.",
+		"slug": "peer39_crawler",
+		"userAgents": ["Peer39_crawler", "Peer39_crawler/1.0"],
+		"userAgentPatterns": ["Peer39_crawler", "Peer39_crawler/1.0"]
+	},
+	{
+		"name": "AwarioRssBot",
+		"operator": "Awario",
+		"category": "AI_CRAWLER",
+		"description": "Awario's RSS crawler for social listening and data collection.",
+		"slug": "awariorssbot",
+		"userAgents": ["AwarioRssBot"],
+		"userAgentPatterns": ["AwarioRssBot"]
+	},
+	{
+		"name": "PerplexityBot",
+		"operator": "Perplexity AI",
+		"category": "AI_CRAWLER",
+		"description": "Perplexity's crawler; indexes content for its AI answer engine.",
+		"slug": "perplexitybot",
+		"userAgents": ["PerplexityBot"],
+		"userAgentPatterns": ["PerplexityBot"]
+	},
+	{
+		"name": "Diffbot",
+		"operator": "Diffbot",
+		"category": "AI_CRAWLER",
+		"description": "Diffbot's crawler; builds structured datasets used for AI training.",
+		"slug": "diffbot",
+		"userAgents": ["Diffbot"],
+		"userAgentPatterns": ["Diffbot"]
+	},
+	{
+		"name": "Timpibot",
+		"operator": "Timpi",
+		"category": "AI_CRAWLER",
+		"description": "Timpi's crawler; collects data for its search/AI index.",
+		"slug": "timpibot",
+		"userAgents": ["Timpibot"],
+		"userAgentPatterns": ["Timpibot"]
+	},
+	{
+		"name": "Webzio-Extended",
+		"operator": "Webz.io",
+		"category": "AI_CRAWLER",
+		"description": "Webz.io AI opt-out token controlling use of harvested data for AI training.",
+		"slug": "webzio-extended",
+		"userAgents": ["Webzio-Extended"],
+		"userAgentPatterns": ["Webzio-Extended"]
+	},
+	{
+		"name": "img2dataset",
+		"operator": "img2dataset",
+		"category": "AI_CRAWLER",
+		"description": "Bulk image scraper commonly used to assemble AI training datasets.",
+		"slug": "img2dataset",
+		"userAgents": ["img2dataset"],
+		"userAgentPatterns": ["img2dataset"]
+	}
+]
