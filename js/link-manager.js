@@ -488,15 +488,21 @@
 
 		var viewRows = rowsForView( currentLinks );
 
-		// The active view has no links (e.g. nothing ignored yet). Keep the view
-		// links visible but hide the table chrome and show a view-specific note.
+		// The active view has no links (e.g. nothing ignored yet). Hide the
+		// search/toolbar chrome and show a view-specific note. The Ignored view
+		// keeps its (empty) table so the column headers stay visible.
 		if ( ! viewRows.length ) {
 			hide( els.searchBox );
 			hide( els.toolbar );
 			hide( els.toolbarBottom );
-			hide( els.results );
 			els.empty.textContent = 'ignored' === viewMode ? i18n.noIgnoredLinks : ( analyzed ? i18n.noneShown : i18n.noLinks );
 			show( els.empty );
+			if ( 'ignored' === viewMode ) {
+				tbody.innerHTML = '';
+				show( els.results );
+			} else {
+				hide( els.results );
+			}
 			syncResultsHeader();
 			return;
 		}
@@ -676,7 +682,7 @@
 			} );
 	}
 
-	// Add a rule from the relocated "Add rule" controls above the table.
+	// Add a rule from the "Add ignore rule" controls on the heading line.
 	function onAddRule() {
 		if ( ! els.ignoreType || ! els.ignoreValue ) { return; }
 		var type = els.ignoreType.value;
