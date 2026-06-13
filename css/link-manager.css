@@ -1,0 +1,602 @@
+.coywolf-seo-lm-progress {
+	max-width: 640px;
+	margin: 1em 0 1.5em;
+}
+
+.coywolf-seo-lm-progress-head {
+	display: flex;
+	align-items: flex-start;
+	margin-bottom: 8px;
+	font-weight: 600;
+}
+
+.coywolf-seo-lm-progress-head .spinner {
+	float: none;
+	/* The spinner is a fixed 20x20 background image; in this flex row it
+	   would otherwise shrink (and clip on the right) when the post title
+	   wraps to two lines. Pin its size and stop it shrinking. */
+	flex: 0 0 20px;
+	width: 20px;
+	height: 20px;
+	margin: 0 8px 0 0;
+}
+
+.coywolf-seo-lm-bar-track {
+	height: 18px;
+	background: #e2e4e7;
+	border-radius: 9px;
+	overflow: hidden;
+}
+
+.coywolf-seo-lm-bar-fill {
+	height: 100%;
+	width: 0;
+	background: #2271b1;
+	border-radius: 9px;
+	transition: width 0.3s ease;
+}
+
+/* Indeterminate "initiating" state: shown while the first batch is being
+   checked and no per-post progress exists yet, so the bar sweeps across
+   instead of sitting frozen at 0%. */
+.coywolf-seo-lm-bar-fill.is-indeterminate {
+	width: 40%;
+	transition: none;
+	animation: coywolf-seo-lm-indeterminate 1.3s ease-in-out infinite;
+	will-change: transform;
+}
+
+@keyframes coywolf-seo-lm-indeterminate {
+	0%   { transform: translateX( -110% ); }
+	100% { transform: translateX( 275% ); }
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.coywolf-seo-lm-bar-fill.is-indeterminate {
+		animation-duration: 2.6s;
+	}
+}
+
+.coywolf-seo-lm-percent {
+	margin-top: 6px;
+	font-variant-numeric: tabular-nums;
+	color: #50575e;
+}
+
+.coywolf-seo-lm-summary {
+	font-size: 13px;
+	color: #50575e;
+	margin: 0;
+}
+
+/* Primary "Check links" / "Cancel scan" buttons sit next to the
+   wp-heading-inline H1, like the Add Post button on the Posts screen
+   but with the standard primary-button styling instead of the outlined
+   page-title-action look. */
+.coywolf-seo-lm .coywolf-seo-lm-title-action {
+	margin-left: 8px;
+	vertical-align: baseline;
+}
+
+/* Row that pairs the post-scan summary with the search box, so they
+   share a single line above the toolbar instead of stacking. */
+.coywolf-seo-lm-results-header {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin: 1em 0;
+}
+
+.coywolf-seo-lm-results-header .coywolf-seo-lm-summary {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.coywolf-seo-lm-results-header .search-box {
+	/* Override WordPress core's float:right; flex handles placement. */
+	float: none;
+	margin: 0 0 0 auto;
+}
+
+/* Toolbar (filter / export / bulk) */
+.coywolf-seo-lm-toolbar {
+	margin: 0.5em 0;
+}
+
+.coywolf-seo-lm-toolbar-right > * {
+	vertical-align: middle;
+	margin-left: 6px;
+}
+
+.coywolf-seo-lm-toolbar-right .coywolf-seo-lm-search {
+	min-width: 220px;
+}
+
+/* Pagination nav inside our toolbars — mirror core's WP_List_Table styling. */
+.coywolf-seo-lm-pagination .paging-input {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	margin: 0 4px;
+}
+
+.coywolf-seo-lm-pagination .current-page {
+	width: 3em;
+	text-align: center;
+}
+
+.coywolf-seo-lm-pagination .displaying-num {
+	margin-right: 8px;
+	color: #50575e;
+}
+
+/* Table */
+.coywolf-seo-lm-table {
+	margin-top: 0.5em;
+	table-layout: auto; /* Let cells expand to content instead of overflowing. */
+}
+
+.coywolf-seo-lm-table .column-cb {
+	width: 2.2em;
+}
+
+.coywolf-seo-lm-table .column-code {
+	width: 110px;
+}
+
+.coywolf-seo-lm-table .column-url a {
+	word-break: break-all;
+}
+
+/* Response badge — short text, full detail on hover via title attribute. */
+.coywolf-seo-lm-code {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 3px;
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1.6;
+	white-space: nowrap;
+	cursor: help;
+}
+
+.coywolf-seo-lm-code--4xx {
+	background: #fcf0f1;
+	color: #b32d2e;
+	border: 1px solid #f0c0c1;
+}
+
+.coywolf-seo-lm-code--5xx {
+	background: #fdf3e7;
+	color: #bd5b00;
+	border: 1px solid #f3d6ad;
+}
+
+.coywolf-seo-lm-code--err {
+	background: #f0f0f1;
+	color: #50575e;
+	border: 1px solid #dcdcde;
+}
+
+.coywolf-seo-lm-code--other {
+	background: #edf7ed;
+	color: #1e7e1e;
+	border: 1px solid #c6e6c6;
+}
+
+/* Redirect badge: informational blue, distinct from broken (red/amber). */
+.coywolf-seo-lm-code--redirect {
+	background: #e7f0fb;
+	color: #1d4ed8;
+	border: 1px solid #c3dafb;
+}
+
+/* "Redirects to" secondary line under the original URL. */
+.coywolf-seo-lm-redirect-to {
+	margin-top: 3px;
+	font-size: 12px;
+	color: #50575e;
+}
+
+.coywolf-seo-lm-redirect-arrow {
+	color: #1d4ed8;
+	font-weight: 600;
+}
+
+.coywolf-seo-lm-redirect-to a {
+	word-break: break-all;
+}
+
+/* URL-column actions (Edit | Remove) — revealed on row hover, like the
+   Post column's row actions. */
+.coywolf-seo-lm-table .coywolf-seo-lm-url-actions {
+	margin-top: 3px;
+}
+
+/* All URL-row actions (Edit | Remove | Replace | Ignore domain |
+   Ignore URL | Wildcard ignore) share the same blue as the Post
+   column's Edit / View links, so the row reads as one tidy set of
+   actions instead of a traffic-light strip of mixed colours. */
+.coywolf-seo-lm-table .coywolf-seo-lm-url-actions a {
+	color: #2271b1;
+}
+
+/* Wildcard-ignore modal: examples block. */
+.coywolf-seo-lm-wildcard-examples {
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 3px;
+	padding: 8px 10px;
+	line-height: 1.7;
+}
+
+.coywolf-seo-lm-wildcard-examples code {
+	background: transparent;
+}
+
+/* From/to pair shown inside the Replace confirmation modal. */
+.coywolf-seo-lm-confirm-detail {
+	margin: 8px 0 12px;
+	max-height: 240px;
+	overflow: auto;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 3px;
+	padding: 8px 10px;
+}
+
+.coywolf-seo-lm-replace-pair {
+	margin: 0 0 6px;
+}
+
+.coywolf-seo-lm-replace-pair:last-child {
+	margin-bottom: 0;
+}
+
+.coywolf-seo-lm-replace-pair code {
+	background: transparent;
+	word-break: break-all;
+}
+
+.coywolf-seo-lm-replace-label {
+	display: inline-block;
+	min-width: 3em;
+	color: #50575e;
+	font-weight: 600;
+}
+
+/* Destructive confirm button. */
+/* Scoped under .wp-core-ui too, so it reliably overrides core's .button color. */
+.coywolf-seo-lm-danger,
+.wp-core-ui .coywolf-seo-lm-danger,
+.wp-core-ui .button.coywolf-seo-lm-danger {
+	border-color: #b32d2e;
+	background: #b32d2e;
+	color: #fff;
+}
+
+.coywolf-seo-lm-danger:hover,
+.coywolf-seo-lm-danger:focus,
+.wp-core-ui .coywolf-seo-lm-danger:hover,
+.wp-core-ui .coywolf-seo-lm-danger:focus,
+.wp-core-ui .button.coywolf-seo-lm-danger:hover,
+.wp-core-ui .button.coywolf-seo-lm-danger:focus {
+	border-color: #8a1f20;
+	background: #8a1f20;
+	color: #fff;
+}
+
+/* Edit-link modal */
+.coywolf-seo-lm-modal {
+	position: fixed;
+	inset: 0;
+	z-index: 100000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.coywolf-seo-lm-modal-backdrop {
+	position: absolute;
+	inset: 0;
+	background: rgba( 0, 0, 0, 0.5 );
+}
+
+.coywolf-seo-lm-modal-box {
+	position: relative;
+	background: #fff;
+	border-radius: 4px;
+	box-shadow: 0 4px 24px rgba( 0, 0, 0, 0.25 );
+	padding: 20px 24px 24px;
+	width: 92%;
+	max-width: 560px;
+}
+
+.coywolf-seo-lm-modal-box h2 {
+	margin: 0 0 6px;
+	font-size: 1.3em;
+}
+
+.coywolf-seo-lm-modal-box #coywolf-seo-lm-modal-help {
+	margin: 0 0 12px;
+}
+
+.coywolf-seo-lm-modal-box input[type="url"] {
+	width: 100%;
+}
+
+.coywolf-seo-lm-modal-error {
+	color: #b32d2e;
+	margin: 10px 0 0;
+}
+
+.coywolf-seo-lm-modal-actions {
+	margin-top: 18px;
+	text-align: right;
+}
+
+.coywolf-seo-lm-modal-actions .button {
+	margin-left: 8px;
+}
+
+/* Merged Post column: title link + hover row actions, matching core lists. */
+.coywolf-seo-lm-table .column-post .row-title {
+	font-weight: 600;
+}
+
+.coywolf-seo-lm-table .row-actions {
+	color: #646970;
+	font-size: 13px;
+	visibility: hidden;
+	padding: 2px 0 0;
+}
+
+.coywolf-seo-lm-table tr:hover .row-actions,
+.coywolf-seo-lm-table tr:focus-within .row-actions {
+	visibility: visible;
+}
+
+/* Touch / keyboard: don't hide actions when hover is unavailable. */
+@media (hover: none) {
+	.coywolf-seo-lm-table .row-actions {
+		visibility: visible;
+	}
+}
+
+.coywolf-seo-lm-table .row-actions span.edit a {
+	color: #2271b1;
+}
+
+/* Empty / filtered-out message */
+.coywolf-seo-lm-empty {
+	color: #50575e;
+	font-style: italic;
+	margin: 0.75em 2px;
+}
+
+/* Sort indicator fallback (in case core list-table CSS is absent). */
+.coywolf-seo-lm-table th.sortable a,
+.coywolf-seo-lm-table th.sorted a {
+	display: inline-flex;
+	align-items: center;
+	text-decoration: none;
+}
+
+.coywolf-seo-lm-table th .sorting-indicator {
+	display: inline-block;
+	width: 0;
+	height: 0;
+	margin-left: 6px;
+	visibility: hidden;
+	border-left: 4px solid transparent;
+	border-right: 4px solid transparent;
+}
+
+.coywolf-seo-lm-table th.sorted .sorting-indicator {
+	visibility: visible;
+}
+
+.coywolf-seo-lm-table th.sorted.asc .sorting-indicator {
+	border-bottom: 5px solid #50575e;
+}
+
+.coywolf-seo-lm-table th.sorted.desc .sorting-indicator {
+	border-top: 5px solid #50575e;
+}
+
+/* Add-rule controls (above the All Links table) */
+.coywolf-seo-lm-ignore-add {
+	margin: 0.5em 0 1em;
+}
+
+.coywolf-seo-lm-ignore-add select,
+.coywolf-seo-lm-ignore-add input {
+	margin-right: 6px;
+	vertical-align: middle;
+}
+
+/* "All | Ignored" view links. Inherits WordPress core .subsubsub styling. */
+.coywolf-seo-lm-views .coywolf-seo-lm-view-sep {
+	color: #c3c4c7;
+	padding: 0 0.25em;
+}
+
+/* ---------------------------------------------------------------------
+ * Link Manager — inventory table additions
+ * ------------------------------------------------------------------- */
+
+/* 2xx OK badge (green) and unchecked/pending badge (muted). */
+.coywolf-seo-lm-code--ok {
+	background: #edf7ed;
+	color: #1e7e1e;
+	border: 1px solid #c6e6c6;
+}
+
+.coywolf-seo-lm-code--none {
+	background: #f6f7f7;
+	color: #787c82;
+	border: 1px solid #dcdcde;
+	cursor: default;
+}
+
+/* Internal / External type pill. */
+.coywolf-seo-lm-type {
+	display: inline-block;
+	padding: 1px 8px;
+	border-radius: 9px;
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.coywolf-seo-lm-type--internal {
+	background: #eef2ff;
+	color: #3730a3;
+	border: 1px solid #d4ddff;
+}
+
+.coywolf-seo-lm-type--external {
+	background: #f6f7f7;
+	color: #50575e;
+	border: 1px solid #dcdcde;
+}
+
+.coywolf-seo-lm-zero {
+	color: #a7aaad;
+}
+
+/* Inventory column widths. */
+.coywolf-seo-lm-table .column-code { width: 90px; }
+.coywolf-seo-lm-table .column-type { width: 90px; }
+.coywolf-seo-lm-table .column-posts,
+.coywolf-seo-lm-table .column-pages { width: 70px; }
+
+/* ---------------------------------------------------------------------
+ * Edit Link page
+ * ------------------------------------------------------------------- */
+
+.coywolf-seo-lm-rel label {
+	display: inline-block;
+	margin: 0 16px 6px 0;
+	white-space: nowrap;
+}
+
+table.coywolf-seo-lm-occ {
+	margin-top: 8px;
+	max-width: 900px;
+}
+
+table.coywolf-seo-lm-occ th,
+table.coywolf-seo-lm-occ td {
+	padding: 12px 15px;
+	vertical-align: middle;
+}
+
+table.coywolf-seo-lm-occ .column-anchor {
+	width: 280px;
+}
+
+table.coywolf-seo-lm-occ .column-remove {
+	width: 80px;
+	text-align: center;
+}
+
+table.coywolf-seo-lm-occ td.column-anchor input[type="text"] {
+	width: 100%;
+}
+
+/* Hover-reveal the per-occurrence row links (Edit | View), WP list-table style. */
+table.coywolf-seo-lm-occ .row-actions {
+	position: static;
+	color: #646970;
+	visibility: hidden;
+}
+
+table.coywolf-seo-lm-occ tr:hover .row-actions,
+table.coywolf-seo-lm-occ .row-actions:focus-within {
+	visibility: visible;
+}
+
+/* Bold the primary URL in the All Links table; let long URLs wrap rather than
+ * push the layout wide (they are also length-truncated in JS). */
+.coywolf-seo-lm-url-main {
+	font-weight: 600;
+}
+
+/* "Opens in a new tab" indicator appended to inventory URLs. */
+.coywolf-seo-lm-extlink {
+	font-size: 14px;
+	width: 14px;
+	height: 14px;
+	line-height: 1;
+	vertical-align: text-bottom;
+	text-decoration: none;
+	opacity: 0.6;
+}
+
+.coywolf-seo-lm-table .column-url a {
+	word-break: break-word;
+}
+
+/* Edit Link page button row: Save + Cancel on the left, Remove pushed right. */
+.coywolf-seo-lm-edit-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.coywolf-seo-lm-edit-actions .coywolf-seo-lm-edit-remove {
+	margin-left: auto;
+}
+
+/* "Runs in the background" note shown under the analysis progress bar. */
+.coywolf-seo-lm-bg-note {
+	margin: 10px 0 0;
+	max-width: 720px;
+	color: #50575e;
+	font-style: italic;
+}
+
+/* Documentation page (readme.txt rendered to HTML). */
+.coywolf-seo-lm-docs-page .coywolf-seo-lm-doc-body {
+	max-width: 820px;
+}
+
+.coywolf-seo-lm-docs-page .coywolf-seo-lm-doc-body h1 {
+	font-size: 1.6em;
+	margin: 0.4em 0 0.3em;
+}
+
+.coywolf-seo-lm-doc-image {
+	display: block;
+	max-width: 100%;
+	height: auto;
+	margin: 0.75em 0 1.25em;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+}
+
+.coywolf-seo-lm-docs-page .coywolf-seo-lm-doc-body h2 {
+	margin: 1.6em 0 0.4em;
+	padding-top: 0.6em;
+	border-top: 1px solid #dcdcde;
+}
+
+.coywolf-seo-lm-docs-page .coywolf-seo-lm-doc-body h3 {
+	margin: 1.2em 0 0.3em;
+}
+
+.coywolf-seo-lm-docs-page .coywolf-seo-lm-doc-body li {
+	margin: 0.25em 0;
+}
+
+.coywolf-seo-lm-docs-page .coywolf-seo-lm-doc-body code {
+	padding: 2px 5px;
+	background: #f0f0f1;
+	border-radius: 3px;
+}
+
+.coywolf-seo-lm-docs-page .coywolf-seo-lm-doc-meta {
+	margin: 2px 0;
+	color: #50575e;
+	font-size: 13px;
+}

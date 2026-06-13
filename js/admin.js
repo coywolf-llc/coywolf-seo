@@ -101,7 +101,7 @@
 			$select.val( prop );
 
 			var $row = $( '<tr class="coywolf-seo-prop-row"></tr>' );
-			$row.append( $( '<td class="coywolf-seo-drag-cell"></td>' ).append( $( '<span class="coywolf-seo-drag-handle dashicons dashicons-move" aria-hidden="true"></span>' ) ) );
+			$row.append( $( '<td class="coywolf-seo-drag-cell"></td>' ).append( $( '<span class="coywolf-seo-drag-handle dashicons dashicons-sort" aria-hidden="true"></span>' ) ) );
 			$row.append( $( '<td></td>' ).append( $select ) );
 			$row.append( buildValueCell( 'coywolf_seo[' + field + '][' + index + '][value]', prop ) );
 			$row.append(
