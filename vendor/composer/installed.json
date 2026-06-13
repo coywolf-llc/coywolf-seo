@@ -617,6 +617,130 @@
             "install-path": "../wordpress/ai-provider-for-anthropic"
         },
         {
+            "name": "wordpress/ai-provider-for-google",
+            "version": "1.1.0",
+            "version_normalized": "1.1.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/WordPress/ai-provider-for-google",
+                "reference": "5478fcacafcf38089ae2d68830c0bc4dbb1e25e8"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/WordPress/ai-provider-for-google/zipball/5478fcacafcf38089ae2d68830c0bc4dbb1e25e8",
+                "reference": "5478fcacafcf38089ae2d68830c0bc4dbb1e25e8",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=7.4"
+            },
+            "require-dev": {
+                "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+                "phpcompatibility/php-compatibility": "dev-develop",
+                "phpstan/phpstan": "~2.1",
+                "slevomat/coding-standard": "^8.20",
+                "squizlabs/php_codesniffer": "^3.7 || ^4.0",
+                "wordpress/php-ai-client": "^0.4 || dev-trunk"
+            },
+            "suggest": {
+                "wordpress/php-ai-client": "Required. The core PHP AI Client SDK that this provider extends."
+            },
+            "time": "2026-05-13T21:39:47+00:00",
+            "type": "library",
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "WordPress\\GoogleAiProvider\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "GPL-2.0-or-later"
+            ],
+            "authors": [
+                {
+                    "name": "WordPress AI Team",
+                    "homepage": "https://make.wordpress.org/ai/"
+                }
+            ],
+            "description": "AI Provider for Google for the PHP AI Client SDK. Works as both a Composer package and WordPress plugin.",
+            "homepage": "https://github.com/WordPress/ai-provider-for-google",
+            "keywords": [
+                "Gemini",
+                "ai",
+                "google",
+                "llm",
+                "wordpress"
+            ],
+            "support": {
+                "issues": "https://github.com/WordPress/ai-provider-for-google/issues",
+                "source": "https://github.com/WordPress/ai-provider-for-google"
+            },
+            "install-path": "../wordpress/ai-provider-for-google"
+        },
+        {
+            "name": "wordpress/ai-provider-for-openai",
+            "version": "1.0.3",
+            "version_normalized": "1.0.3.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/WordPress/ai-provider-for-openai",
+                "reference": "a400c158707e3d0b6fcd0f1502f6aa1085b01b9b"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/WordPress/ai-provider-for-openai/zipball/a400c158707e3d0b6fcd0f1502f6aa1085b01b9b",
+                "reference": "a400c158707e3d0b6fcd0f1502f6aa1085b01b9b",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=7.4"
+            },
+            "require-dev": {
+                "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+                "phpcompatibility/php-compatibility": "dev-develop",
+                "phpstan/phpstan": "~2.1",
+                "slevomat/coding-standard": "^8.20",
+                "squizlabs/php_codesniffer": "^3.7 || ^4.0",
+                "wordpress/php-ai-client": "^0.4 || dev-trunk"
+            },
+            "suggest": {
+                "wordpress/php-ai-client": "Required. The core PHP AI Client SDK that this provider extends."
+            },
+            "time": "2026-05-13T22:22:32+00:00",
+            "type": "library",
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "WordPress\\OpenAiAiProvider\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "GPL-2.0-or-later"
+            ],
+            "authors": [
+                {
+                    "name": "WordPress AI Team",
+                    "homepage": "https://make.wordpress.org/ai/"
+                }
+            ],
+            "description": "AI Provider for OpenAI for the PHP AI Client SDK. Works as both a Composer package and WordPress plugin.",
+            "homepage": "https://github.com/WordPress/ai-provider-for-openai",
+            "keywords": [
+                "ai",
+                "gpt",
+                "llm",
+                "openai",
+                "wordpress"
+            ],
+            "support": {
+                "issues": "https://github.com/WordPress/ai-provider-for-openai/issues",
+                "source": "https://github.com/WordPress/ai-provider-for-openai"
+            },
+            "install-path": "../wordpress/ai-provider-for-openai"
+        },
+        {
             "name": "wordpress/php-ai-client",
             "version": "1.3.1",
             "version_normalized": "1.3.1.0",
@@ -698,6 +822,6 @@
             "install-path": "../wordpress/php-ai-client"
         }
     ],
-    "dev": false,
+    "dev": true,
     "dev-package-names": []
 }

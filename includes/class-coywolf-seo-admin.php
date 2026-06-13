@@ -432,16 +432,22 @@ final class Coywolf_SEO_Admin {
 	}
 
 	/**
-	 * Remove the saved Anthropic API key immediately (its own endpoint so
-	 * no Save round-trip is needed).
+	 * Remove one AI service's saved API key immediately (its own endpoint so
+	 * no Save round-trip is needed). The service is read from the request and
+	 * validated against the known provider ids, defaulting to the active one.
 	 */
 	public function remove_ai_key() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'You are not allowed to manage Coywolf SEO settings.', 'coywolf-seo' ) );
 		}
 		check_admin_referer( 'coywolf_seo_remove_ai_key' );
-		Coywolf_SEO_Options::update( array( 'ai_api_key' => '' ) );
-		delete_transient( 'coywolf_seo_ai_models' );
+		$service = isset( $_GET['service'] ) ? sanitize_key( wp_unslash( $_GET['service'] ) ) : '';
+		if ( ! in_array( $service, Coywolf_SEO_AI_Providers::ids(), true ) ) {
+			$service = Coywolf_SEO_AI_Providers::current_id();
+		}
+		$provider = Coywolf_SEO_AI_Providers::get( $service );
+		Coywolf_SEO_Options::update( array( $provider->key_option() => '' ) );
+		delete_transient( 'coywolf_seo_ai_models_' . $service );
 		$this->redirect_back( self::SLUG_SETTINGS, 'ai-key-removed' );
 	}
 
@@ -499,28 +505,28 @@ final class Coywolf_SEO_Admin {
 			'coywolf-seo-admin',
 			'CoywolfSEOAdmin',
 			array(
-				'propertyInputs' => Coywolf_SEO_Options::property_inputs(),
-				'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
+				'propertyInputs'  => Coywolf_SEO_Options::property_inputs(),
+				'ajaxUrl'         => admin_url( 'admin-ajax.php' ),
 				'bulkStatusNonce' => wp_create_nonce( 'coywolf_seo_bulk_status' ),
 				'bulkActionNonce' => wp_create_nonce( 'coywolf_seo_bulk_action' ),
-				'i18n'           => array(
-					'selectImage'    => __( 'Select image', 'coywolf-seo' ),
-					'pasteOrSelect'  => __( 'Paste an image URL or select one', 'coywolf-seo' ),
-					'removeProperty' => __( 'Remove property', 'coywolf-seo' ),
-					'remove'         => __( 'Remove', 'coywolf-seo' ),
-					'confirmDelete'      => __( 'Delete this redirect?', 'coywolf-seo' ),
-					'confirmBulkEnrich'  => __( 'Enrich ALL published posts and pages now? This runs in the background, can take a while, and incurs Anthropic API costs. Content already analyzed with the current settings is skipped.', 'coywolf-seo' ),
-					'confirmBulkForce'   => __( 'Re-analyze EVERY published post and page now, including content that is already current? Every item makes fresh API calls, so this costs the full estimated amount each time.', 'coywolf-seo' ),
-					'confirmBulkCancel'  => __( 'Cancel this run for good? The remaining queue is discarded — a new run would re-check every post from the start (already-analyzed content is skipped at no cost).', 'coywolf-seo' ),
-					'estimateLine'       => __( '%POSTS% posts need enrichment (%SKIPPED% already current). Estimated cost: ~$%COST% at batch rates for %MODEL%. Your Anthropic balance (and any Workspace spend limit) must cover about $%RESERVE% for the largest batch\'s upfront check.', 'coywolf-seo' ),
-					'estimateNone'       => __( 'Everything is already analyzed with the current settings — re-analyzing everything (%POSTS% posts, ~$%COST%) will incur new costs.', 'coywolf-seo' ),
-					'estimateEmpty'      => __( 'There is no published content to enrich yet.', 'coywolf-seo' ),
-					'estimateUnsaved'    => __( '(Previewing an unsaved model — the run uses the saved Model setting.)', 'coywolf-seo' ),
-					'estimateHistory'    => __( 'Based on your measured average usage.', 'coywolf-seo' ),
-					'estimateHeuristic'  => __( 'Rough estimate based on content length.', 'coywolf-seo' ),
-					'testRunning'        => __( 'Testing — this makes one tiny paid call…', 'coywolf-seo' ),
-					'testMessages'       => __( 'Regular API:', 'coywolf-seo' ),
-					'testBatches'        => __( 'Batches API:', 'coywolf-seo' ),
+				'i18n'            => array(
+					'selectImage'       => __( 'Select image', 'coywolf-seo' ),
+					'pasteOrSelect'     => __( 'Paste an image URL or select one', 'coywolf-seo' ),
+					'removeProperty'    => __( 'Remove property', 'coywolf-seo' ),
+					'remove'            => __( 'Remove', 'coywolf-seo' ),
+					'confirmDelete'     => __( 'Delete this redirect?', 'coywolf-seo' ),
+					'confirmBulkEnrich' => __( 'Enrich ALL published posts and pages now? This runs in the background, can take a while, and incurs Anthropic API costs. Content already analyzed with the current settings is skipped.', 'coywolf-seo' ),
+					'confirmBulkForce'  => __( 'Re-analyze EVERY published post and page now, including content that is already current? Every item makes fresh API calls, so this costs the full estimated amount each time.', 'coywolf-seo' ),
+					'confirmBulkCancel' => __( 'Cancel this run for good? The remaining queue is discarded — a new run would re-check every post from the start (already-analyzed content is skipped at no cost).', 'coywolf-seo' ),
+					'estimateLine'      => __( '%POSTS% posts need enrichment (%SKIPPED% already current). Estimated cost: ~$%COST% at batch rates for %MODEL%. Your Anthropic balance (and any Workspace spend limit) must cover about $%RESERVE% for the largest batch\'s upfront check.', 'coywolf-seo' ),
+					'estimateNone'      => __( 'Everything is already analyzed with the current settings — re-analyzing everything (%POSTS% posts, ~$%COST%) will incur new costs.', 'coywolf-seo' ),
+					'estimateEmpty'     => __( 'There is no published content to enrich yet.', 'coywolf-seo' ),
+					'estimateUnsaved'   => __( '(Previewing an unsaved model — the run uses the saved Model setting.)', 'coywolf-seo' ),
+					'estimateHistory'   => __( 'Based on your measured average usage.', 'coywolf-seo' ),
+					'estimateHeuristic' => __( 'Rough estimate based on content length.', 'coywolf-seo' ),
+					'testRunning'       => __( 'Testing — this makes one tiny paid call…', 'coywolf-seo' ),
+					'testMessages'      => __( 'Regular API:', 'coywolf-seo' ),
+					'testBatches'       => __( 'Batches API:', 'coywolf-seo' ),
 					'confirmBulkDelete' => __( 'Delete the selected redirects?', 'coywolf-seo' ),
 				),
 			)
@@ -654,23 +660,38 @@ final class Coywolf_SEO_Admin {
 			$raw['news_cats'] = array();
 		}
 
-		// The API key field is write-only: an empty submission keeps the
-		// stored key (removal happens through its own Remove link).
-		if ( isset( $raw['ai_api_key'] ) && '' === trim( (string) $raw['ai_api_key'] ) ) {
-			unset( $raw['ai_api_key'] );
+		// Map each provider's API-key option to its service id, so the
+		// write-only handling and the model-list cache stay per-service.
+		$ai_key_options = array();
+		foreach ( Coywolf_SEO_AI_Providers::all() as $ai_sid => $ai_provider ) {
+			$ai_key_options[ $ai_provider->key_option() ] = $ai_sid;
 		}
-		if ( isset( $raw['ai_api_key'] ) ) {
-			delete_transient( 'coywolf_seo_ai_models' ); // New key: refresh the model list.
+
+		// The API key fields are write-only: an empty submission keeps the
+		// stored key (removal happens through each field's own Remove link). A
+		// non-empty submission refreshes that service's cached model list.
+		foreach ( $ai_key_options as $ai_key_option => $ai_sid ) {
+			if ( ! isset( $raw[ $ai_key_option ] ) ) {
+				continue;
+			}
+			if ( '' === trim( (string) $raw[ $ai_key_option ] ) ) {
+				unset( $raw[ $ai_key_option ] );
+				continue;
+			}
+			delete_transient( 'coywolf_seo_ai_models_' . $ai_sid ); // New key: refresh the model list.
 		}
 
 		$news_before = (bool) Coywolf_SEO_Options::get( 'news_enabled' );
 		$clean       = Coywolf_SEO_Options::sanitize( $raw );
-		// Turning AI enrichment off deletes the saved Claude API key (a key in
-		// wp-config.php is then ignored while off). The key field is write-only,
-		// so force it empty here rather than relying on the empty-field path.
+		// Turning AI enrichment off deletes every saved API key (keys in
+		// wp-config.php are then ignored while off). The key fields are
+		// write-only, so force each empty here rather than relying on the
+		// empty-field path, and clear the per-service model caches.
 		if ( ! empty( $clean['feature_ai_off'] ) ) {
-			$clean['ai_api_key'] = '';
-			delete_transient( 'coywolf_seo_ai_models' );
+			foreach ( $ai_key_options as $ai_key_option => $ai_sid ) {
+				$clean[ $ai_key_option ] = '';
+				delete_transient( 'coywolf_seo_ai_models_' . $ai_sid );
+			}
 		}
 		Coywolf_SEO_Options::update( $clean );
 		if ( isset( $clean['access_role'] ) ) {
@@ -682,6 +703,12 @@ final class Coywolf_SEO_Admin {
 		if ( (bool) Coywolf_SEO_Options::get( 'news_enabled' ) !== $news_before ) {
 			// The sitemap URL just appeared or disappeared.
 			flush_rewrite_rules();
+		}
+		// Robots.txt Manager fields live in this same form (no separate save), so
+		// persist them here too. The nonce + capability are already verified above;
+		// this also runs the mode-switch side effects (write/remove the file).
+		if ( Coywolf_SEO_Options::feature_enabled( 'robots' ) ) {
+			Coywolf_SEO::instance()->robots()->save_settings_fields();
 		}
 		$this->redirect_back( self::SLUG_SETTINGS, 'settings' );
 	}
@@ -1101,115 +1128,138 @@ final class Coywolf_SEO_Admin {
 					</tr>
 					</tbody>
 					<tbody id="coywolf-seo-ai-fields" <?php echo ( $o['ai_enabled'] || $o['ai_descriptions'] ) ? '' : 'style="display:none"'; ?>>
-					<tr>
-						<th scope="row"><label for="coywolf-seo-ai-key"><?php esc_html_e( 'Claude API key', 'coywolf-seo' ); ?></label></th>
-						<td>
-							<input type="password" class="regular-text" id="coywolf-seo-ai-key" name="coywolf_seo[ai_api_key]" value="" autocomplete="off" placeholder="<?php echo esc_attr( '' !== (string) $o['ai_api_key'] ? __( 'Saved — enter a new key to replace it', 'coywolf-seo' ) : 'sk-ant-…' ); ?>" />
-							<?php if ( '' !== (string) $o['ai_api_key'] ) : ?>
-								<a class="button-link button-link-delete" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=coywolf_seo_remove_ai_key' ), 'coywolf_seo_remove_ai_key' ) ); ?>"><?php esc_html_e( 'Remove', 'coywolf-seo' ); ?></a>
-							<?php endif; ?>
-							<p class="description">
-								<?php
-								printf(
-									/* translators: 1: Anthropic console URL, 2: constant name. */
-									esc_html__( 'Your own Anthropic API key, created at %1$s. Stored server-side and never shown again. Remove deletes the saved key immediately. For better security you can define %2$s in wp-config.php instead — see below.', 'coywolf-seo' ),
-									'<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>',
-									'<code>ANTHROPIC_API_KEY</code>'
-								);
-								?>
-							</p>
-							<details class="coywolf-seo-wpconfig">
-								<summary><?php esc_html_e( 'Add the key in wp-config.php instead (recommended)', 'coywolf-seo' ); ?></summary>
-								<p><?php esc_html_e( 'Keeping the key in wp-config.php instead of the database means a database leak (for example, a stolen backup) can’t expose it. Add this line to wp-config.php, anywhere above the line that reads “/* That’s all, stop editing! Happy publishing. */”:', 'coywolf-seo' ); ?></p>
-								<pre class="coywolf-seo-code"><code>define( 'ANTHROPIC_API_KEY', 'sk-ant-...' );</code></pre>
-								<p>
+						<?php $coywolf_seo_ai_current = Coywolf_SEO_AI_Providers::current_id(); ?>
+						<tr>
+							<th scope="row"><label for="coywolf-seo-ai-service"><?php esc_html_e( 'AI service', 'coywolf-seo' ); ?></label></th>
+							<td>
+								<select id="coywolf-seo-ai-service" name="coywolf_seo[ai_service]">
+									<?php foreach ( Coywolf_SEO_AI_Providers::choices() as $coywolf_seo_sid => $coywolf_seo_label ) : ?>
+										<option value="<?php echo esc_attr( $coywolf_seo_sid ); ?>" <?php selected( $coywolf_seo_ai_current, $coywolf_seo_sid ); ?>><?php echo esc_html( $coywolf_seo_label ); ?></option>
+									<?php endforeach; ?>
+								</select>
+								<p class="description"><?php esc_html_e( 'Only one service is used at a time. Switch services and save; configure that service’s key and model below.', 'coywolf-seo' ); ?></p>
+							</td>
+						</tr>
+						<?php foreach ( Coywolf_SEO_AI_Providers::all() as $coywolf_seo_sid => $coywolf_seo_provider ) : ?>
+							<?php
+							$coywolf_seo_is_active  = ( $coywolf_seo_sid === $coywolf_seo_ai_current );
+							$coywolf_seo_row_hidden = $coywolf_seo_is_active ? '' : ' style="display:none"';
+							$coywolf_seo_key_option = $coywolf_seo_provider->key_option();
+							$coywolf_seo_key_status = $coywolf_seo_provider->key_status();
+							$coywolf_seo_key_const  = $coywolf_seo_provider->key_constant();
+							$coywolf_seo_wpconfig   = $coywolf_seo_provider->wpconfig_help();
+							?>
+						<tr class="coywolf-seo-ai-svc" data-service="<?php echo esc_attr( $coywolf_seo_sid ); ?>"<?php echo $coywolf_seo_row_hidden; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static markup. ?>>
+							<th scope="row"><?php /* translators: %s: AI service label. */ printf( esc_html__( '%s API key', 'coywolf-seo' ), esc_html( $coywolf_seo_provider->label() ) ); ?></th>
+							<td>
+								<input type="password" class="regular-text" name="coywolf_seo[<?php echo esc_attr( $coywolf_seo_key_option ); ?>]" value="" autocomplete="off" placeholder="<?php echo esc_attr( $coywolf_seo_key_status['saved'] ? __( 'Saved — enter a new key to replace it', 'coywolf-seo' ) : __( 'Enter your API key', 'coywolf-seo' ) ); ?>" />
+								<?php if ( $coywolf_seo_key_status['saved'] ) : ?>
+									<a class="button-link button-link-delete" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=coywolf_seo_remove_ai_key&service=' . rawurlencode( $coywolf_seo_sid ) ), 'coywolf_seo_remove_ai_key' ) ); ?>"><?php esc_html_e( 'Remove', 'coywolf-seo' ); ?></a>
+								<?php endif; ?>
+								<p class="description">
 									<?php
 									printf(
-										/* translators: %s: sk-ant-... placeholder in a code tag. */
-										esc_html__( 'Replace %s with your real key. On most hosts you can edit wp-config.php through the dashboard file manager or over SSH; it sits in the site’s web root, next to wp-admin and wp-content.', 'coywolf-seo' ),
-										'<code>sk-ant-...</code>'
+										/* translators: 1: AI service label, 2: constant name. */
+										esc_html__( 'Your own %1$s API key. Stored server-side and never shown again. Remove deletes the saved key immediately. For better security you can define %2$s in wp-config.php instead — see below.', 'coywolf-seo' ),
+										esc_html( $coywolf_seo_provider->label() ),
+										'<code>' . esc_html( $coywolf_seo_key_const ) . '</code>'
 									);
 									?>
 								</p>
-								<p><?php esc_html_e( 'The saved key field above takes precedence, so to use the wp-config value leave that field empty (or click Remove). An ANTHROPIC_API_KEY environment variable works the same way if your host lets you set one.', 'coywolf-seo' ); ?></p>
-							</details>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><label for="coywolf-seo-ai-model"><?php esc_html_e( 'Model', 'coywolf-seo' ); ?></label></th>
-						<td>
-							<?php
-							$coywolf_seo_models = Coywolf_SEO::instance()->ai()->available_models();
-							if ( empty( $coywolf_seo_models ) ) {
-								$coywolf_seo_models = array(
-									array( 'id' => 'claude-opus-4-8', 'name' => 'Claude Opus 4.8' ),
-									array( 'id' => 'claude-sonnet-4-6', 'name' => 'Claude Sonnet 4.6' ),
-									array( 'id' => 'claude-haiku-4-5-20251001', 'name' => 'Claude Haiku 4.5' ),
-								);
-							}
-							$coywolf_seo_model_saved = (string) $o['ai_model'];
-							$coywolf_seo_model_known = '' === $coywolf_seo_model_saved;
-							?>
-							<select id="coywolf-seo-ai-model" name="coywolf_seo[ai_model]">
-								<option value=""><?php esc_html_e( 'Default (Claude Opus 4.8)', 'coywolf-seo' ); ?></option>
-								<?php foreach ( $coywolf_seo_models as $coywolf_seo_model ) : ?>
-									<?php $coywolf_seo_model_known = $coywolf_seo_model_known || $coywolf_seo_model['id'] === $coywolf_seo_model_saved; ?>
-									<option value="<?php echo esc_attr( $coywolf_seo_model['id'] ); ?>" <?php selected( $coywolf_seo_model_saved, $coywolf_seo_model['id'] ); ?>><?php echo esc_html( $coywolf_seo_model['name'] . ' — ' . $coywolf_seo_model['id'] ); ?></option>
-								<?php endforeach; ?>
-								<?php if ( ! $coywolf_seo_model_known ) : ?>
-									<option value="<?php echo esc_attr( $coywolf_seo_model_saved ); ?>" selected><?php echo esc_html( $coywolf_seo_model_saved ); ?></option>
-								<?php endif; ?>
-							</select>
-							<p class="description"><?php esc_html_e( 'Used for entity detection and meta descriptions. The list comes from the models available to your key. Changing the model re-analyzes each post on its next save (or via Re-analyze).', 'coywolf-seo' ); ?></p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><?php esc_html_e( 'API connection', 'coywolf-seo' ); ?></th>
-						<td>
-							<?php $coywolf_seo_key_status = Coywolf_SEO::instance()->ai()->key_status(); ?>
-							<?php if ( '' !== $coywolf_seo_key_status['source'] ) : ?>
-								<p class="coywolf-seo-key-status coywolf-seo-key-status--ok">
-									<span class="dashicons dashicons-yes-alt" aria-hidden="true"></span>
-									<?php
-									if ( 'saved' === $coywolf_seo_key_status['source'] ) {
-										esc_html_e( 'API key configured — saved in this site.', 'coywolf-seo' );
-									} elseif ( 'constant' === $coywolf_seo_key_status['source'] ) {
-										printf(
-											/* translators: %s: constant name. */
-											esc_html__( 'API key configured — using the %s constant from wp-config.php.', 'coywolf-seo' ),
-											'<code>ANTHROPIC_API_KEY</code>'
-										);
-									} else {
-										printf(
-											/* translators: %s: constant name. */
-											esc_html__( 'API key configured — using the %s environment variable.', 'coywolf-seo' ),
-											'<code>ANTHROPIC_API_KEY</code>'
-										);
-									}
-									?>
-								</p>
-								<?php if ( 'saved' === $coywolf_seo_key_status['source'] && ( $coywolf_seo_key_status['constant'] || $coywolf_seo_key_status['env'] ) ) : ?>
-									<p class="description">
+								<details class="coywolf-seo-wpconfig">
+									<summary><?php esc_html_e( 'Add the key in wp-config.php instead (recommended)', 'coywolf-seo' ); ?></summary>
+									<p><?php esc_html_e( 'Keeping the key in wp-config.php instead of the database means a database leak (for example, a stolen backup) can’t expose it. Add this line to wp-config.php, anywhere above the line that reads “/* That’s all, stop editing! Happy publishing. */”:', 'coywolf-seo' ); ?></p>
+									<pre class="coywolf-seo-code"><code><?php echo esc_html( $coywolf_seo_wpconfig['define'] ); ?></code></pre>
+									<p><?php echo esc_html( $coywolf_seo_wpconfig['help'] ); ?></p>
+									<p>
 										<?php
 										printf(
 											/* translators: %s: constant name. */
-											esc_html__( 'A wp-config %s is also defined, but the saved key above takes precedence. Remove the saved key to use the wp-config value.', 'coywolf-seo' ),
-											'<code>ANTHROPIC_API_KEY</code>'
+											esc_html__( 'The saved key field above takes precedence, so to use the wp-config value leave that field empty (or click Remove). A %s environment variable works the same way if your host lets you set one.', 'coywolf-seo' ),
+											'<code>' . esc_html( $coywolf_seo_key_const ) . '</code>'
 										);
 										?>
 									</p>
+								</details>
+							</td>
+						</tr>
+						<tr class="coywolf-seo-ai-svc" data-service="<?php echo esc_attr( $coywolf_seo_sid ); ?>"<?php echo $coywolf_seo_row_hidden; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static markup. ?>>
+							<th scope="row"><?php esc_html_e( 'Model', 'coywolf-seo' ); ?></th>
+							<td>
+								<?php
+								if ( $coywolf_seo_is_active ) {
+									$coywolf_seo_models = Coywolf_SEO::instance()->ai()->available_models();
+									if ( empty( $coywolf_seo_models ) ) {
+										$coywolf_seo_models = $coywolf_seo_provider->fallback_models();
+									}
+								} else {
+									$coywolf_seo_models = $coywolf_seo_provider->fallback_models();
+								}
+								$coywolf_seo_model_saved = (string) $o[ $coywolf_seo_provider->model_option() ];
+								$coywolf_seo_model_known = '' === $coywolf_seo_model_saved;
+								?>
+								<select name="coywolf_seo[<?php echo esc_attr( $coywolf_seo_provider->model_option() ); ?>]">
+									<option value=""><?php /* translators: %s: default model id. */ printf( esc_html__( 'Default (%s)', 'coywolf-seo' ), esc_html( $coywolf_seo_provider->default_model() ) ); ?></option>
+									<?php foreach ( $coywolf_seo_models as $coywolf_seo_model ) : ?>
+										<?php $coywolf_seo_model_known = $coywolf_seo_model_known || $coywolf_seo_model['id'] === $coywolf_seo_model_saved; ?>
+										<option value="<?php echo esc_attr( $coywolf_seo_model['id'] ); ?>" <?php selected( $coywolf_seo_model_saved, $coywolf_seo_model['id'] ); ?>><?php echo esc_html( $coywolf_seo_model['name'] . ' — ' . $coywolf_seo_model['id'] ); ?></option>
+									<?php endforeach; ?>
+									<?php if ( ! $coywolf_seo_model_known ) : ?>
+										<option value="<?php echo esc_attr( $coywolf_seo_model_saved ); ?>" selected><?php echo esc_html( $coywolf_seo_model_saved ); ?></option>
+									<?php endif; ?>
+								</select>
+								<p class="description"><?php esc_html_e( 'Used for entity detection and meta descriptions. For the active service the list comes from the models available to your key. Changing the model re-analyzes each post on its next save (or via Re-analyze).', 'coywolf-seo' ); ?></p>
+							</td>
+						</tr>
+						<tr class="coywolf-seo-ai-svc" data-service="<?php echo esc_attr( $coywolf_seo_sid ); ?>"<?php echo $coywolf_seo_row_hidden; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static markup. ?>>
+							<th scope="row"><?php esc_html_e( 'API connection', 'coywolf-seo' ); ?></th>
+							<td>
+								<?php if ( '' !== $coywolf_seo_key_status['source'] ) : ?>
+									<p class="coywolf-seo-key-status coywolf-seo-key-status--ok">
+										<span class="dashicons dashicons-yes-alt" aria-hidden="true"></span>
+										<?php
+										if ( 'saved' === $coywolf_seo_key_status['source'] ) {
+											esc_html_e( 'API key configured — using the saved key.', 'coywolf-seo' );
+										} elseif ( 'constant' === $coywolf_seo_key_status['source'] ) {
+											printf(
+												/* translators: %s: constant name. */
+												esc_html__( 'API key configured — using the %s constant from wp-config.php.', 'coywolf-seo' ),
+												'<code>' . esc_html( $coywolf_seo_key_const ) . '</code>'
+											);
+										} else {
+											printf(
+												/* translators: %s: constant name. */
+												esc_html__( 'API key configured — using the %s environment variable.', 'coywolf-seo' ),
+												'<code>' . esc_html( $coywolf_seo_key_const ) . '</code>'
+											);
+										}
+										?>
+									</p>
+									<?php if ( 'saved' === $coywolf_seo_key_status['source'] && ( $coywolf_seo_key_status['constant'] || $coywolf_seo_key_status['env'] ) ) : ?>
+										<p class="description">
+											<?php
+											printf(
+												/* translators: %s: constant name. */
+												esc_html__( 'A wp-config %s is also defined, but the saved key above takes precedence. Remove the saved key to use the wp-config value.', 'coywolf-seo' ),
+												'<code>' . esc_html( $coywolf_seo_key_const ) . '</code>'
+											);
+											?>
+										</p>
+									<?php endif; ?>
+								<?php else : ?>
+									<p class="coywolf-seo-key-status coywolf-seo-key-status--none">
+										<span class="dashicons dashicons-warning" aria-hidden="true"></span>
+										<?php esc_html_e( 'No API key set yet — add one above or in wp-config.php.', 'coywolf-seo' ); ?>
+									</p>
 								<?php endif; ?>
-							<?php else : ?>
-								<p class="coywolf-seo-key-status coywolf-seo-key-status--none">
-									<span class="dashicons dashicons-warning" aria-hidden="true"></span>
-									<?php esc_html_e( 'No API key configured yet — add one above or in wp-config.php.', 'coywolf-seo' ); ?>
-								</p>
-							<?php endif; ?>
-							<button type="button" class="button" id="coywolf-seo-ai-test"><?php esc_html_e( 'Test API access', 'coywolf-seo' ); ?></button>
-							<span class="description" id="coywolf-seo-ai-test-result" role="status" aria-live="polite" aria-atomic="true"></span>
-						</td>
-					</tr>
-					</tbody>
+								<?php if ( $coywolf_seo_is_active ) : ?>
+									<button type="button" class="button" id="coywolf-seo-ai-test"><?php esc_html_e( 'Test API access', 'coywolf-seo' ); ?></button>
+									<span class="description" id="coywolf-seo-ai-test-result" role="status" aria-live="polite" aria-atomic="true"></span>
+								<?php endif; ?>
+							</td>
+						</tr>
+						<?php endforeach; ?>
+						</tbody>
 				</table>
 
 				<h2><?php esc_html_e( 'Image Text defaults', 'coywolf-seo' ); ?></h2>
@@ -1366,6 +1416,14 @@ final class Coywolf_SEO_Admin {
 				</table>
 				<?php endif; // End Sitemaps section. ?>
 
+				<?php
+				// Robots.txt Manager settings are part of this form and save with
+				// the single "Save Settings" button below.
+				if ( Coywolf_SEO_Options::feature_enabled( 'robots' ) ) {
+					Coywolf_SEO::instance()->robots()->render_settings_section();
+				}
+				?>
+
 				<h2><?php esc_html_e( 'Turn off features', 'coywolf-seo' ); ?></h2>
 				<p class="description"><?php esc_html_e( 'Turn off any feature you do not use. Its settings, pages, and saved data are kept and can be turned back on at any time.', 'coywolf-seo' ); ?></p>
 				<table class="form-table" role="presentation">
@@ -1434,15 +1492,6 @@ final class Coywolf_SEO_Admin {
 				<?php submit_button( __( 'Save Settings', 'coywolf-seo' ) ); ?>
 			</form>
 
-			<?php
-			// Robots.txt Manager settings render their own self-contained form
-			// (mode switches write/remove the physical file), so they live outside
-			// the main settings form — placed after </form> to avoid nested forms.
-			if ( Coywolf_SEO_Options::feature_enabled( 'robots' ) ) {
-				Coywolf_SEO::instance()->robots()->render_settings_section();
-			}
-			?>
-
 			<?php if ( Coywolf_SEO_Options::feature_enabled( 'ai' ) ) : ?>
 			<h2><?php esc_html_e( 'Enrich all content', 'coywolf-seo' ); ?></h2>
 			<table class="form-table" role="presentation">
@@ -1453,7 +1502,15 @@ final class Coywolf_SEO_Admin {
 								<?php $this->render_bulk_controls(); ?>
 							</div>
 							<p class="description" id="coywolf-seo-bulk-estimate" role="status" aria-live="polite" aria-atomic="true" data-loading="<?php esc_attr_e( 'Calculating the estimated cost…', 'coywolf-seo' ); ?>"><em><?php esc_html_e( 'Calculating the estimated cost…', 'coywolf-seo' ); ?></em></p>
-							<p class="description"><strong><?php esc_html_e( 'Use sparingly:', 'coywolf-seo' ); ?></strong> <?php esc_html_e( 'this runs the enabled AI features over every published post and page through Anthropic\'s Batches API at 50% of standard token prices. Results can take up to an hour (occasionally longer) and incur API costs each run — content already analyzed with the current settings is skipped automatically.', 'coywolf-seo' ); ?></p>
+							<p class="description"><strong><?php esc_html_e( 'Use sparingly:', 'coywolf-seo' ); ?></strong>
+								<?php
+								printf(
+									/* translators: %s: active AI service label. */
+									esc_html__( 'this runs the enabled AI features over every published post and page through the selected AI service (%s) using its Batch API, at roughly half the standard token prices. Results can take up to an hour (occasionally longer) and incur API costs each run — content already analyzed with the current settings is skipped automatically.', 'coywolf-seo' ),
+									esc_html( Coywolf_SEO_AI_Providers::current()->label() )
+								);
+								?>
+							</p>
 							<?php $coywolf_seo_usage = Coywolf_SEO_AI_Batch::usage_summary( Coywolf_SEO::instance()->ai()->model() ); ?>
 							<?php if ( ! empty( $coywolf_seo_usage ) ) : ?>
 								<p class="description">

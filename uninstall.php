@@ -38,7 +38,11 @@ wp_unschedule_hook( 'coywolf_seo_redirects_prune' );
 // Redirect manager tables.
 delete_option( 'coywolf_seo_db_version' );
 delete_option( 'coywolf_seo_import_dismissed' );
+// AI model-list caches: the legacy single key plus the per-service caches.
 delete_transient( 'coywolf_seo_ai_models' );
+foreach ( array( 'anthropic', 'openai', 'google' ) as $coywolf_seo_ai_service ) {
+	delete_transient( 'coywolf_seo_ai_models_' . $coywolf_seo_ai_service );
+}
 
 // Image Text batch state + model-list cache.
 delete_option( 'coywolf_seo_image_text_batch' );

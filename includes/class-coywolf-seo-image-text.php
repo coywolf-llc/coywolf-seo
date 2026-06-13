@@ -158,7 +158,7 @@ final class Coywolf_SEO_Image_Text {
 	 */
 	public function start_batch( array $fields, $overwrite, $resume = false, $model = '', $include_pdfs = false, $propagate = false ) {
 		if ( ! $this->ai->is_configured() ) {
-			return new WP_Error( 'coywolf_seo_no_key', __( 'Add your Claude API key on the Settings page first.', 'coywolf-seo' ) );
+			return new WP_Error( 'coywolf_seo_no_key', __( 'Add your AI service API key on the Settings page first.', 'coywolf-seo' ) );
 		}
 
 		if ( $resume ) {
@@ -672,7 +672,7 @@ final class Coywolf_SEO_Image_Text {
 		}
 
 		$button = '<button type="button" class="button coywolf-seo-it-generate" data-id="' . (int) $post->ID . '">'
-			. esc_html__( 'Generate image text with Claude', 'coywolf-seo' ) . '</button>';
+			. esc_html__( 'Generate image text', 'coywolf-seo' ) . '</button>';
 
 		$form_fields['coywolf_seo_image_tools'] = array(
 			'label' => __( 'Coywolf SEO', 'coywolf-seo' ),
@@ -741,7 +741,7 @@ final class Coywolf_SEO_Image_Text {
 		$settings_model = $this->ai->model();
 		$models         = $configured ? $this->ai->models() : array();
 		$model_ids      = wp_list_pluck( $models, 'id' );
-		foreach ( array_unique( array( $settings_model, Coywolf_SEO_Image_AI::DEFAULT_MODEL ) ) as $must_have ) {
+		foreach ( array_unique( array( $settings_model, Coywolf_SEO_AI_Providers::current()->default_model() ) ) as $must_have ) {
 			if ( ! in_array( $must_have, $model_ids, true ) ) {
 				$models[] = array(
 					'id'   => $must_have,
@@ -765,12 +765,12 @@ final class Coywolf_SEO_Image_Text {
 		?>
 		<div class="wrap coywolf-seo-it-image-text">
 			<h1><?php esc_html_e( 'Image Text', 'coywolf-seo' ); ?></h1>
-			<p><?php esc_html_e( 'Claude looks at each image and writes its alternative text, title, caption, and description following accessibility best practices (WCAG-aligned) — in your site language. Alternative text is left empty for purely decorative images; the title, caption, and description are always written. Run it across the whole library here, or use the generate button on any image in the Media Library and in the editor.', 'coywolf-seo' ); ?></p>
+			<p><?php esc_html_e( 'The AI service looks at each image and writes its alternative text, title, caption, and description following accessibility best practices (WCAG-aligned) — in your site language. Alternative text is left empty for purely decorative images; the title, caption, and description are always written. Run it across the whole library here, or use the generate button on any image in the Media Library and in the editor.', 'coywolf-seo' ); ?></p>
 
 			<?php if ( ! $configured ) : ?>
 				<div class="notice notice-warning inline">
 					<p>
-						<?php esc_html_e( 'Add your Claude API key to enable Image Text.', 'coywolf-seo' ); ?>
+						<?php esc_html_e( 'Add your AI service API key to enable Image Text.', 'coywolf-seo' ); ?>
 						<a href="<?php echo esc_url( add_query_arg( 'page', Coywolf_SEO_Admin::SLUG_SETTINGS, admin_url( 'admin.php' ) ) ); ?>"><?php esc_html_e( 'Open Settings', 'coywolf-seo' ); ?></a>
 					</p>
 				</div>
@@ -818,7 +818,7 @@ final class Coywolf_SEO_Image_Text {
 				</fieldset>
 				<label class="coywolf-seo-it-check">
 					<input type="checkbox" id="coywolf-seo-it-ai-pdfs" />
-					<?php esc_html_e( 'Include PDFs — Claude reads each PDF and writes its title, caption, and description (PDFs have no alternative text)', 'coywolf-seo' ); ?>
+					<?php esc_html_e( 'Include PDFs — the AI service reads each PDF and writes its title, caption, and description (PDFs have no alternative text)', 'coywolf-seo' ); ?>
 				</label>
 				<label class="coywolf-seo-it-check">
 					<input type="checkbox" id="coywolf-seo-it-ai-overwrite" <?php checked( $this->default_overwrite() ); ?> />
@@ -881,7 +881,7 @@ final class Coywolf_SEO_Image_Text {
 					</form>
 				</div>
 
-				<p class="description"><?php esc_html_e( 'Privacy note: when you use Image Text, the image (scaled down) and its filename are sent to the Anthropic Claude API for analysis. Nothing is sent unless you click a generate button or run the bulk writer.', 'coywolf-seo' ); ?></p>
+				<p class="description"><?php esc_html_e( 'Privacy note: when you use Image Text, the image (scaled down) and its filename are sent to the selected AI service for analysis. Nothing is sent unless you click a generate button or run the bulk writer.', 'coywolf-seo' ); ?></p>
 		</div>
 		<?php
 	}
@@ -1037,7 +1037,7 @@ final class Coywolf_SEO_Image_Text {
 						'out' => Coywolf_SEO_Image_AI::EST_OUTPUT_TOKENS,
 					),
 					'i18n'      => array(
-						'starting'         => __( 'Contacting Claude…', 'coywolf-seo' ),
+						'starting'         => __( 'Contacting the AI service…', 'coywolf-seo' ),
 						/* translators: 1: number of images done, 2: total images — replaced in JS. */
 						'progress'         => __( '%1$s of %2$s analyzed', 'coywolf-seo' ),
 						/* translators: %s: image file name — replaced in JS. */

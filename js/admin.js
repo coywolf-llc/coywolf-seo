@@ -198,6 +198,19 @@
 		}
 		$( '#coywolf-seo-ai-enabled, #coywolf-seo-ai-descriptions' ).on( 'change', syncAiKeyFields );
 
+		// AI service selector: show only the chosen service's key/model/status
+		// rows, hide the rest. One active service at a time.
+		function syncAiServiceRows() {
+			var service = $( '#coywolf-seo-ai-service' ).val();
+			$( '.coywolf-seo-ai-svc' ).each( function () {
+				$( this ).toggle( $( this ).attr( 'data-service' ) === service );
+			} );
+		}
+		if ( $( '#coywolf-seo-ai-service' ).length ) {
+			$( '#coywolf-seo-ai-service' ).on( 'change', syncAiServiceRows );
+			syncAiServiceRows();
+		}
+
 		// Bulk enrichment controls update in place: the forms post over
 		// AJAX (the plain submit stays as the no-JS fallback), the server
 		// re-renders the controls, and the area swaps without a reload.
