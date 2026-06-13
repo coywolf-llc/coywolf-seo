@@ -3,23 +3,34 @@
  * Mobile alternative image for the core Image block.
  *
  * Adds an "Add mobile alternative" control to the core/image block inspector.
- * When the author picks a mobile-specific image, this module swaps the URLs at
- * the small (≈300w) and medium (≈768w) srcset breakpoints on the front end, so
- * phones download the alternative instead of a downscale of the desktop image.
+ * When the author picks a mobile-specific image, the front end wraps the image
+ * in a <picture> with a media-query <source>, so small screens get the
+ * alternative and larger screens keep the desktop image.
+ *
+ * Why <picture> and not a swapped srcset: srcset width-descriptors are
+ * *resolution switching* — the browser is free to choose any candidate for the
+ * viewport/DPR (and won't downgrade an already-downloaded one), so swapping the
+ * 300w/768w URLs does not guarantee phones get the alternative; the browser
+ * often picks a neighbouring desktop candidate instead. A media-query <source>
+ * is *art direction*: below the breakpoint the mobile source is used,
+ * deterministically.
  *
  * The mobile attachment ID lives in the block's `coywolfMobileImageId`
- * attribute (declared in js/image-block.js). WordPress adds srcset to content
- * images late — at `the_content` priority 12 (wp_filter_content_tags) — so the
- * swap is a two-step pass:
+ * attribute (declared in js/image-block.js). WordPress adds sizes/srcset to
+ * content images late — at `the_content` priority 12 (wp_filter_content_tags) —
+ * so it's a two-step pass:
  *
  *   1. render_block_core/image (during do_blocks, priority 9) stamps a
  *      transient `data-coywolf-mobile-id` marker onto the <img>.
- *   2. wp_content_img_tag (fired by wp_filter_content_tags once the srcset has
- *      been built) reads the marker, rewrites the breakpoint URLs, and removes
- *      the marker so it never reaches the page.
+ *   2. wp_content_img_tag (fired by wp_filter_content_tags once the <img> has
+ *      its final sizes attribute) reads the marker, builds the mobile <source>
+ *      reusing that sizes value, wraps the untouched <img> in <picture>, and
+ *      removes the marker.
  *
- * The block's lightbox is unaffected: core derives the enlarged image's srcset
- * straight from the attachment metadata, not from the inline <img> tag.
+ * The desktop <img> (and its srcset) is left intact, so it stays the source
+ * above the breakpoint and the fallback for browsers without <picture>. The
+ * block's lightbox still enlarges the desktop image — core derives the enlarged
+ * srcset from the attachment metadata, not the inline tag.
  *
  * @package CoywolfSEO
  */
@@ -44,12 +55,17 @@ final class Coywolf_SEO_Mobile_Image {
 	const MARKER = 'data-coywolf-mobile-id';
 
 	/**
+	 * Default max-width (px) at or below which the mobile alternative is served.
+	 */
+	const BREAKPOINT = 768;
+
+	/**
 	 * Hook everything up.
 	 */
 	public function init() {
 		add_action( 'enqueue_block_editor_assets', array( $this, 'enqueue_editor_assets' ) );
 		add_filter( 'render_block_core/image', array( $this, 'stamp_marker' ), 10, 2 );
-		add_filter( 'wp_content_img_tag', array( $this, 'swap_breakpoints' ), 10, 3 );
+		add_filter( 'wp_content_img_tag', array( $this, 'wrap_in_picture' ), 10, 3 );
 	}
 
 	/**
@@ -135,107 +151,107 @@ final class Coywolf_SEO_Mobile_Image {
 	}
 
 	/**
-	 * Rewrite the small/medium srcset URLs to the mobile alternative and drop
-	 * the marker. Runs only on images this module stamped.
+	 * Wrap a stamped <img> in a <picture> with a media-query <source> for the
+	 * mobile alternative, and drop the marker. Runs only on images this module
+	 * stamped.
 	 *
-	 * @param string $filtered_image The full <img> tag (srcset already added).
+	 * @param string $filtered_image The full <img> tag (sizes/srcset already added).
 	 * @param string $context        Filter context (unused).
 	 * @param int    $attachment_id  Desktop attachment ID (unused — the mobile
 	 *                               ID rides on the marker).
 	 * @return string
 	 */
-	public function swap_breakpoints( $filtered_image, $context, $attachment_id ) {
+	public function wrap_in_picture( $filtered_image, $context, $attachment_id ) {
 		unset( $context, $attachment_id );
 
 		if ( false === strpos( $filtered_image, self::MARKER ) ) {
 			return $filtered_image;
 		}
 
+		$mobile_id = 0;
+		$img_sizes = '';
+
 		if ( class_exists( 'WP_HTML_Tag_Processor' ) ) {
 			$processor = new WP_HTML_Tag_Processor( $filtered_image );
-			if ( ! $processor->next_tag( 'img' ) ) {
-				return $filtered_image;
+			if ( $processor->next_tag( 'img' ) ) {
+				$mobile_id = absint( $processor->get_attribute( self::MARKER ) );
+				// Always remove the marker so it never reaches the page.
+				$processor->remove_attribute( self::MARKER );
+				$sizes     = $processor->get_attribute( 'sizes' );
+				$img_sizes = is_string( $sizes ) ? $sizes : '';
 			}
-			$mobile_id = absint( $processor->get_attribute( self::MARKER ) );
-			// Always remove the marker so it never reaches the page.
-			$processor->remove_attribute( self::MARKER );
-			$srcset = $processor->get_attribute( 'srcset' );
-			if ( $mobile_id && is_string( $srcset ) && '' !== $srcset ) {
-				$new = $this->rewrite_srcset( $srcset, $mobile_id );
-				if ( null !== $new ) {
-					$processor->set_attribute( 'srcset', $new );
-				}
+			$filtered_image = $processor->get_updated_html();
+		} else {
+			// WP < 6.2 fallback: pull the id + sizes, strip the marker by regex.
+			if ( preg_match( '/' . preg_quote( self::MARKER, '/' ) . '=(["\'])(.*?)\1/i', $filtered_image, $m ) ) {
+				$mobile_id = absint( $m[2] );
 			}
-			return $processor->get_updated_html();
+			if ( preg_match( '/\ssizes=(["\'])(.*?)\1/i', $filtered_image, $s ) ) {
+				$img_sizes = $s[2];
+			}
+			$filtered_image = preg_replace( '/\s*' . preg_quote( self::MARKER, '/' ) . '=(["\']).*?\1/i', '', $filtered_image );
 		}
 
-		// WP < 6.2 fallback: pull the id, rewrite the srcset, strip the marker.
-		$mobile_id = 0;
-		if ( preg_match( '/' . preg_quote( self::MARKER, '/' ) . '=(["\'])(.*?)\1/i', $filtered_image, $m ) ) {
-			$mobile_id = absint( $m[2] );
+		if ( ! $mobile_id ) {
+			return $filtered_image;
 		}
-		if ( $mobile_id && preg_match( '/\ssrcset=(["\'])(.*?)\1/i', $filtered_image, $s ) ) {
-			$new = $this->rewrite_srcset( $s[2], $mobile_id );
-			if ( null !== $new ) {
-				$filtered_image = str_replace( $s[0], ' srcset=' . $s[1] . $new . $s[1], $filtered_image );
-			}
+
+		$source = $this->build_mobile_source( $mobile_id, $img_sizes );
+		if ( '' === $source ) {
+			return $filtered_image;
 		}
-		return preg_replace( '/\s*' . preg_quote( self::MARKER, '/' ) . '=(["\']).*?\1/i', '', $filtered_image );
+
+		// Wrap the untouched desktop <img> so it stays the source above the
+		// breakpoint and the fallback for browsers without <picture>.
+		return '<picture>' . $source . $filtered_image . '</picture>';
 	}
 
 	/**
-	 * Replace the URLs at the small (medium) and medium (medium_large) width
-	 * descriptors with the mobile image at those sizes. The descriptors are
-	 * left unchanged so the browser still selects them at the same breakpoints
-	 * — only the bytes served change.
+	 * Build the mobile <source> tag: a media query up to the breakpoint, the
+	 * mobile image's own (resolution-switching) srcset so high-DPR phones still
+	 * get a crisp version, and the <img>'s sizes so it respects the block width.
 	 *
-	 * @param string $srcset    Existing srcset attribute value.
 	 * @param int    $mobile_id Mobile attachment ID.
-	 * @return string|null Rewritten srcset, or null if nothing changed.
+	 * @param string $img_sizes The <img>'s sizes attribute (may be empty).
+	 * @return string Source tag, or '' if the attachment can't be resolved.
 	 */
-	private function rewrite_srcset( $srcset, $mobile_id ) {
-		// The two breakpoints to swap. Reading the size options (rather than
-		// hardcoding 300/768) keeps this correct on sites that customized the
-		// medium / medium_large dimensions.
-		$medium_w       = (int) get_option( 'medium_size_w', 300 );
-		$medium_large_w = (int) get_option( 'medium_large_size_w', 768 );
-		if ( $medium_w <= 0 ) {
-			$medium_w = 300;
-		}
-		if ( $medium_large_w <= 0 ) {
-			$medium_large_w = 768;
+	private function build_mobile_source( $mobile_id, $img_sizes ) {
+		$meta = wp_get_attachment_metadata( $mobile_id );
+		if ( ! is_array( $meta ) || empty( $meta['width'] ) ) {
+			return '';
 		}
 
-		$targets = array(
-			$medium_w       => 'medium',
-			$medium_large_w => 'medium_large',
+		$srcset = wp_get_attachment_image_srcset( $mobile_id, 'full', $meta );
+		if ( ! $srcset ) {
+			// Single-size image: hand-build a one-candidate srcset.
+			$url = wp_get_attachment_image_url( $mobile_id, 'full' );
+			if ( ! $url ) {
+				return '';
+			}
+			$srcset = $url . ' ' . (int) $meta['width'] . 'w';
+		}
+
+		/**
+		 * Filters the max-width (px) at or below which the mobile alternative is
+		 * served. Default 768.
+		 *
+		 * @param int $breakpoint Breakpoint in pixels.
+		 * @param int $mobile_id  Mobile attachment ID.
+		 */
+		$breakpoint = (int) apply_filters( 'coywolf_seo_mobile_image_breakpoint', self::BREAKPOINT, $mobile_id );
+		if ( $breakpoint <= 0 ) {
+			$breakpoint = self::BREAKPOINT;
+		}
+
+		// Reuse the <img>'s own sizes so the source respects the block's layout
+		// width; under the source's media (<= breakpoint) it resolves to 100vw.
+		$sizes = ( '' !== $img_sizes ) ? $img_sizes : '100vw';
+
+		return sprintf(
+			'<source media="(max-width: %dpx)" srcset="%s" sizes="%s" />',
+			$breakpoint,
+			esc_attr( $srcset ),
+			esc_attr( $sizes )
 		);
-
-		// Resolve the mobile image's URL at each target size. wp_get_attachment_image_src
-		// falls back to the full-size image when an intermediate size is absent.
-		$replacements = array();
-		foreach ( $targets as $width => $size ) {
-			$src = wp_get_attachment_image_src( $mobile_id, $size );
-			if ( is_array( $src ) && ! empty( $src[0] ) ) {
-				$replacements[ $width ] = $src[0];
-			}
-		}
-		if ( empty( $replacements ) ) {
-			return null;
-		}
-
-		$candidates = explode( ',', $srcset );
-		$changed    = false;
-		foreach ( $candidates as $i => $candidate ) {
-			if ( preg_match( '/^\s*(\S+)\s+(\d+)w\s*$/', $candidate, $parts ) ) {
-				$width = (int) $parts[2];
-				if ( isset( $replacements[ $width ] ) ) {
-					$candidates[ $i ] = $replacements[ $width ] . ' ' . $width . 'w';
-					$changed          = true;
-				}
-			}
-		}
-
-		return $changed ? implode( ', ', $candidates ) : null;
 	}
 }
