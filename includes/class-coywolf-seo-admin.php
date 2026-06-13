@@ -267,22 +267,28 @@ final class Coywolf_SEO_Admin {
 			self::SLUG_SITE,
 			array( $this, 'render_site_details' )
 		);
-		add_submenu_page(
-			self::SLUG_SITE,
-			__( 'Authors', 'coywolf-seo' ),
-			__( 'Authors', 'coywolf-seo' ),
-			self::CAPABILITY,
-			Coywolf_SEO_Authors::SLUG,
-			array( Coywolf_SEO::instance()->authors(), 'render' )
-		);
-		add_submenu_page(
-			self::SLUG_SITE,
-			__( 'Image Text', 'coywolf-seo' ),
-			__( 'Image Text', 'coywolf-seo' ),
-			self::CAPABILITY,
-			Coywolf_SEO_Image_Text::SLUG,
-			array( Coywolf_SEO::instance()->image_text(), 'render_page' )
-		);
+		// Authors only matters when Schema.org markup (Person/author output) is on.
+		if ( Coywolf_SEO_Options::feature_enabled( 'schema' ) ) {
+			add_submenu_page(
+				self::SLUG_SITE,
+				__( 'Authors', 'coywolf-seo' ),
+				__( 'Authors', 'coywolf-seo' ),
+				self::CAPABILITY,
+				Coywolf_SEO_Authors::SLUG,
+				array( Coywolf_SEO::instance()->authors(), 'render' )
+			);
+		}
+		// Image Text is part of AI enrichment.
+		if ( Coywolf_SEO_Options::feature_enabled( 'ai' ) ) {
+			add_submenu_page(
+				self::SLUG_SITE,
+				__( 'Image Text', 'coywolf-seo' ),
+				__( 'Image Text', 'coywolf-seo' ),
+				self::CAPABILITY,
+				Coywolf_SEO_Image_Text::SLUG,
+				array( Coywolf_SEO::instance()->image_text(), 'render_page' )
+			);
+		}
 		$pending      = Coywolf_SEO::instance()->redirects()->pending_count();
 		$bubble       = $pending > 0 ? ' <span class="awaiting-mod">' . esc_html( (string) $pending ) . '</span>' : '';
 		add_submenu_page(
@@ -378,7 +384,7 @@ final class Coywolf_SEO_Admin {
 				wp_enqueue_script(
 					'coywolf-seo-admin',
 					COYWOLF_SEO_URL . 'js/admin.js',
-					array( 'jquery' ),
+					array( 'jquery', 'jquery-ui-sortable' ),
 					Coywolf_SEO::VERSION,
 					true
 				);
@@ -409,7 +415,7 @@ final class Coywolf_SEO_Admin {
 		wp_enqueue_script(
 			'coywolf-seo-admin',
 			COYWOLF_SEO_URL . 'js/admin.js',
-			array( 'jquery' ),
+			array( 'jquery', 'jquery-ui-sortable' ),
 			Coywolf_SEO::VERSION,
 			true
 		);
@@ -425,6 +431,7 @@ final class Coywolf_SEO_Admin {
 					'selectImage'    => __( 'Select image', 'coywolf-seo' ),
 					'pasteOrSelect'  => __( 'Paste an image URL or select one', 'coywolf-seo' ),
 					'removeProperty' => __( 'Remove property', 'coywolf-seo' ),
+					'remove'         => __( 'Remove', 'coywolf-seo' ),
 					'confirmDelete'      => __( 'Delete this redirect?', 'coywolf-seo' ),
 					'confirmBulkEnrich'  => __( 'Enrich ALL published posts and pages now? This runs in the background, can take a while, and incurs Anthropic API costs. Content already analyzed with the current settings is skipped.', 'coywolf-seo' ),
 					'confirmBulkForce'   => __( 'Re-analyze EVERY published post and page now, including content that is already current? Every item makes fresh API calls, so this costs the full estimated amount each time.', 'coywolf-seo' ),
@@ -517,8 +524,12 @@ final class Coywolf_SEO_Admin {
 		foreach ( array( 'append_site_name', 'cat_hide_prefix' ) as $key ) {
 			$raw[ $key ] = ! empty( $raw[ $key ] );
 		}
-		// The property repeater posts indexed rows.
-		$raw['org_properties'] = isset( $raw['org_rows'] ) && is_array( $raw['org_rows'] ) ? array_values( $raw['org_rows'] ) : array();
+		// The property repeater posts indexed rows. Only write when the
+		// Schema.org controls are actually shown — when Schema is off they are
+		// not rendered, so a save must not wipe the stored properties.
+		if ( Coywolf_SEO_Options::feature_enabled( 'schema' ) ) {
+			$raw['org_properties'] = isset( $raw['org_rows'] ) && is_array( $raw['org_rows'] ) ? array_values( $raw['org_rows'] ) : array();
+		}
 
 		// The Site Name and Tagline write to the core options
 		// (administrators only — the inputs are disabled for everyone else).
@@ -552,8 +563,16 @@ final class Coywolf_SEO_Admin {
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized field-by-field in Coywolf_SEO_Options::sanitize().
 		$raw = isset( $_POST['coywolf_seo'] ) && is_array( $_POST['coywolf_seo'] ) ? wp_unslash( $_POST['coywolf_seo'] ) : array();
 
-		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'sitemap_exclude_posts', 'sitemap_exclude_pages', 'sitemap_exclude_categories', 'sitemap_exclude_users', 'news_enabled', 'news_include_posts', 'news_include_pages', 'ai_enabled', 'ai_descriptions', 'image_text_write_alt', 'image_text_write_title', 'image_text_write_caption', 'image_text_write_description', 'image_text_overwrite' ) as $key ) {
+		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'sitemap_exclude_posts', 'sitemap_exclude_pages', 'sitemap_exclude_categories', 'sitemap_exclude_users', 'news_enabled', 'news_include_posts', 'news_include_pages', 'ai_descriptions', 'image_text_write_alt', 'image_text_write_title', 'image_text_write_caption', 'image_text_write_description', 'image_text_overwrite', 'feature_ai_off', 'feature_schema_off', 'feature_sitemaps_off' ) as $key ) {
 			$raw[ $key ] = ! empty( $raw[ $key ] );
+		}
+		// Entity detection: its checkbox is disabled (so omitted from POST) when
+		// Schema.org markup is off, so only record it when the control was shown
+		// — otherwise leave the stored preference untouched.
+		if ( Coywolf_SEO_Options::feature_enabled( 'schema' ) ) {
+			$raw['ai_enabled'] = ! empty( $raw['ai_enabled'] );
+		} else {
+			unset( $raw['ai_enabled'] );
 		}
 		if ( empty( $raw['news_cats'] ) ) {
 			$raw['news_cats'] = array();
@@ -570,6 +589,13 @@ final class Coywolf_SEO_Admin {
 
 		$news_before = (bool) Coywolf_SEO_Options::get( 'news_enabled' );
 		$clean       = Coywolf_SEO_Options::sanitize( $raw );
+		// Turning AI enrichment off deletes the saved Claude API key (a key in
+		// wp-config.php is then ignored while off). The key field is write-only,
+		// so force it empty here rather than relying on the empty-field path.
+		if ( ! empty( $clean['feature_ai_off'] ) ) {
+			$clean['ai_api_key'] = '';
+			delete_transient( 'coywolf_seo_ai_models' );
+		}
 		Coywolf_SEO_Options::update( $clean );
 		if ( isset( $clean['access_role'] ) ) {
 			self::sync_capability( $clean['access_role'] );
@@ -598,6 +624,7 @@ final class Coywolf_SEO_Admin {
 			$prop = isset( $row['prop'] ) ? (string) $row['prop'] : '';
 			?>
 			<tr class="coywolf-seo-prop-row">
+				<td class="coywolf-seo-drag-cell"><span class="coywolf-seo-drag-handle dashicons dashicons-move" aria-hidden="true"></span></td>
 				<td>
 					<select name="coywolf_seo[<?php echo esc_attr( $field ); ?>][<?php echo esc_attr( (string) $i ); ?>][prop]" class="coywolf-seo-prop-select">
 						<?php foreach ( $catalog as $name => $label ) : ?>
@@ -608,7 +635,7 @@ final class Coywolf_SEO_Admin {
 				<td class="coywolf-seo-prop-value">
 					<?php self::render_property_value_cell( 'coywolf_seo[' . $field . '][' . $i . '][value]', $prop, isset( $row['value'] ) ? $row['value'] : '' ); ?>
 				</td>
-				<td><button type="button" class="button-link coywolf-seo-remove-row" aria-label="<?php esc_attr_e( 'Remove property', 'coywolf-seo' ); ?>">&times;</button></td>
+				<td><button type="button" class="button coywolf-seo-remove-row" aria-label="<?php esc_attr_e( 'Remove property', 'coywolf-seo' ); ?>"><?php esc_html_e( 'Remove', 'coywolf-seo' ); ?></button></td>
 			</tr>
 			<?php
 		}
@@ -768,6 +795,7 @@ final class Coywolf_SEO_Admin {
 							<p class="description"><?php esc_html_e( 'Default Open Graph image, used on any page that does not have one of its own. Recommended size: 1200 × 675 pixels.', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
+					<?php if ( Coywolf_SEO_Options::feature_enabled( 'schema' ) ) : ?>
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Organization or Person', 'coywolf-seo' ); ?></th>
 						<td>
@@ -815,6 +843,7 @@ final class Coywolf_SEO_Admin {
 							<p class="description"><?php esc_html_e( 'Schema.org Organization properties — selecting a property adds it, and each value input matches the property type. Add a property more than once (sameAs, for example) to output multiple values. Empty rows are not saved; removing @id falls back to the default.', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
+					<?php endif; // End Organization / Person controls. ?>
 				</table>
 
 				<h2><?php esc_html_e( 'Homepage', 'coywolf-seo' ); ?></h2>
@@ -967,16 +996,20 @@ final class Coywolf_SEO_Admin {
 					</tr>
 				</table>
 
+				<?php if ( Coywolf_SEO_Options::feature_enabled( 'ai' ) ) : ?>
 				<h2><?php esc_html_e( 'AI enrichment', 'coywolf-seo' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Entity detection', 'coywolf-seo' ); ?></th>
 						<td>
 							<label>
-								<input type="checkbox" id="coywolf-seo-ai-enabled" name="coywolf_seo[ai_enabled]" value="1" <?php checked( $o['ai_enabled'] ); ?> />
+								<input type="checkbox" id="coywolf-seo-ai-enabled" name="coywolf_seo[ai_enabled]" value="1" <?php checked( $o['ai_enabled'] ); ?> <?php disabled( Coywolf_SEO_Options::feature_enabled( 'schema' ), false ); ?> />
 								<?php esc_html_e( 'Analyze posts and pages with Claude when they are published or updated, and add the detected entities to their Article schema', 'coywolf-seo' ); ?>
 							</label>
 							<p class="description"><?php esc_html_e( 'Main subjects become the about property and passing references become mentions. Every entity is grounded against Wikidata — Claude only extracts names, real items are looked up on Wikidata, and the chosen item is type-checked — so identifiers are never invented. Runs in the background after publishing.', 'coywolf-seo' ); ?></p>
+							<?php if ( ! Coywolf_SEO_Options::feature_enabled( 'schema' ) ) : ?>
+								<p class="description"><strong><?php esc_html_e( 'Entity detection is off because Schema.org markup is turned off.', 'coywolf-seo' ); ?></strong></p>
+							<?php endif; ?>
 						</td>
 					</tr>
 					<tbody id="coywolf-seo-ai-desc-row" <?php echo $o['exclude_meta_desc'] ? 'style="display:none"' : ''; ?>>
@@ -1140,6 +1173,7 @@ final class Coywolf_SEO_Admin {
 						</td>
 					</tr>
 				</table>
+				<?php endif; // End AI enrichment and Image Text defaults. ?>
 
 				<h2><?php esc_html_e( 'IndexNow', 'coywolf-seo' ); ?></h2>
 				<table class="form-table" role="presentation">
@@ -1163,6 +1197,7 @@ final class Coywolf_SEO_Admin {
 					</tr>
 				</table>
 
+				<?php if ( Coywolf_SEO_Options::feature_enabled( 'sitemaps' ) ) : ?>
 				<h2><?php esc_html_e( 'Sitemaps', 'coywolf-seo' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
@@ -1228,10 +1263,47 @@ final class Coywolf_SEO_Admin {
 						</td>
 					</tr>
 				</table>
+				<?php endif; // End Sitemaps section. ?>
+
+				<h2><?php esc_html_e( 'Turn off features', 'coywolf-seo' ); ?></h2>
+				<p class="description"><?php esc_html_e( 'Turn off any feature you do not use. Its settings, pages, and saved data are kept and can be turned back on at any time.', 'coywolf-seo' ); ?></p>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'AI enrichment', 'coywolf-seo' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="coywolf_seo[feature_ai_off]" value="1" <?php checked( $o['feature_ai_off'] ); ?> />
+								<?php esc_html_e( 'Turn off AI enrichment', 'coywolf-seo' ); ?>
+							</label>
+							<p class="description"><?php esc_html_e( 'Hides Entity detection, Meta descriptions, Enrich all content, the Claude API settings, and Image Text (menu and Image block). Saved image text and entities are kept and still used. Your saved Claude API key is deleted; a key in wp-config.php is ignored while this is off.', 'coywolf-seo' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Schema.org markup', 'coywolf-seo' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="coywolf_seo[feature_schema_off]" value="1" <?php checked( $o['feature_schema_off'] ); ?> />
+								<?php esc_html_e( 'Turn off Schema.org markup', 'coywolf-seo' ); ?>
+							</label>
+							<p class="description"><?php esc_html_e( 'Stops all Schema.org (JSON-LD) output and hides the Organization/Person settings and the Authors page. This also turns off Entity detection. Stored entities and settings are kept.', 'coywolf-seo' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Sitemaps', 'coywolf-seo' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="coywolf_seo[feature_sitemaps_off]" value="1" <?php checked( $o['feature_sitemaps_off'] ); ?> />
+								<?php esc_html_e( 'Turn off Sitemaps', 'coywolf-seo' ); ?>
+							</label>
+							<p class="description"><?php esc_html_e( 'Stops the News XML sitemap and the native XML sitemap exclusions. Your sitemap preferences are kept.', 'coywolf-seo' ); ?></p>
+						</td>
+					</tr>
+				</table>
 
 				<?php submit_button( __( 'Save Settings', 'coywolf-seo' ) ); ?>
 			</form>
 
+			<?php if ( Coywolf_SEO_Options::feature_enabled( 'ai' ) ) : ?>
 			<h2><?php esc_html_e( 'Enrich all content', 'coywolf-seo' ); ?></h2>
 			<table class="form-table" role="presentation">
 					<tbody>
@@ -1271,6 +1343,7 @@ final class Coywolf_SEO_Admin {
 					</tr>
 					</tbody>
 			</table>
+			<?php endif; // End Enrich all content. ?>
 		</div>
 		<?php
 	}

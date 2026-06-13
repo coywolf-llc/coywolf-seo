@@ -84,6 +84,12 @@ final class Coywolf_SEO_Options {
 			'image_text_write_description' => true,
 			'image_text_overwrite'         => false,
 			'image_text_instructions'      => '',
+			// Master feature toggles. Stored as "off" flags so the Settings
+			// "Turn off features" checkboxes map directly; default false = the
+			// feature is on, preserving behavior on existing installs.
+			'feature_ai_off'               => false,
+			'feature_schema_off'           => false,
+			'feature_sitemaps_off'         => false,
 		);
 	}
 
@@ -122,6 +128,16 @@ final class Coywolf_SEO_Options {
 	public static function get( $key ) {
 		$all = self::all();
 		return isset( $all[ $key ] ) ? $all[ $key ] : null;
+	}
+
+	/**
+	 * Whether a master feature is enabled (not turned off on the Settings page).
+	 *
+	 * @param string $feature One of 'ai', 'schema', 'sitemaps'.
+	 * @return bool
+	 */
+	public static function feature_enabled( $feature ) {
+		return ! (bool) self::get( 'feature_' . $feature . '_off' );
 	}
 
 	/**
@@ -173,6 +189,9 @@ final class Coywolf_SEO_Options {
 			'image_text_write_caption',
 			'image_text_write_description',
 			'image_text_overwrite',
+			'feature_ai_off',
+			'feature_schema_off',
+			'feature_sitemaps_off',
 		);
 		foreach ( $booleans as $key ) {
 			if ( array_key_exists( $key, $raw ) ) {

@@ -297,7 +297,7 @@
 		};
 
 		var renderAI = function ( state ) {
-			var text = state.done + ' / ' + state.total;
+			var text = fmt( cfg.i18n.progress, { '%1$s': state.done, '%2$s': state.total } );
 			if ( state.failed > 0 ) {
 				text += ' (' + state.failed + ' ' + cfg.i18n.failed + ')';
 			}
@@ -306,7 +306,7 @@
 			}
 			setProgress( aiProgress, state.done, state.total, text );
 			if ( state.current ) {
-				aiCurrent.textContent = state.current;
+				aiCurrent.textContent = fmt( cfg.i18n.analyzingFile, { '%s': state.current } );
 				show( aiCurrent, true );
 			}
 			fillErrors( aiErrors, state.errors, state.failed );
@@ -345,7 +345,7 @@
 			aiCancelled = false;
 			aiButtons( true, false );
 			show( aiProgress, true );
-			setProgress( aiProgress, 0, 1, '…' );
+			setProgress( aiProgress, 0, 1, cfg.i18n.starting );
 			api( '/image-text/start', {
 				fields: selection.fields,
 				// "Re-analyze all" forces overwrite; otherwise honor the checkbox.

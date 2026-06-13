@@ -88,6 +88,13 @@ final class Coywolf_SEO_Authors {
 		}
 		check_admin_referer( 'coywolf_seo_author' );
 
+		// Authors is part of Schema.org markup; ignore a stale form POST when
+		// the feature has since been turned off.
+		if ( ! Coywolf_SEO_Options::feature_enabled( 'schema' ) ) {
+			wp_safe_redirect( admin_url( 'admin.php?page=' . Coywolf_SEO_Admin::SLUG_SITE ) );
+			exit;
+		}
+
 		$user_id = isset( $_POST['coywolf_seo_author_id'] ) ? absint( $_POST['coywolf_seo_author_id'] ) : 0;
 		if ( ! $user_id || ! get_userdata( $user_id ) ) {
 			wp_die( esc_html__( 'Unknown user.', 'coywolf-seo' ) );
@@ -118,7 +125,13 @@ final class Coywolf_SEO_Authors {
 	public function render() {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only selection of which author to edit.
 		$user_id = isset( $_GET['user'] ) ? absint( $_GET['user'] ) : 0;
-		$user    = $user_id ? get_userdata( $user_id ) : false;
+		$users   = get_users( array( 'fields' => array( 'ID', 'display_name' ) ) );
+		// With exactly one eligible user, auto-select them so their properties
+		// show by default; multi-user sites keep the manual chooser.
+		if ( 0 === $user_id && 1 === count( $users ) ) {
+			$user_id = (int) $users[0]->ID;
+		}
+		$user = $user_id ? get_userdata( $user_id ) : false;
 
 		$person_props = Coywolf_SEO_Options::person_properties();
 		$saved_all    = Coywolf_SEO_Options::authors_all();
@@ -133,7 +146,7 @@ final class Coywolf_SEO_Authors {
 				&nbsp;
 				<select id="coywolf-seo-author-select" name="user">
 					<option value="0"><?php esc_html_e( '— Select a user —', 'coywolf-seo' ); ?></option>
-					<?php foreach ( get_users( array( 'fields' => array( 'ID', 'display_name' ) ) ) as $u ) : ?>
+					<?php foreach ( $users as $u ) : ?>
 						<option value="<?php echo esc_attr( (string) $u->ID ); ?>" <?php selected( $user_id, (int) $u->ID ); ?>>
 							<?php
 							echo esc_html( $u->display_name );

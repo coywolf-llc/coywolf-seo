@@ -1075,7 +1075,13 @@ final class Coywolf_SEO_AI {
 	 * @return bool
 	 */
 	public function enabled() {
-		return (bool) Coywolf_SEO_Options::get( 'ai_enabled' ) && '' !== $this->api_key();
+		// Entity detection also requires Schema.org markup to be on: with no
+		// schema output there is nowhere to surface entities, so turning Schema
+		// off turns Entity detection off too (the ai_enabled preference is kept).
+		// api_key() already encodes the AI master toggle.
+		return Coywolf_SEO_Options::feature_enabled( 'schema' )
+			&& (bool) Coywolf_SEO_Options::get( 'ai_enabled' )
+			&& '' !== $this->api_key();
 	}
 
 	/**
@@ -1168,6 +1174,11 @@ final class Coywolf_SEO_AI {
 	 * @return string
 	 */
 	private function api_key() {
+		// Master toggle: when AI enrichment is off, behave as if no key exists
+		// anywhere — this also ignores the ANTHROPIC_API_KEY constant/env.
+		if ( ! Coywolf_SEO_Options::feature_enabled( 'ai' ) ) {
+			return '';
+		}
 		$key = (string) Coywolf_SEO_Options::get( 'ai_api_key' );
 		if ( '' !== $key ) {
 			return $key;
@@ -1414,9 +1425,11 @@ final class Coywolf_SEO_AI {
 			'about'    => array(),
 			'mentions' => array(),
 		);
-		// Entity detection off: stored entities stay in the database but
-		// leave the schema output.
-		if ( ! (bool) Coywolf_SEO_Options::get( 'ai_enabled' ) ) {
+		// Entity detection off (or AI/Schema master off): stored entities stay
+		// in the database but leave the schema output.
+		if ( ! Coywolf_SEO_Options::feature_enabled( 'schema' )
+			|| ! Coywolf_SEO_Options::feature_enabled( 'ai' )
+			|| ! (bool) Coywolf_SEO_Options::get( 'ai_enabled' ) ) {
 			return $out;
 		}
 		$saved = get_post_meta( $post_id, self::META_KEY, true );

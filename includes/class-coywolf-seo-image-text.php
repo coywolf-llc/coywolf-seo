@@ -688,6 +688,11 @@ final class Coywolf_SEO_Image_Text {
 	 * generate button on the core Image block.
 	 */
 	public function editor_assets() {
+		// Image Text is part of AI enrichment; when that is off, don't add the
+		// Image-block panel at all.
+		if ( ! Coywolf_SEO_Options::feature_enabled( 'ai' ) ) {
+			return;
+		}
 		wp_enqueue_script(
 			'coywolf-seo-it-editor',
 			COYWOLF_SEO_URL . 'js/image-text-editor.js',
@@ -1032,6 +1037,11 @@ final class Coywolf_SEO_Image_Text {
 						'out' => Coywolf_SEO_Image_AI::EST_OUTPUT_TOKENS,
 					),
 					'i18n'      => array(
+						'starting'         => __( 'Contacting Claude…', 'coywolf-seo' ),
+						/* translators: 1: number of images done, 2: total images — replaced in JS. */
+						'progress'         => __( '%1$s of %2$s analyzed', 'coywolf-seo' ),
+						/* translators: %s: image file name — replaced in JS. */
+						'analyzingFile'    => __( 'Analyzing %s…', 'coywolf-seo' ),
 						'doneReload'       => __( 'Done — reloading…', 'coywolf-seo' ),
 						'failed'           => __( 'failed', 'coywolf-seo' ),
 						/* translators: %s: number of posts/pages updated — replaced in JS. */
