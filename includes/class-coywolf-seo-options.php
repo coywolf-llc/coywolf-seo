@@ -95,7 +95,6 @@ final class Coywolf_SEO_Options {
 			// Link Manager settings (relocated from the standalone plugin).
 			'lm_speed'                     => 'default',
 			'lm_user_agent'                => '',
-			'lm_scope'                     => 'external',
 		);
 	}
 
@@ -267,9 +266,6 @@ final class Coywolf_SEO_Options {
 		// Link Manager settings.
 		if ( isset( $raw['lm_speed'] ) ) {
 			$out['lm_speed'] = in_array( $raw['lm_speed'], array( 'polite', 'default', 'fast', 'faster' ), true ) ? $raw['lm_speed'] : 'default';
-		}
-		if ( isset( $raw['lm_scope'] ) ) {
-			$out['lm_scope'] = in_array( $raw['lm_scope'], array( 'all', 'external', 'internal' ), true ) ? $raw['lm_scope'] : 'external';
 		}
 		if ( isset( $raw['lm_user_agent'] ) ) {
 			// Strip CR/LF/TAB/NUL first (header-injection guard) before the

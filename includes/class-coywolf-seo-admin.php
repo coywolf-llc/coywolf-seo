@@ -33,6 +33,7 @@ final class Coywolf_SEO_Admin {
 	 */
 	public function init() {
 		add_action( 'admin_menu', array( $this, 'register_menu' ) );
+		add_action( 'admin_head', array( $this, 'hide_hidden_pages' ) );
 		add_action( 'admin_post_coywolf_seo_save_site', array( $this, 'save_site_details' ) );
 		add_action( 'admin_post_coywolf_seo_save_settings', array( $this, 'save_settings' ) );
 		add_action( 'admin_post_coywolf_seo_remove_ai_key', array( $this, 'remove_ai_key' ) );
@@ -40,6 +41,18 @@ final class Coywolf_SEO_Admin {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_notices', array( $this, 'maybe_show_saved_notice' ) );
 		add_action( 'admin_notices', array( $this, 'maybe_show_activation_notice' ) );
+	}
+
+	/**
+	 * Remove menu-only entries for hidden-but-routable pages (the Link Manager
+	 * "Edit Link" screen, reached from the All Links table) so the URL works
+	 * while no menu item shows. Removing at admin_head — not at registration —
+	 * keeps the page routable.
+	 */
+	public function hide_hidden_pages() {
+		if ( Coywolf_SEO_Options::feature_enabled( 'links' ) ) {
+			remove_submenu_page( self::SLUG_SITE, Coywolf_SEO_Link_Manager::EDIT_SLUG );
+		}
 	}
 
 	/**
@@ -298,6 +311,17 @@ final class Coywolf_SEO_Admin {
 				self::CAPABILITY,
 				Coywolf_SEO_Link_Manager::SLUG,
 				array( Coywolf_SEO::instance()->link_manager(), 'render_page' )
+			);
+			// Hidden per-link Edit page (reached from the All Links table).
+			// Registered under the real parent so admin.php routing works, then
+			// removed from the menu UI on admin_head (hide_hidden_pages()).
+			add_submenu_page(
+				self::SLUG_SITE,
+				__( 'Edit Link', 'coywolf-seo' ),
+				__( 'Edit Link', 'coywolf-seo' ),
+				self::CAPABILITY,
+				Coywolf_SEO_Link_Manager::EDIT_SLUG,
+				array( Coywolf_SEO::instance()->link_manager(), 'render_edit_link_page' )
 			);
 		}
 		// Redirects — hidden when the feature is turned off (the pending-count

@@ -1116,7 +1116,7 @@ final class Coywolf_SEO_Link_Manager {
 	 * loopback request is fired non-blocking and may not carry the cookie.
 	 */
 	public function ajax_process() {
-		$token = isset( $_POST['token'] ) ? sanitize_text_field( wp_unslash( $_POST['token'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce + capability verified in authorise_operator() (check_ajax_referer) before this AJAX handler reads input.
+		$token = isset( $_POST['token'] ) ? sanitize_text_field( wp_unslash( $_POST['token'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- nopriv loopback worker; authorized just below by the one-off per-scan token compared with hash_equals (the non-blocking loopback request carries no auth cookie/nonce).
 		$state = $this->get_state();
 
 		if ( empty( $state['token'] ) || ! hash_equals( (string) $state['token'], $token ) ) {
