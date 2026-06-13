@@ -65,6 +65,13 @@ final class Coywolf_SEO_AI_Anthropic extends Coywolf_SEO_AI_Provider {
 	/**
 	 * {@inheritdoc}
 	 */
+	public function short_label() {
+		return __( 'Claude', 'coywolf-seo' );
+	}
+
+	/**
+	 * {@inheritdoc}
+	 */
 	public function key_option() {
 		return 'ai_api_key';
 	}

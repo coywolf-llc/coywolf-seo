@@ -41,6 +41,16 @@ abstract class Coywolf_SEO_AI_Provider {
 	abstract public function label();
 
 	/**
+	 * Short provider name for compact UI such as a button ("Generate with
+	 * Claude"). Defaults to label(); concrete providers give a terser name.
+	 *
+	 * @return string
+	 */
+	public function short_label() {
+		return $this->label();
+	}
+
+	/**
 	 * Settings option key that stores this provider's API key.
 	 *
 	 * @return string
