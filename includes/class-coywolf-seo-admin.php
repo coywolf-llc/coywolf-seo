@@ -1029,6 +1029,13 @@ final class Coywolf_SEO_Admin {
 							<p class="description"><?php esc_html_e( 'Used for entity detection and meta descriptions. The list comes from the models available to your key. Changing the model re-analyzes each post on its next save (or via Re-analyze).', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'API connection', 'coywolf-seo' ); ?></th>
+						<td>
+							<button type="button" class="button" id="coywolf-seo-ai-test"><?php esc_html_e( 'Test API access', 'coywolf-seo' ); ?></button>
+							<span class="description" id="coywolf-seo-ai-test-result"></span>
+						</td>
+					</tr>
 					</tbody>
 				</table>
 
@@ -1132,10 +1139,6 @@ final class Coywolf_SEO_Admin {
 								<?php $this->render_bulk_controls(); ?>
 							</div>
 							<p class="description" id="coywolf-seo-bulk-estimate" data-loading="<?php esc_attr_e( 'Calculating the estimated cost…', 'coywolf-seo' ); ?>"><em><?php esc_html_e( 'Calculating the estimated cost…', 'coywolf-seo' ); ?></em></p>
-							<p>
-								<button type="button" class="button" id="coywolf-seo-ai-test"><?php esc_html_e( 'Test API access', 'coywolf-seo' ); ?></button>
-								<span class="description" id="coywolf-seo-ai-test-result"></span>
-							</p>
 							<p class="description"><strong><?php esc_html_e( 'Use sparingly:', 'coywolf-seo' ); ?></strong> <?php esc_html_e( 'this runs the enabled AI features over every published post and page through Anthropic\'s Batches API at 50% of standard token prices. Results can take up to an hour (occasionally longer) and incur API costs each run — content already analyzed with the current settings is skipped automatically.', 'coywolf-seo' ); ?></p>
 							<?php $coywolf_seo_usage = Coywolf_SEO_AI_Batch::usage_summary( Coywolf_SEO::instance()->ai()->model() ); ?>
 							<?php if ( ! empty( $coywolf_seo_usage ) ) : ?>
