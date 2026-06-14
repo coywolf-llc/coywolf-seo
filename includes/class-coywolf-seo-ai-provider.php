@@ -304,6 +304,45 @@ abstract class Coywolf_SEO_AI_Provider {
 		);
 	}
 
+	/**
+	 * Trailing clause for the bulk-enrich cost estimate, naming what the run
+	 * will draw against. The base note is generic; Anthropic overrides it with
+	 * its upfront-reserve mechanics (and a %RESERVE% placeholder the estimate
+	 * JS fills in).
+	 *
+	 * @return string
+	 */
+	public function bulk_cost_note() {
+		/* translators: %s: the active AI service name (Claude, OpenAI, Gemini). */
+		return sprintf( __( 'Make sure your %s account has enough credit to cover the run.', 'coywolf-seo' ), $this->short_label() );
+	}
+
+	/**
+	 * Extra note shown when a bulk run pauses on a billing error. Provider-
+	 * specific mechanics (e.g. Anthropic's upfront cost check) live in the
+	 * concrete class; the base returns nothing.
+	 *
+	 * @param string $paused_reason The error message that paused the run.
+	 * @return string
+	 */
+	public function bulk_billing_note( $paused_reason = '' ) {
+		unset( $paused_reason );
+		return '';
+	}
+
+	/**
+	 * Hint shown by the connection test when real-time calls succeed but a
+	 * batch submission is rejected on billing grounds. Provider-specific
+	 * (Console paths, spend limits) so the base returns nothing.
+	 *
+	 * @param string $batch_error The batch submission error message.
+	 * @return string
+	 */
+	public function bulk_billing_hint( $batch_error = '' ) {
+		unset( $batch_error );
+		return '';
+	}
+
 	/* ------------------------------------------------------------------ *
 	 * Shared helpers for the concrete providers.
 	 * ------------------------------------------------------------------ */

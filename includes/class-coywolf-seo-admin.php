@@ -134,9 +134,12 @@ final class Coywolf_SEO_Admin {
 					);
 					?>
 					<?php esc_html_e( 'Fix the cause (for example, top up API credits), then Resume to continue where it left off.', 'coywolf-seo' ); ?>
-					<?php if ( false !== stripos( $coywolf_seo_bulk['paused_reason'], 'credit balance' ) ) : ?>
+					<?php
+					$coywolf_seo_billing_note = Coywolf_SEO_AI_Providers::current()->bulk_billing_note( $coywolf_seo_bulk['paused_reason'] );
+					if ( '' !== $coywolf_seo_billing_note ) :
+						?>
 						<br />
-						<?php esc_html_e( 'Note: Anthropic checks a batch\'s maximum possible cost up front — not what it will actually spend — so this can trigger even with a healthy balance. Resume submits smaller batches with tighter token allowances, which usually clears it. If it persists, check the Model setting: legacy Opus models cost several times more than the default.', 'coywolf-seo' ); ?>
+						<?php echo esc_html( $coywolf_seo_billing_note ); ?>
 					<?php endif; ?>
 				</p>
 			<?php endif; ?>
@@ -515,10 +518,14 @@ final class Coywolf_SEO_Admin {
 					'removeProperty'    => __( 'Remove property', 'coywolf-seo' ),
 					'remove'            => __( 'Remove', 'coywolf-seo' ),
 					'confirmDelete'     => __( 'Delete this redirect?', 'coywolf-seo' ),
-					'confirmBulkEnrich' => __( 'Enrich ALL published posts and pages now? This runs in the background, can take a while, and incurs Anthropic API costs. Content already analyzed with the current settings is skipped.', 'coywolf-seo' ),
+					'confirmBulkEnrich' => sprintf(
+						/* translators: %s: the active AI service name (Claude, OpenAI, Gemini). */
+						__( 'Enrich ALL published posts and pages now? This runs in the background, can take a while, and incurs %s API costs. Content already analyzed with the current settings is skipped.', 'coywolf-seo' ),
+						Coywolf_SEO_AI_Providers::current()->short_label()
+					),
 					'confirmBulkForce'  => __( 'Re-analyze EVERY published post and page now, including content that is already current? Every item makes fresh API calls, so this costs the full estimated amount each time.', 'coywolf-seo' ),
 					'confirmBulkCancel' => __( 'Cancel this run for good? The remaining queue is discarded — a new run would re-check every post from the start (already-analyzed content is skipped at no cost).', 'coywolf-seo' ),
-					'estimateLine'      => __( '%POSTS% posts need enrichment (%SKIPPED% already current). Estimated cost: ~$%COST% at batch rates for %MODEL%. Your Anthropic balance (and any Workspace spend limit) must cover about $%RESERVE% for the largest batch\'s upfront check.', 'coywolf-seo' ),
+					'estimateLine'      => __( '%POSTS% posts need enrichment (%SKIPPED% already current). Estimated cost: ~$%COST% at batch rates for %MODEL%.', 'coywolf-seo' ) . ' ' . Coywolf_SEO_AI_Providers::current()->bulk_cost_note(),
 					'estimateNone'      => __( 'Everything is already analyzed with the current settings — re-analyzing everything (%POSTS% posts, ~$%COST%) will incur new costs.', 'coywolf-seo' ),
 					'estimateEmpty'     => __( 'There is no published content to enrich yet.', 'coywolf-seo' ),
 					'estimateUnsaved'   => __( '(Previewing an unsaved model — the run uses the saved Model setting.)', 'coywolf-seo' ),

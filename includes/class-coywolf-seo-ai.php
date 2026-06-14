@@ -899,8 +899,8 @@ final class Coywolf_SEO_AI {
 		}
 
 		$hint = '';
-		if ( $messages_ok && ! $batch_ok && false !== stripos( $batch_error, 'credit' ) ) {
-			$hint = __( 'Regular API calls work but batch creation is rejected on billing grounds: that is the signature of a Workspace spend limit. In the Anthropic Console open Settings -> Workspaces -> the workspace this key belongs to -> Limits, and raise or remove the monthly spend limit (or create a key in the Default workspace).', 'coywolf-seo' );
+		if ( $messages_ok && ! $batch_ok ) {
+			$hint = Coywolf_SEO_AI_Providers::current()->bulk_billing_hint( $batch_error );
 		}
 
 		wp_send_json_success(
@@ -953,15 +953,19 @@ final class Coywolf_SEO_AI {
 		$total   = isset( $state['total'] ) ? (int) $state['total'] : 0;
 		$done    = isset( $state['done'] ) ? (int) $state['done'] : 0;
 		$percent = $total > 0 ? (int) floor( ( $done / $total ) * 100 ) : 0;
+		$service = Coywolf_SEO_AI_Providers::current()->short_label();
 		$labels  = array(
 			'extract_submit'  => __( 'Submitting the entity-extraction batch…', 'coywolf-seo' ),
-			'extract_wait'    => __( 'Entity extraction processing at Anthropic (batch rates)…', 'coywolf-seo' ),
+			/* translators: %s: the active AI service name (Claude, OpenAI, Gemini). */
+			'extract_wait'    => sprintf( __( 'Entity extraction processing at %s (batch rates)…', 'coywolf-seo' ), $service ),
 			'ground'          => __( 'Grounding entities against Wikidata…', 'coywolf-seo' ),
 			'disambig_submit' => __( 'Submitting the disambiguation batch…', 'coywolf-seo' ),
-			'disambig_wait'   => __( 'Disambiguation processing at Anthropic (batch rates)…', 'coywolf-seo' ),
+			/* translators: %s: the active AI service name (Claude, OpenAI, Gemini). */
+			'disambig_wait'   => sprintf( __( 'Disambiguation processing at %s (batch rates)…', 'coywolf-seo' ), $service ),
 			'verify'          => __( 'Verifying entities…', 'coywolf-seo' ),
 			'describe_submit' => __( 'Submitting the meta-description batch…', 'coywolf-seo' ),
-			'describe_wait'   => __( 'Meta descriptions processing at Anthropic (batch rates)…', 'coywolf-seo' ),
+			/* translators: %s: the active AI service name (Claude, OpenAI, Gemini). */
+			'describe_wait'   => sprintf( __( 'Meta descriptions processing at %s (batch rates)…', 'coywolf-seo' ), $service ),
 			'finalize'        => __( 'Saving results…', 'coywolf-seo' ),
 		);
 		$stage   = isset( $state['stage'] ) ? (string) $state['stage'] : '';
