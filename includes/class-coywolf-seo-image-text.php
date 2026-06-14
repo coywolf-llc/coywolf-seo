@@ -111,10 +111,12 @@ final class Coywolf_SEO_Image_Text {
 	 * @param bool $save          Write to the attachment (all four fields,
 	 *                            overwriting — this is the explicit
 	 *                            per-image button).
+	 * @param int  $post_id       Post being edited (block editor), so its content
+	 *                            is preferred for context; 0 = look it up.
 	 * @return array|WP_Error { alt_text, title, caption, description, written }
 	 */
-	public function generate_single( $attachment_id, $save ) {
-		$texts = $this->ai->generate_image_text( $attachment_id );
+	public function generate_single( $attachment_id, $save, $post_id = 0 ) {
+		$texts = $this->ai->generate_image_text( $attachment_id, '', $this->context_for( (int) $attachment_id, (int) $post_id ) );
 		if ( is_wp_error( $texts ) ) {
 			return $texts;
 		}
@@ -251,7 +253,7 @@ final class Coywolf_SEO_Image_Text {
 			$state['last_id'] = $id;
 			$state['current'] = wp_basename( (string) get_post_meta( $id, '_wp_attached_file', true ) );
 
-			$result = $this->ai->generate_image_text( $id, isset( $state['model'] ) ? (string) $state['model'] : '' );
+			$result = $this->ai->generate_image_text( $id, isset( $state['model'] ) ? (string) $state['model'] : '', $this->context_for( $id ) );
 			++$state['done'];
 			if ( is_wp_error( $result ) ) {
 				++$state['failed'];
@@ -392,7 +394,7 @@ final class Coywolf_SEO_Image_Text {
 			// so the next chunk never re-queries it (rolled back on submit error).
 			$state['last_id'] = $id;
 			$custom_id        = 'a' . $id;
-			$request          = $this->ai->build_batch_request( $batch, $custom_id, $id );
+			$request          = $this->ai->build_batch_request( $batch, $custom_id, $id, $this->context_for( $id ) );
 			if ( is_wp_error( $request ) ) {
 				++$state['done'];
 				++$state['failed'];
@@ -539,6 +541,156 @@ final class Coywolf_SEO_Image_Text {
 			'name'    => wp_basename( (string) get_post_meta( (int) $id, '_wp_attached_file', true ) ),
 			'message' => (string) $message,
 		);
+	}
+
+	/* --------------------------------------------------------------------- *
+	 * Surrounding-article context (for context-aware alt text and captions)
+	 * --------------------------------------------------------------------- */
+
+	/**
+	 * Plain-text marker inserted where the image sits in the article, so the AI
+	 * knows its exact position.
+	 */
+	const CONTEXT_MARKER = '«THE IMAGE BEING DESCRIBED»';
+
+	/**
+	 * Characters of surrounding text kept on each side of the image marker —
+	 * bounds the added input tokens (~450 total) so context stays cheap.
+	 */
+	const CONTEXT_WINDOW_CHARS = 900;
+
+	/**
+	 * Build the surrounding-article context for an image: the post it appears in,
+	 * rendered to a short plain-text window with the image's position marked.
+	 * Returns '' when the image is not used in any post's content (the run then
+	 * falls back to filename-only context).
+	 *
+	 * @param int $attachment_id  Attachment ID.
+	 * @param int $prefer_post_id Post to prefer (the one being edited); 0 = look up.
+	 * @return string
+	 */
+	private function context_for( $attachment_id, $prefer_post_id = 0 ) {
+		$attachment_id = (int) $attachment_id;
+		$context       = '';
+		if ( (int) $prefer_post_id > 0 ) {
+			$context = $this->build_image_context( (int) $prefer_post_id, $attachment_id );
+		}
+		if ( '' === $context ) {
+			$post_id = $this->primary_post_for_image( $attachment_id );
+			if ( $post_id > 0 ) {
+				$context = $this->build_image_context( $post_id, $attachment_id );
+			}
+		}
+		return $context;
+	}
+
+	/**
+	 * The first published post/page whose content contains this image (its
+	 * `wp-image-<id>` class), or 0. Mirrors the propagation locator.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return int
+	 */
+	private function primary_post_for_image( $attachment_id ) {
+		global $wpdb;
+		$types = get_post_types( array( 'public' => true ), 'names' );
+		unset( $types['attachment'] );
+		if ( empty( $types ) ) {
+			return 0;
+		}
+		$type_ph = implode( ',', array_fill( 0, count( $types ), '%s' ) );
+		$like    = '%' . $wpdb->esc_like( 'wp-image-' . (int) $attachment_id ) . '%';
+		$args    = array_merge( $types, array( $like ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- IN() placeholders built from array_fill; args passed as one array; one-off lookup.
+		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type IN ({$type_ph}) AND post_status = 'publish' AND post_content LIKE %s ORDER BY ID ASC LIMIT 1", $args ) );
+	}
+
+	/**
+	 * Render a post to a short plain-text window centred on the image, with the
+	 * image's block replaced by {@see self::CONTEXT_MARKER} and the nearest
+	 * preceding heading captured. Returns '' when the image's block is not found.
+	 *
+	 * @param int $post_id       Post ID.
+	 * @param int $attachment_id Attachment ID.
+	 * @return string
+	 */
+	private function build_image_context( $post_id, $attachment_id ) {
+		$post = get_post( (int) $post_id );
+		if ( ! $post || '' === (string) $post->post_content ) {
+			return '';
+		}
+		$state = array(
+			'parts'          => array(),
+			'heading'        => '',
+			'marker_heading' => '',
+			'found'          => false,
+		);
+		$this->walk_blocks_for_context( parse_blocks( (string) $post->post_content ), (int) $attachment_id, $state );
+		if ( ! $state['found'] ) {
+			return '';
+		}
+
+		$text = implode( "\n", $state['parts'] );
+		$pos  = mb_strpos( $text, self::CONTEXT_MARKER );
+		if ( false !== $pos ) {
+			$win    = self::CONTEXT_WINDOW_CHARS;
+			$before = mb_substr( $text, 0, $pos );
+			$after  = mb_substr( $text, $pos + mb_strlen( self::CONTEXT_MARKER ) );
+			if ( mb_strlen( $before ) > $win ) {
+				$before = '…' . ltrim( mb_substr( $before, -$win ) );
+			}
+			if ( mb_strlen( $after ) > $win ) {
+				$after = rtrim( mb_substr( $after, 0, $win ) ) . '…';
+			}
+			$text = $before . self::CONTEXT_MARKER . $after;
+		}
+
+		$out = 'Article title: ' . wp_strip_all_tags( get_the_title( $post ) );
+		if ( '' !== $state['marker_heading'] ) {
+			$out .= "\nSection heading: " . $state['marker_heading'];
+		}
+		return $out . "\n\n" . trim( $text );
+	}
+
+	/**
+	 * Walk parsed blocks, building a plain-text part list and replacing the
+	 * target image's block with the marker (recording the nearest heading above
+	 * it). Mutates $state in place.
+	 *
+	 * @param array $blocks        Parsed blocks.
+	 * @param int   $attachment_id Attachment ID.
+	 * @param array $state         { parts, heading, marker_heading, found }.
+	 */
+	private function walk_blocks_for_context( array $blocks, $attachment_id, array &$state ) {
+		foreach ( $blocks as $block ) {
+			if ( ! is_array( $block ) ) {
+				continue;
+			}
+			$name = isset( $block['blockName'] ) ? (string) $block['blockName'] : '';
+			if ( 'core/image' === $name && isset( $block['attrs']['id'] ) && (int) $block['attrs']['id'] === (int) $attachment_id ) {
+				// Mark only the first occurrence; a repeated use of the same
+				// image shouldn't scatter multiple markers through the context.
+				if ( ! $state['found'] ) {
+					$state['parts'][]        = self::CONTEXT_MARKER;
+					$state['marker_heading'] = $state['heading'];
+					$state['found']          = true;
+				}
+				continue;
+			}
+			$text = '';
+			if ( ! empty( $block['innerHTML'] ) ) {
+				$text = trim( preg_replace( '/\s+/u', ' ', (string) wp_strip_all_tags( (string) $block['innerHTML'] ) ) );
+			}
+			if ( '' !== $text ) {
+				if ( 'core/heading' === $name ) {
+					$state['heading'] = $text;
+				}
+				$state['parts'][] = $text;
+			}
+			if ( ! empty( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) ) {
+				$this->walk_blocks_for_context( $block['innerBlocks'], $attachment_id, $state );
+			}
+		}
 	}
 
 	/* --------------------------------------------------------------------- *
@@ -1290,7 +1442,7 @@ final class Coywolf_SEO_Image_Text {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function rest_generate( $request ) {
-		$result = $this->generate_single( (int) $request['id'], rest_sanitize_boolean( $request['save'] ) );
+		$result = $this->generate_single( (int) $request['id'], rest_sanitize_boolean( $request['save'] ), (int) $request->get_param( 'post_id' ) );
 		return is_wp_error( $result ) ? $result : rest_ensure_response( $result );
 	}
 
@@ -1352,7 +1504,7 @@ final class Coywolf_SEO_Image_Text {
 						'estAll'           => __( 'Re-analyze all: %1$s files — about %2$s.', 'coywolf-seo' ),
 						/* translators: %s: file count — replaced in JS. */
 						'estAllUnknown'    => __( 'Re-analyze all: %s files — no pricing data for this model.', 'coywolf-seo' ),
-						'estNote'          => __( 'Assumes ~2,000 input / 250 output tokens per file; actual cost varies with image size and text length, and multi-page PDFs cost more.', 'coywolf-seo' ),
+						'estNote'          => __( 'Assumes ~2,500 input / 250 output tokens per file (including surrounding-article context); actual cost varies with image size and text length, and multi-page PDFs cost more.', 'coywolf-seo' ),
 						'estNothing'       => __( 'Write missing text (Start): nothing to do — every file already has the selected fields filled.', 'coywolf-seo' ),
 						'estNoFields'      => __( 'Pick at least one field to estimate and run.', 'coywolf-seo' ),
 						'confirmReanalyze' => __( 'Re-analyze every image (and PDF, if included) for the selected fields, overwriting text that already exists? This makes a fresh API call for every file and costs the full estimated amount.', 'coywolf-seo' ),

@@ -42,10 +42,11 @@ final class Coywolf_SEO_Image_AI {
 	/**
 	 * Rough per-image token estimates for the cost estimator: one downscaled
 	 * image (~1,000–1,200 tokens at the "large" size we send), the detailed
-	 * accessibility analysis prompt and system text, and a short four-field
-	 * JSON response.
+	 * accessibility analysis prompt and system text, a short four-field JSON
+	 * response, and the capped surrounding-article context window (~500 tokens)
+	 * that is included whenever the image is used in a post or page.
 	 */
-	const EST_INPUT_TOKENS  = 2000;
+	const EST_INPUT_TOKENS  = 2500;
 	const EST_OUTPUT_TOKENS = 250;
 
 	/**
@@ -166,13 +167,15 @@ final class Coywolf_SEO_Image_AI {
 	/**
 	 * Analyze one image or PDF attachment and return the four text fields.
 	 *
-	 * @param int    $attachment_id Attachment ID.
-	 * @param string $model         Optional model override for this request
-	 *                              (the bulk runner's per-run model picker);
-	 *                              empty uses the Settings model.
+	 * @param int    $attachment_id   Attachment ID.
+	 * @param string $model           Optional model override for this request
+	 *                                (the bulk runner's per-run model picker);
+	 *                                empty uses the Settings model.
+	 * @param string $article_context Surrounding post/page text (with the image's
+	 *                                position marked) for context-aware output.
 	 * @return array|WP_Error { alt_text, title, caption, description }
 	 */
-	public function generate_image_text( $attachment_id, $model = '' ) {
+	public function generate_image_text( $attachment_id, $model = '', $article_context = '' ) {
 		if ( ! $this->is_configured() ) {
 			return new WP_Error(
 				'coywolf_seo_no_key',
@@ -193,7 +196,7 @@ final class Coywolf_SEO_Image_AI {
 			$use_model,
 			$payload,
 			$this->system_prompt(),
-			$this->prompt( $attachment_id, 'document' === $payload['block'] ),
+			$this->prompt( $attachment_id, 'document' === $payload['block'], $article_context ),
 			self::MAX_TOKENS
 		);
 		if ( is_wp_error( $res ) ) {
@@ -262,7 +265,7 @@ final class Coywolf_SEO_Image_AI {
 	 * @param int                  $attachment_id Attachment ID.
 	 * @return array|WP_Error
 	 */
-	public function build_batch_request( Coywolf_SEO_AI_Batch $batch, $custom_id, $attachment_id ) {
+	public function build_batch_request( Coywolf_SEO_AI_Batch $batch, $custom_id, $attachment_id, $article_context = '' ) {
 		$payload = $this->attachment_payload( $attachment_id );
 		if ( is_wp_error( $payload ) ) {
 			return $payload;
@@ -271,7 +274,7 @@ final class Coywolf_SEO_Image_AI {
 			$custom_id,
 			$this->system_prompt(),
 			$payload,
-			$this->prompt( $attachment_id, 'document' === $payload['block'] ),
+			$this->prompt( $attachment_id, 'document' === $payload['block'], $article_context ),
 			self::MAX_TOKENS
 		);
 	}
@@ -338,11 +341,14 @@ final class Coywolf_SEO_Image_AI {
 	 * or PDF. Ports the project's WordPress image-accessibility guidance
 	 * (WCAG-aligned) and is used for every analysis path.
 	 *
-	 * @param int  $attachment_id Attachment ID.
-	 * @param bool $is_pdf        Adjust the instructions for a PDF document.
+	 * @param int    $attachment_id   Attachment ID.
+	 * @param bool   $is_pdf          Adjust the instructions for a PDF document.
+	 * @param string $article_context Surrounding post/page text with the image's
+	 *                                position marked, for context-aware alt/caption
+	 *                                (empty when the image is not used in content).
 	 * @return string
 	 */
-	private function prompt( $attachment_id, $is_pdf = false ) {
+	private function prompt( $attachment_id, $is_pdf = false, $article_context = '' ) {
 		$file   = (string) get_post_meta( $attachment_id, '_wp_attached_file', true );
 		$locale = get_locale();
 
@@ -350,6 +356,11 @@ final class Coywolf_SEO_Image_AI {
 
 		$json_contract = "Respond with a JSON object:\n"
 			. '{"alt_text": string, "title": string, "caption": string, "description": string}' . "\n\n";
+
+		$article_context = trim( (string) $article_context );
+		$image_intro     = '' !== $article_context
+			? 'This metadata becomes the default for the file; it appears in the article shown below, so make the alternative text and caption fit how it is used there while still reading well on their own.'
+			: 'This metadata becomes the default for every future use of the file, and you are given no specific post context, so it must stand on its own.';
 
 		if ( $is_pdf ) {
 			$prompt = "Analyze the attached PDF document and write accessibility-first Media Library metadata for it, following the rules below. A PDF is a document, not an image: WordPress stores no alt attribute for it, so write for a reader deciding whether to open it and put the substance in the description.\n\n"
@@ -363,7 +374,7 @@ final class Coywolf_SEO_Image_AI {
 				. '- Write every field in the language of locale "' . $locale . "\".\n"
 				. "- Plain text only: no HTML and no markdown. Write for human readers; never write for SEO.\n";
 		} else {
-			$prompt = "Analyze the image and write accessibility-first Media Library metadata for it, following the rules below. This metadata becomes the default for every future use of the file, and you are given no specific post context, so it must stand on its own.\n\n"
+			$prompt = 'Analyze the image and write accessibility-first Media Library metadata for it, following the rules below. ' . $image_intro . "\n\n"
 				. $json_contract
 				. "Write alt_text only when the image warrants it (an empty string for a purely decorative image); always provide a title, a caption, and a description.\n\n"
 				. "First, silently decide what kind of image this is, then write accordingly:\n"
@@ -404,6 +415,10 @@ final class Coywolf_SEO_Image_AI {
 		}
 		if ( ! empty( $context ) ) {
 			$prompt .= "\nContext that may help (ignore it if misleading): " . implode( ', ', $context ) . '.';
+		}
+		if ( '' !== $article_context ) {
+			$prompt .= "\n\nThe image appears in the article below. The marker «THE IMAGE BEING DESCRIBED» shows exactly where it sits. Use this only to make the alternative text and caption fit how the image is used here — describe the image itself, and never restate or summarize the article text:\n\n"
+				. $article_context;
 		}
 		if ( '' !== $extra ) {
 			$prompt .= "\n\nAdditional site-specific instructions:\n" . $extra;
