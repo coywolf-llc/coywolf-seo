@@ -47,6 +47,36 @@ rm -rf "$OUT"
 mkdir -p "$STAGE"
 cp -a "$SRC"/. "$STAGE"/
 
+# ---------------------------------------------------------------------------
+# WordPress.org file-type compliance.
+#
+# .org rejects files that aren't the types normally found in a plugin. Two
+# passes over the staged tree (vendored deps included — vendor/ ships):
+#   1. Rename extension-less licence/notice files to .txt. Attribution must
+#      ship, but an extension-less file is a review blocker (the
+#      code-block-enhancer June 2026 review was rejected for its bundled
+#      assets/themes/LICENSE-prism* files for exactly this reason).
+#   2. Delete dev-only artefacts (lockfiles, linter/test config) that have no
+#      place in a distributed plugin.
+# ---------------------------------------------------------------------------
+find "$STAGE" -type f \( \
+	-name 'LICENSE' -o -name 'LICENCE' -o -name 'COPYING' \
+	-o -name 'COPYING.LESSER' -o -name 'NOTICE' -o -name 'AUTHORS' \
+	\) -print0 | while IFS= read -r -d '' f; do
+	mv "$f" "$f.txt"
+done
+
+find "$STAGE" -type f \( \
+	-name 'composer.lock' \
+	-o -name '*.dist' \
+	-o -name '.editorconfig' \
+	-o -name '.php-cs-fixer.php' -o -name '.php-cs-fixer.dist.php' \
+	-o -name '.php_cs' -o -name '.php_cs.dist' \
+	-o -name 'phpstan.neon' -o -name 'phpstan.neon.dist' \
+	-o -name 'phpunit.xml' -o -name 'phpunit.xml.dist' \
+	-o -name 'mempalace.yaml' \
+	\) -delete
+
 # Delete a wporg-strip marked region from a file, portably (macOS + Linux).
 # The Perl flip-flop matches the start..end lines inclusive.
 strip_marked() {

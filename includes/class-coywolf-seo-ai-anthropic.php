@@ -474,4 +474,39 @@ final class Coywolf_SEO_AI_Anthropic extends Coywolf_SEO_AI_Provider {
 			'anthropic-version' => self::API_VERSION,
 		);
 	}
+
+	/* ------------------------------------------------------------------ *
+	 * Settings UI copy (Anthropic-specific batch/billing mechanics).
+	 * ------------------------------------------------------------------ */
+
+	/**
+	 * {@inheritdoc}
+	 *
+	 * Anthropic checks a batch's MAXIMUM possible cost up front, so the run
+	 * must reserve more than it will actually spend; %RESERVE% is filled in by
+	 * the estimate JS.
+	 */
+	public function bulk_cost_note() {
+		return __( 'Your Claude balance (and any Workspace spend limit) must cover about $%RESERVE% for the largest batch\'s upfront check.', 'coywolf-seo' );
+	}
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function bulk_billing_note( $paused_reason = '' ) {
+		if ( false === stripos( (string) $paused_reason, 'credit balance' ) ) {
+			return '';
+		}
+		return __( 'Note: Anthropic checks a batch\'s maximum possible cost up front — not what it will actually spend — so this can trigger even with a healthy balance. Resume submits smaller batches with tighter token allowances, which usually clears it. If it persists, check the Model setting: legacy Opus models cost several times more than the default.', 'coywolf-seo' );
+	}
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function bulk_billing_hint( $batch_error = '' ) {
+		if ( false === stripos( (string) $batch_error, 'credit' ) ) {
+			return '';
+		}
+		return __( 'Regular API calls work but batch creation is rejected on billing grounds: that is the signature of a Workspace spend limit. In the Anthropic Console open Settings -> Workspaces -> the workspace this key belongs to -> Limits, and raise or remove the monthly spend limit (or create a key in the Default workspace).', 'coywolf-seo' );
+	}
 }
