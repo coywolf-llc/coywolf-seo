@@ -692,6 +692,7 @@
 		function fill( tmpl, d ) {
 			return String( tmpl )
 				.replace( '%IMG%', d.images_fixed )
+				.replace( '%CONV%', d.images_converted || 0 )
 				.replace( '%POSTS%', d.posts_updated )
 				.replace( '%UNM%', d.unmatched )
 				.replace( '%SCAN%', d.posts_scanned )
