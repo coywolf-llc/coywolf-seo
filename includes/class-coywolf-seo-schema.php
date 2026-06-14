@@ -415,12 +415,20 @@ final class Coywolf_SEO_Schema {
 				}
 			}
 
-			if ( 'address' === $prop && is_array( $value ) ) {
-				$shaped = array_merge( array( '@type' => 'PostalAddress' ), $value );
-			} elseif ( 'contactPoint' === $prop && is_array( $value ) ) {
-				$shaped = array_merge( array( '@type' => 'ContactPoint' ), $value );
-			} elseif ( is_array( $value ) ) {
-				continue; // Unknown structured value; never output raw arrays.
+			if ( is_array( $value ) ) {
+				// Structured values are wrapped with the matching @type:
+				// address/contactPoint have fixed types, the entity-reference
+				// properties borrow the type from $object_props.
+				if ( 'address' === $prop ) {
+					$type = 'PostalAddress';
+				} elseif ( 'contactPoint' === $prop ) {
+					$type = 'ContactPoint';
+				} elseif ( isset( $object_props[ $prop ] ) ) {
+					$type = $object_props[ $prop ];
+				} else {
+					continue; // Unknown structured value; never output raw arrays.
+				}
+				$shaped = array_merge( array( '@type' => $type ), $value );
 			} elseif ( 'logo' === $prop || ( 'image' === $prop && 'Organization' === $parent_type ) ) {
 				$shaped = array(
 					'@type' => 'ImageObject',

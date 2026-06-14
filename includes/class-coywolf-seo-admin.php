@@ -832,7 +832,13 @@ final class Coywolf_SEO_Admin {
 		$meta   = isset( $inputs[ $prop ] ) ? $inputs[ $prop ] : array( 'input' => 'text' );
 
 		if ( isset( $meta['fields'] ) ) {
-			$value = is_array( $value ) ? $value : array();
+			if ( ! is_array( $value ) ) {
+				// Backward compat: a legacy single-text value (saved before this
+				// property grew sub-fields) seeds the 'name' sub-field so it
+				// survives an edit + re-save instead of rendering blank.
+				$legacy = (string) $value;
+				$value  = ( '' !== $legacy && isset( $meta['fields']['name'] ) ) ? array( 'name' => $legacy ) : array();
+			}
 			echo '<div class="coywolf-seo-subfields">';
 			foreach ( $meta['fields'] as $sub => $sub_meta ) {
 				$sub_value = isset( $value[ $sub ] ) ? (string) $value[ $sub ] : '';
