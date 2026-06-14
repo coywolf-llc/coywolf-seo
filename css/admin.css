@@ -668,3 +668,36 @@
 .coywolf-seo-wrap h2[id] {
 	scroll-margin-top: 50px;
 }
+
+/* Robots.txt restore prompt (deactivation / turn-off) modal. */
+.coywolf-seo-modal {
+	position: fixed;
+	inset: 0;
+	background: rgba( 0, 0, 0, 0.5 );
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 100000;
+}
+
+.coywolf-seo-modal-box {
+	background: #fff;
+	border-radius: 4px;
+	padding: 20px 24px;
+	max-width: 520px;
+	width: calc( 100% - 40px );
+	box-shadow: 0 4px 24px rgba( 0, 0, 0, 0.2 );
+}
+
+.coywolf-seo-modal-box h2 {
+	margin-top: 0;
+}
+
+.coywolf-seo-modal-actions {
+	margin-bottom: 0;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 8px;
+}

@@ -536,4 +536,113 @@
 			$( this ).hide();
 		} );
 	} );
+
+	/* ------------------------------------------------------------------ *
+	 * Robots.txt Manager: "restore your robots.txt?" prompt, shown when the
+	 * feature is turned off in Settings or the plugin is deactivated while it
+	 * is managing a physical robots.txt file.
+	 * ------------------------------------------------------------------ */
+	$( function () {
+		var rr = config.robotsRestore;
+		if ( ! rr ) {
+			return;
+		}
+		var t = rr.i18n || {};
+
+		function showModal( onRestore, onKeep, onCancel ) {
+			var overlay = document.createElement( 'div' );
+			overlay.className = 'coywolf-seo-modal';
+			var box = document.createElement( 'div' );
+			box.className = 'coywolf-seo-modal-box';
+			var h2 = document.createElement( 'h2' );
+			h2.textContent = t.title || 'Restore robots.txt?';
+			var p = document.createElement( 'p' );
+			p.textContent = t.message || '';
+			var actions = document.createElement( 'p' );
+			actions.className = 'coywolf-seo-modal-actions';
+			function button( label, cls ) {
+				var b = document.createElement( 'button' );
+				b.type = 'button';
+				b.className = 'button ' + cls;
+				b.textContent = label;
+				return b;
+			}
+			var restoreBtn = button( t.restore || 'Restore', 'button-primary' );
+			var keepBtn = button( t.keep || 'Keep', '' );
+			var cancelBtn = button( t.cancel || 'Cancel', 'button-link' );
+			function close() {
+				if ( overlay.parentNode ) {
+					overlay.parentNode.removeChild( overlay );
+				}
+			}
+			restoreBtn.addEventListener( 'click', function () { close(); onRestore(); } );
+			keepBtn.addEventListener( 'click', function () { close(); onKeep(); } );
+			cancelBtn.addEventListener( 'click', function () { close(); if ( onCancel ) { onCancel(); } } );
+			overlay.addEventListener( 'click', function ( e ) { if ( e.target === overlay ) { close(); if ( onCancel ) { onCancel(); } } } );
+			actions.appendChild( restoreBtn );
+			actions.appendChild( document.createTextNode( ' ' ) );
+			actions.appendChild( keepBtn );
+			actions.appendChild( document.createTextNode( ' ' ) );
+			actions.appendChild( cancelBtn );
+			box.appendChild( h2 );
+			box.appendChild( p );
+			box.appendChild( actions );
+			overlay.appendChild( box );
+			document.body.appendChild( overlay );
+			restoreBtn.focus();
+		}
+
+		// Plugins screen: intercept this plugin's Deactivate link and append the
+		// chosen action to it (the deactivation hook reads it).
+		if ( rr.basename ) {
+			var link = null;
+			var row = document.querySelector( 'tr[data-plugin="' + rr.basename + '"]' );
+			if ( row ) {
+				link = row.querySelector( 'span.deactivate a, .deactivate a' );
+			}
+			if ( ! link ) {
+				var cands = document.querySelectorAll( 'a[href*="action=deactivate"]' );
+				for ( var i = 0; i < cands.length; i++ ) {
+					var href = cands[ i ].getAttribute( 'href' ) || '';
+					if ( -1 !== href.indexOf( encodeURIComponent( rr.basename ) ) || -1 !== href.indexOf( rr.basename ) ) {
+						link = cands[ i ];
+						break;
+					}
+				}
+			}
+			if ( link ) {
+				link.addEventListener( 'click', function ( e ) {
+					e.preventDefault();
+					var href = link.getAttribute( 'href' ) || link.href;
+					var withParam = function ( v ) {
+						return href + ( -1 === href.indexOf( '?' ) ? '?' : '&' ) + rr.param + '=' + v;
+					};
+					showModal(
+						function () { window.location.href = withParam( 'restore' ); },
+						function () { window.location.href = withParam( 'keep' ); },
+						null
+					);
+				} );
+			}
+		}
+
+		// Settings page: prompt the moment the user turns the feature off (only
+		// when a physical robots.txt is being managed). The choice rides in a
+		// hidden field that save_settings() reads.
+		var toggle = rr.toggleId ? document.getElementById( rr.toggleId ) : null;
+		var hidden = rr.hiddenId ? document.getElementById( rr.hiddenId ) : null;
+		if ( toggle && hidden ) {
+			toggle.addEventListener( 'change', function () {
+				if ( ! rr.show || ! toggle.checked || toggle.defaultChecked ) {
+					hidden.value = '';
+					return;
+				}
+				showModal(
+					function () { hidden.value = 'restore'; },
+					function () { hidden.value = 'keep'; },
+					function () { toggle.checked = false; hidden.value = ''; }
+				);
+			} );
+		}
+	} );
 } )( jQuery );
