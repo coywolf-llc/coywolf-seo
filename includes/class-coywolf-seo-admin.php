@@ -1122,6 +1122,18 @@ final class Coywolf_SEO_Admin {
 							<p class="description"><?php esc_html_e( 'Directives included in the robots meta tag. Per-post Noindex and Nofollow override index and follow.', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
+					<tr>
+						<th scope="row"><label for="coywolf-seo-scroll-margin"><?php esc_html_e( 'Scroll margin top', 'coywolf-seo' ); ?></label></th>
+						<td>
+							<input type="number" id="coywolf-seo-scroll-margin" name="coywolf_seo[scroll_margin_top]" value="<?php echo esc_attr( (string) $o['scroll_margin_top'] ); ?>" min="0" max="999" step="1" class="small-text" />
+							<label for="coywolf-seo-scroll-unit" class="screen-reader-text"><?php esc_html_e( 'Measurement unit', 'coywolf-seo' ); ?></label>
+							<select id="coywolf-seo-scroll-unit" name="coywolf_seo[scroll_margin_unit]">
+								<option value="rem" <?php selected( $o['scroll_margin_unit'], 'rem' ); ?>><?php esc_html_e( 'rem', 'coywolf-seo' ); ?></option>
+								<option value="px" <?php selected( $o['scroll_margin_unit'], 'px' ); ?>><?php esc_html_e( 'px', 'coywolf-seo' ); ?></option>
+							</select>
+							<p class="description"><?php esc_html_e( 'Adds scroll-margin-top to anchor targets on pages that use a Table of Contents, so a fixed/sticky header does not cover a jumped-to heading. 0 turns it off; for example 4 rem renders [id] { scroll-margin-top: 4rem; }.', 'coywolf-seo' ); ?></p>
+						</td>
+					</tr>
 				</table>
 
 				<?php if ( Coywolf_SEO_Options::feature_enabled( 'ai' ) ) : ?>
