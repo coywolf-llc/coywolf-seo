@@ -529,12 +529,16 @@ final class Coywolf_SEO_Image_Text {
 	 */
 	private function submit_async( array $state, Coywolf_SEO_AI_Batch $batch ) {
 		/**
-		 * Files per submitted vision batch. Each carries a base64 image, so the
-		 * chunk is kept small to bound request size and memory.
+		 * Files per submitted vision batch. Bigger batches mean fewer sequential
+		 * round-trips, so a large library finishes much sooner. Each request
+		 * carries one base64 image (scaled to a 1568px edge, ≤ ~3.5 MB raw), so
+		 * the payload held in memory while submitting is roughly chunk × that —
+		 * 25 keeps it modest for typical images. Raise it on a roomy host, or
+		 * lower it on a memory-constrained one. Clamped to 1–50.
 		 *
-		 * @param int $size Default 10.
+		 * @param int $size Default 25.
 		 */
-		$chunk = max( 1, (int) apply_filters( 'coywolf_seo_image_batch_size', 10 ) );
+		$chunk = min( 50, max( 1, (int) apply_filters( 'coywolf_seo_image_batch_size', 25 ) ) );
 		$ids   = $this->next_candidates( $state, $chunk );
 		if ( empty( $ids ) ) {
 			$state['status']         = 'done';
