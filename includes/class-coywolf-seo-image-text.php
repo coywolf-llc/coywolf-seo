@@ -484,9 +484,9 @@ final class Coywolf_SEO_Image_Text {
 	 * @return Coywolf_SEO_AI_Batch
 	 */
 	private function batch_facade( $model ) {
-		$provider  = Coywolf_SEO_AI_Providers::current();
-		$use_model = ( '' !== (string) $model ) ? (string) $model : $provider->model();
-		return new Coywolf_SEO_AI_Batch( $provider, $this->ai->api_key(), $use_model );
+		// Image Text's api_key() resolves to the active provider's key, so the
+		// shared factory builds the identical client.
+		return Coywolf_SEO_AI_Batch::for_current( $model );
 	}
 
 	/**

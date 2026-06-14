@@ -38,17 +38,19 @@ wp_unschedule_hook( 'coywolf_seo_redirects_prune' );
 // Redirect manager tables.
 delete_option( 'coywolf_seo_db_version' );
 delete_option( 'coywolf_seo_import_dismissed' );
-// AI model-list caches: the legacy single key plus the per-service caches.
+// AI model-list caches: the legacy single keys plus the per-service caches for
+// both the enrichment (ai_models) and Image Text (image_models) dropdowns.
 delete_transient( 'coywolf_seo_ai_models' );
+delete_transient( 'coywolf_seo_image_models' );
 foreach ( array( 'anthropic', 'openai', 'google' ) as $coywolf_seo_ai_service ) {
 	delete_transient( 'coywolf_seo_ai_models_' . $coywolf_seo_ai_service );
+	delete_transient( 'coywolf_seo_image_models_' . $coywolf_seo_ai_service );
 }
 
-// Image Text batch state + model-list cache + background worker.
+// Image Text batch state + background worker.
 delete_option( 'coywolf_seo_image_text_batch' );
 wp_unschedule_hook( 'coywolf_seo_image_text_bulk' );
 delete_option( 'coywolf_seo_image_id_fix' );
-delete_transient( 'coywolf_seo_image_models' );
 foreach ( array( 'coywolf_seo_redirects', 'coywolf_seo_404s', 'coywolf_seo_deleted' ) as $coywolf_seo_redirect_table ) {
 	$coywolf_seo_table_name = $wpdb->prefix . $coywolf_seo_redirect_table;
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix and a literal; %i needs WP 6.2+.

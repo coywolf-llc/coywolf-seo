@@ -455,7 +455,7 @@ final class Coywolf_SEO_Admin {
 		}
 		$provider = Coywolf_SEO_AI_Providers::get( $service );
 		Coywolf_SEO_Options::update( array( $provider->key_option() => '' ) );
-		delete_transient( 'coywolf_seo_ai_models_' . $service );
+		Coywolf_SEO_AI_Providers::flush_model_caches();
 		$this->redirect_back( self::SLUG_SETTINGS, 'ai-key-removed' );
 	}
 
@@ -733,7 +733,8 @@ final class Coywolf_SEO_Admin {
 
 		// The API key fields are write-only: an empty submission keeps the
 		// stored key (removal happens through each field's own Remove link). A
-		// non-empty submission refreshes that service's cached model list.
+		// non-empty submission refreshes the cached model lists.
+		$ai_keys_changed = false;
 		foreach ( $ai_key_options as $ai_key_option => $ai_sid ) {
 			if ( ! isset( $raw[ $ai_key_option ] ) ) {
 				continue;
@@ -742,7 +743,10 @@ final class Coywolf_SEO_Admin {
 				unset( $raw[ $ai_key_option ] );
 				continue;
 			}
-			delete_transient( 'coywolf_seo_ai_models_' . $ai_sid ); // New key: refresh the model list.
+			$ai_keys_changed = true;
+		}
+		if ( $ai_keys_changed ) {
+			Coywolf_SEO_AI_Providers::flush_model_caches();
 		}
 
 		$news_before = (bool) Coywolf_SEO_Options::get( 'news_enabled' );
@@ -754,8 +758,8 @@ final class Coywolf_SEO_Admin {
 		if ( ! empty( $clean['feature_ai_off'] ) ) {
 			foreach ( $ai_key_options as $ai_key_option => $ai_sid ) {
 				$clean[ $ai_key_option ] = '';
-				delete_transient( 'coywolf_seo_ai_models_' . $ai_sid );
 			}
+			Coywolf_SEO_AI_Providers::flush_model_caches();
 		}
 		// Capture the Robots.txt Manager state before saving so we can honor the
 		// turn-off prompt's restore/keep choice.

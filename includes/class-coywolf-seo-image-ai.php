@@ -36,7 +36,6 @@ final class Coywolf_SEO_Image_AI {
 	 * default for that UI fallback only.
 	 */
 	const DEFAULT_MODEL = 'claude-opus-4-8';
-	const MODELS_CACHE  = 'coywolf_seo_image_models';
 	const MAX_TOKENS    = 1024;
 
 	/**
@@ -59,41 +58,17 @@ final class Coywolf_SEO_Image_AI {
 	 * @return array|null { input: float, output: float } USD/MTok, or null when unknown.
 	 */
 	public static function model_pricing( $model_id, $batch = false ) {
-		$model_id = (string) $model_id;
-		$prices   = $batch
+		$prices = $batch
 			? Coywolf_SEO_AI_Providers::current()->batch_prices()
 			: Coywolf_SEO_AI_Providers::current()->standard_prices();
-		$best     = null;
-		$best_len = 0;
-		foreach ( $prices as $prefix => $price ) {
-			if ( 0 === strpos( $model_id, (string) $prefix ) && strlen( (string) $prefix ) > $best_len ) {
-				$best     = $price;
-				$best_len = strlen( (string) $prefix );
-			}
-		}
-		if ( null === $best ) {
+		$entry  = Coywolf_SEO_AI_Provider::price_entry( $prices, (string) $model_id );
+		if ( null === $entry ) {
 			return null;
 		}
 		return array(
-			'input'  => (float) $best[0],
-			'output' => (float) $best[1],
+			'input'  => (float) $entry[0],
+			'output' => (float) $entry[1],
 		);
-	}
-
-	/**
-	 * Rough USD cost per analyzed image for a model.
-	 *
-	 * @param string $model_id Model ID.
-	 * @param bool   $batch    Price at the discounted Batch-API rate.
-	 * @return float|null
-	 */
-	public static function estimated_cost_per_image( $model_id, $batch = false ) {
-		$pricing = self::model_pricing( $model_id, $batch );
-		if ( null === $pricing ) {
-			return null;
-		}
-		return ( self::EST_INPUT_TOKENS / 1000000 ) * $pricing['input']
-			+ ( self::EST_OUTPUT_TOKENS / 1000000 ) * $pricing['output'];
 	}
 
 	/**
@@ -582,18 +557,16 @@ final class Coywolf_SEO_Image_AI {
 		if ( ! $this->is_configured() ) {
 			return array();
 		}
-		$provider  = Coywolf_SEO_AI_Providers::current();
-		$cache_key = self::MODELS_CACHE . '_' . Coywolf_SEO_AI_Providers::current_id();
-		$cached    = get_transient( $cache_key );
-		if ( is_array( $cached ) ) {
-			return $cached;
-		}
-		$models = $provider->list_models( $this->api_key() );
-		if ( empty( $models ) ) {
-			return $provider->fallback_models();
-		}
-		set_transient( $cache_key, $models, 12 * HOUR_IN_SECONDS );
-		return $models;
+		$key = $this->api_key();
+		return Coywolf_SEO_AI_Providers::cached_models(
+			Coywolf_SEO_AI_Providers::MODELS_CACHE_VISION,
+			static function () use ( $key ) {
+				return Coywolf_SEO_AI_Providers::current()->list_models( $key );
+			},
+			static function () {
+				return Coywolf_SEO_AI_Providers::current()->fallback_models();
+			}
+		);
 	}
 
 	/**
@@ -611,14 +584,5 @@ final class Coywolf_SEO_Image_AI {
 			return new WP_Error( 'coywolf_seo_api', __( 'The AI service did not return any models. Check the API key on the Settings page.', 'coywolf-seo' ) );
 		}
 		return true;
-	}
-
-	/**
-	 * Drop the cached model list for every provider (called when a key changes).
-	 */
-	public function flush_models_cache() {
-		foreach ( Coywolf_SEO_AI_Providers::ids() as $id ) {
-			delete_transient( self::MODELS_CACHE . '_' . $id );
-		}
 	}
 }

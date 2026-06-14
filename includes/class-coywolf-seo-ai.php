@@ -334,8 +334,7 @@ final class Coywolf_SEO_AI {
 	 * @return Coywolf_SEO_AI_Batch
 	 */
 	private function batch() {
-		$provider = Coywolf_SEO_AI_Providers::current();
-		return new Coywolf_SEO_AI_Batch( $provider, $provider->key(), $provider->model() );
+		return Coywolf_SEO_AI_Batch::for_current();
 	}
 
 	/**
@@ -1282,17 +1281,12 @@ final class Coywolf_SEO_AI {
 		if ( '' === $key ) {
 			return array();
 		}
-		$cache_key = 'coywolf_seo_ai_models_' . Coywolf_SEO_AI_Providers::current_id();
-		$cached    = get_transient( $cache_key );
-		if ( is_array( $cached ) ) {
-			return $cached;
-		}
-		$models = Coywolf_SEO_AI_Providers::current()->list_models( $key );
-		if ( ! is_array( $models ) || empty( $models ) ) {
-			return array();
-		}
-		set_transient( $cache_key, $models, 12 * HOUR_IN_SECONDS );
-		return $models;
+		return Coywolf_SEO_AI_Providers::cached_models(
+			Coywolf_SEO_AI_Providers::MODELS_CACHE_TEXT,
+			static function () use ( $key ) {
+				return Coywolf_SEO_AI_Providers::current()->list_models( $key );
+			}
+		);
 	}
 
 	/**

@@ -378,6 +378,28 @@ abstract class Coywolf_SEO_AI_Provider {
 	 * ------------------------------------------------------------------ */
 
 	/**
+	 * The price-table entry for a model by longest matching prefix, or null when
+	 * none matches. The single longest-prefix scan behind {@see price_lookup()},
+	 * {@see price_known()}, and the Image Text rate lookup.
+	 *
+	 * @param array  $prices Price table (prefix => [input_rate, output_rate]).
+	 * @param string $model  Model id.
+	 * @return array|null [input_rate, output_rate] USD/MTok, or null.
+	 */
+	public static function price_entry( array $prices, $model ) {
+		$best     = null;
+		$best_len = -1;
+		foreach ( $prices as $prefix => $price ) {
+			$len = strlen( (string) $prefix );
+			if ( 0 === strpos( (string) $model, (string) $prefix ) && $len > $best_len ) {
+				$best     = $price;
+				$best_len = $len;
+			}
+		}
+		return null === $best ? null : $best;
+	}
+
+	/**
 	 * Longest-prefix cost lookup against a price table.
 	 *
 	 * @param array  $prices Price table.
@@ -387,18 +409,11 @@ abstract class Coywolf_SEO_AI_Provider {
 	 * @return float
 	 */
 	public static function price_lookup( array $prices, $model, $input, $output ) {
-		uksort(
-			$prices,
-			static function ( $a, $b ) {
-				return strlen( (string) $b ) - strlen( (string) $a );
-			}
-		);
-		foreach ( $prices as $prefix => $price ) {
-			if ( 0 === strpos( (string) $model, (string) $prefix ) ) {
-				return ( $input / 1000000 ) * (float) $price[0] + ( $output / 1000000 ) * (float) $price[1];
-			}
+		$entry = self::price_entry( $prices, $model );
+		if ( null === $entry ) {
+			return 0.0;
 		}
-		return 0.0;
+		return ( $input / 1000000 ) * (float) $entry[0] + ( $output / 1000000 ) * (float) $entry[1];
 	}
 
 	/**
@@ -412,12 +427,7 @@ abstract class Coywolf_SEO_AI_Provider {
 	 * @return bool
 	 */
 	public static function price_known( array $prices, $model ) {
-		foreach ( $prices as $prefix => $price ) {
-			if ( 0 === strpos( (string) $model, (string) $prefix ) ) {
-				return true;
-			}
-		}
-		return false;
+		return null !== self::price_entry( $prices, $model );
 	}
 
 	/**
