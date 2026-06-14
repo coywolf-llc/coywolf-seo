@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.72
+- **Version:** 1.0.73
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -154,6 +154,9 @@ Turning a feature off keeps all of its data and just hides it (turning AI off al
 No. Settings, author properties, and redirect rules export as JSON; API keys are never exported.
 
 ## Changelog
+
+### 1.0.73
+- Add name/url/@id sub-fields to Person and Organization entity references (#74).
 
 ### 1.0.72
 - Add a Frequently Asked Questions section to the readme (#73).
