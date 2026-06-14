@@ -176,19 +176,41 @@ final class Coywolf_SEO_Robots {
 		// activation; anything else keeps the plugin's rules. The deactivation
 		// hook can't prompt, so the choice is made before this runs.
 		$choice = isset( $_REQUEST['coywolf_seo_robots_deact'] ) ? sanitize_key( wp_unslash( $_REQUEST['coywolf_seo_robots_deact'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$inst   = self::instance();
+		self::instance()->handle_restore_choice( $choice );
+	}
 
+	/**
+	 * Apply the user's restore/keep choice for the managed robots.txt. Shared by
+	 * the Plugins-screen deactivation prompt ({@see on_deactivate()}) and the
+	 * Settings "Turn off the Robots.txt Manager" prompt.
+	 *
+	 * - 'restore' puts back the original robots.txt captured on first activation.
+	 * - anything else keeps the rules but, in physical mode, strips our markers
+	 *   so the file survives as a plain, unmanaged robots.txt.
+	 *
+	 * @param string $choice 'restore' | 'keep' (default).
+	 */
+	public function handle_restore_choice( $choice ) {
 		if ( 'restore' === $choice ) {
-			$inst->restore_backup();
+			$this->restore_backup();
 			return;
 		}
-
-		// Keep the plugin's rules: when managing a physical robots.txt, leave the
-		// rules in place but remove our BEGIN/END markers so the file lives on as
-		// a plain, unmanaged robots.txt.
 		if ( 'physical' === get_option( self::OPT_MODE, 'virtual' ) ) {
-			$inst->unwrap_physical_block();
+			$this->unwrap_physical_block();
 		}
+	}
+
+	/**
+	 * Whether the plugin is actively managing a PHYSICAL robots.txt file right
+	 * now (the feature is on and serving from a file on disk). That is the only
+	 * case where turning the feature off — or deactivating the plugin — leaves a
+	 * file behind, so it gates the "restore your robots.txt?" prompt. In virtual
+	 * mode there is nothing on disk and the prompt is unnecessary.
+	 *
+	 * @return bool
+	 */
+	public function is_physical_managed() {
+		return Coywolf_SEO_Options::feature_enabled( 'robots' ) && 'physical' === $this->get_mode();
 	}
 
 	/**

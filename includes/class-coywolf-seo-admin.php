@@ -465,7 +465,44 @@ final class Coywolf_SEO_Admin {
 	 *
 	 * @param string $hook Current admin page hook.
 	 */
+	/**
+	 * Config for the "restore your robots.txt?" prompt, shared by the Plugins
+	 * screen (deactivation) and the Settings page (turning the feature off).
+	 *
+	 * @return array
+	 */
+	private function robots_restore_config() {
+		$robots = Coywolf_SEO_Robots::instance();
+		return array(
+			'show'     => $robots->is_physical_managed(),
+			'basename' => plugin_basename( COYWOLF_SEO_FILE ),
+			'param'    => 'coywolf_seo_robots_deact',
+			'toggleId' => 'coywolf-seo-feature-robots-off',
+			'hiddenId' => 'coywolf-seo-robots-deact',
+			'i18n'     => array(
+				'title'   => __( 'Restore your robots.txt?', 'coywolf-seo' ),
+				'message' => __( 'When the Robots.txt Manager took over, it backed up your original robots.txt. Restore that original file now, or keep the current rules as a plain robots.txt?', 'coywolf-seo' ),
+				'restore' => __( 'Restore original robots.txt', 'coywolf-seo' ),
+				'keep'    => __( 'Keep the current rules', 'coywolf-seo' ),
+				'cancel'  => __( 'Cancel', 'coywolf-seo' ),
+			),
+		);
+	}
+
 	public function enqueue_assets( $hook ) {
+		// Plugins screen: load only the assets that power the "restore your
+		// robots.txt?" deactivation prompt, and only when a physical robots.txt
+		// is actually being managed (nothing to restore otherwise).
+		if ( 'plugins.php' === $hook ) {
+			$coywolf_seo_rr = $this->robots_restore_config();
+			if ( empty( $coywolf_seo_rr['show'] ) ) {
+				return;
+			}
+			wp_enqueue_style( 'coywolf-seo-admin', COYWOLF_SEO_URL . 'css/admin.css', array(), Coywolf_SEO::VERSION );
+			wp_enqueue_script( 'coywolf-seo-admin', COYWOLF_SEO_URL . 'js/admin.js', array( 'jquery' ), Coywolf_SEO::VERSION, true );
+			wp_localize_script( 'coywolf-seo-admin', 'CoywolfSEOAdmin', array( 'robotsRestore' => $coywolf_seo_rr ) );
+			return;
+		}
 		// Category/Tag screens get the media picker and the field script.
 		if ( in_array( $hook, array( 'edit-tags.php', 'term.php' ), true ) ) {
 			$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
@@ -543,6 +580,7 @@ final class Coywolf_SEO_Admin {
 					'testBatches'       => __( 'Batches API:', 'coywolf-seo' ),
 					'confirmBulkDelete' => __( 'Delete the selected redirects?', 'coywolf-seo' ),
 				),
+				'robotsRestore'   => $this->robots_restore_config(),
 			)
 		);
 	}
@@ -707,7 +745,17 @@ final class Coywolf_SEO_Admin {
 				delete_transient( 'coywolf_seo_ai_models_' . $ai_sid );
 			}
 		}
+		// Capture the Robots.txt Manager state before saving so we can honor the
+		// turn-off prompt's restore/keep choice.
+		$robots_was_on = Coywolf_SEO_Options::feature_enabled( 'robots' );
 		Coywolf_SEO_Options::update( $clean );
+		// Robots.txt Manager just turned off: apply the restore/keep choice from
+		// the prompt (no-JS fallback keeps the file as a plain robots.txt).
+		if ( $robots_was_on && ! empty( $clean['feature_robots_off'] ) ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified via check_admin_referer() above.
+			$robots_choice = isset( $_POST['coywolf_seo_robots_deact'] ) ? sanitize_key( wp_unslash( $_POST['coywolf_seo_robots_deact'] ) ) : 'keep';
+			Coywolf_SEO_Robots::instance()->handle_restore_choice( $robots_choice );
+		}
 		if ( isset( $clean['access_role'] ) ) {
 			self::sync_capability( $clean['access_role'] );
 		}
@@ -1532,9 +1580,11 @@ final class Coywolf_SEO_Admin {
 						<th scope="row"><?php esc_html_e( 'Robots.txt Manager', 'coywolf-seo' ); ?></th>
 						<td>
 							<label>
-								<input type="checkbox" name="coywolf_seo[feature_robots_off]" value="1" <?php checked( $o['feature_robots_off'] ); ?> />
+								<input type="checkbox" id="coywolf-seo-feature-robots-off" name="coywolf_seo[feature_robots_off]" value="1" <?php checked( $o['feature_robots_off'] ); ?> />
 								<?php esc_html_e( 'Turn off the Robots.txt Manager', 'coywolf-seo' ); ?>
 							</label>
+							<?php // Set by the turn-off prompt (restore|keep) when a physical robots.txt is being managed; read by save_settings(). ?>
+							<input type="hidden" id="coywolf-seo-robots-deact" name="coywolf_seo_robots_deact" value="" />
 							<p class="description"><?php esc_html_e( 'Hides the Robots.txt pages and stops managing robots.txt (in virtual mode WordPress serves its default again; a physical robots.txt is left as-is). Your rules and settings are kept.', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
