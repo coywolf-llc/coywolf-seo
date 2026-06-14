@@ -1474,7 +1474,7 @@ final class Coywolf_SEO_Admin {
 						<th scope="row"><?php esc_html_e( 'News', 'coywolf-seo' ); ?></th>
 						<td>
 							<label>
-								<input type="checkbox" name="coywolf_seo[news_enabled]" value="1" <?php checked( $o['news_enabled'] ); ?> />
+								<input type="checkbox" id="coywolf-seo-news-enabled" name="coywolf_seo[news_enabled]" value="1" <?php checked( $o['news_enabled'] ); ?> />
 								<?php
 								printf(
 									/* translators: %s: the sitemap file name. */
@@ -1485,7 +1485,7 @@ final class Coywolf_SEO_Admin {
 							</label>
 						</td>
 					</tr>
-					<tr>
+					<tr class="coywolf-seo-news-row"<?php echo $o['news_enabled'] ? '' : ' style="display:none"'; ?>>
 						<th scope="row"><?php esc_html_e( 'Include', 'coywolf-seo' ); ?></th>
 						<td>
 							<label><input type="checkbox" name="coywolf_seo[news_include_posts]" value="1" <?php checked( $o['news_include_posts'] ); ?> /> <?php esc_html_e( 'Posts', 'coywolf-seo' ); ?></label>
@@ -1493,7 +1493,7 @@ final class Coywolf_SEO_Admin {
 							<label><input type="checkbox" name="coywolf_seo[news_include_pages]" value="1" <?php checked( $o['news_include_pages'] ); ?> /> <?php esc_html_e( 'Pages', 'coywolf-seo' ); ?></label>
 						</td>
 					</tr>
-					<tr>
+					<tr class="coywolf-seo-news-row"<?php echo $o['news_enabled'] ? '' : ' style="display:none"'; ?>>
 						<th scope="row"><label for="coywolf-seo-news-cat-mode"><?php esc_html_e( 'Categories', 'coywolf-seo' ); ?></label></th>
 						<td>
 							<select id="coywolf-seo-news-cat-mode" name="coywolf_seo[news_cat_mode]">
