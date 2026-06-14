@@ -678,6 +678,7 @@
 		var $stop = $( '#coywolf-seo-idfix-stop' );
 		var $progress = $( '#coywolf-seo-idfix-progress' );
 		var $result = $( '#coywolf-seo-idfix-result' );
+		var $samples = $( '#coywolf-seo-idfix-samples' );
 		var running = false;
 
 		function post( data ) {
@@ -696,6 +697,26 @@
 				.replace( '%SCAN%', d.posts_scanned )
 				.replace( '%TOTAL%', d.total );
 		}
+		function renderSamples( d ) {
+			var list = ( d && d.samples && d.samples.length ) ? d.samples : [];
+			if ( ! list.length ) {
+				$samples.empty().addClass( 'hidden' );
+				return;
+			}
+			var $ul = $( '<ul class="coywolf-seo-idfix-sample-list" />' );
+			$.each( list, function ( i, s ) {
+				var $li = $( '<li />' );
+				if ( s.thumb ) {
+					$( '<img />' ).attr( { src: s.thumb, alt: '', width: 48, height: 48 } ).addClass( 'coywolf-seo-idfix-thumb' ).appendTo( $li );
+				}
+				var $link = s.edit ? $( '<a />' ).attr( 'href', s.edit ) : $( '<span />' );
+				$li.append( $link.text( s.title ) );
+				$ul.append( $li );
+			} );
+			$samples.empty().removeClass( 'hidden' )
+				.append( $( '<p class="description" />' ).text( config.i18n.idFixSamples || 'Examples:' ) )
+				.append( $ul );
+		}
 		function render( d ) {
 			// Always show 100% once done, even if the candidate set shrank mid-run.
 			var pct = 'done' === d.status ? 100 : ( d.total > 0 ? Math.min( 100, Math.round( ( d.posts_scanned / d.total ) * 100 ) ) : 0 );
@@ -705,6 +726,7 @@
 			} else {
 				$result.text( fill( config.i18n.idFixProgress || 'Scanning %SCAN% of %TOTAL% posts…', d ) );
 			}
+			renderSamples( d );
 		}
 		function failed() {
 			running = false;
@@ -722,6 +744,7 @@
 			running = true;
 			buttons( true );
 			$result.text( '' );
+			$samples.empty().addClass( 'hidden' );
 			post( { op: 'start', dry_run: dry ? 1 : 0 } ).done( function ( res ) {
 				if ( ! res || ! res.success ) { failed(); return; }
 				render( res.data );

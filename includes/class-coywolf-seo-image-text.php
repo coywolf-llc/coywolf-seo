@@ -585,8 +585,9 @@ final class Coywolf_SEO_Image_Text {
 	}
 
 	/**
-	 * The first published post/page whose content contains this image (its
-	 * `wp-image-<id>` class), or 0. Mirrors the propagation locator.
+	 * The first published post/page whose content references this image — by its
+	 * `wp-image-<id>` class or by its uploads file path (so images inserted by
+	 * URL, with no id/class, are still located for context). Returns 0 when none.
 	 *
 	 * @param int $attachment_id Attachment ID.
 	 * @return int
@@ -599,10 +600,46 @@ final class Coywolf_SEO_Image_Text {
 			return 0;
 		}
 		$type_ph = implode( ',', array_fill( 0, count( $types ), '%s' ) );
-		$like    = '%' . $wpdb->esc_like( 'wp-image-' . (int) $attachment_id ) . '%';
-		$args    = array_merge( $types, array( $like ) );
+		$where   = 'post_content LIKE %s';
+		$args    = $types;
+		$args[]  = '%' . $wpdb->esc_like( 'wp-image-' . (int) $attachment_id ) . '%';
+		$token   = $this->attachment_path_token( (int) $attachment_id );
+		if ( '' !== $token ) {
+			$where .= ' OR post_content LIKE %s';
+			$args[] = '%' . $wpdb->esc_like( $token ) . '%';
+		}
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- IN() placeholders built from array_fill; args passed as one array; one-off lookup.
-		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type IN ({$type_ph}) AND post_status = 'publish' AND post_content LIKE %s ORDER BY ID ASC LIMIT 1", $args ) );
+		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type IN ({$type_ph}) AND post_status = 'publish' AND ({$where}) ORDER BY ID ASC LIMIT 1", $args ) );
+	}
+
+	/**
+	 * The attachment's uploads-relative file path, leading-slash anchored
+	 * (e.g. "/2024/01/logo.png"), or ''. Anchored to the path — not the bare
+	 * basename — so a generic name like "logo.png" can't match an unrelated
+	 * "company-logo.png" elsewhere in a post and mislabel the context.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return string
+	 */
+	private function attachment_path_token( $attachment_id ) {
+		$file = (string) get_post_meta( (int) $attachment_id, '_wp_attached_file', true );
+		return '' !== $file ? '/' . ltrim( $file, '/' ) : '';
+	}
+
+	/**
+	 * Whether a post's content references an image — by its wp-image-<id> class
+	 * or its uploads file path (leading-slash anchored, never a bare basename).
+	 *
+	 * @param string $content       Post content.
+	 * @param int    $attachment_id Attachment ID.
+	 * @return bool
+	 */
+	private function post_references_image( $content, $attachment_id ) {
+		if ( false !== strpos( $content, 'wp-image-' . (int) $attachment_id ) ) {
+			return true;
+		}
+		$token = $this->attachment_path_token( (int) $attachment_id );
+		return '' !== $token && false !== strpos( $content, $token );
 	}
 
 	/**
@@ -627,6 +664,15 @@ final class Coywolf_SEO_Image_Text {
 		);
 		$this->walk_blocks_for_context( parse_blocks( (string) $post->post_content ), (int) $attachment_id, $state );
 		if ( ! $state['found'] ) {
+			// The block couldn't be pinpointed (e.g. the image was inserted by URL
+			// with no attachment id/class), but the post still references the file —
+			// give the AI at least the article title for context.
+			if ( $this->post_references_image( (string) $post->post_content, (int) $attachment_id ) ) {
+				$title = wp_strip_all_tags( get_the_title( $post ) );
+				if ( '' !== $title ) {
+					return 'Article title: ' . $title;
+				}
+			}
 			return '';
 		}
 
@@ -755,6 +801,10 @@ final class Coywolf_SEO_Image_Text {
 			if ( $new_content === $content ) {
 				continue;
 			}
+			// Filling alt/caption into image blocks is image-text bookkeeping, not
+			// an editorial change, so don't let it re-queue AI entity/description
+			// analysis for the post.
+			Coywolf_SEO_AI::suspend_queueing();
 			$res = wp_update_post(
 				array(
 					'ID'           => (int) $row->ID,
@@ -762,6 +812,7 @@ final class Coywolf_SEO_Image_Text {
 				),
 				true
 			);
+			Coywolf_SEO_AI::resume_queueing();
 			if ( ! is_wp_error( $res ) ) {
 				++$updated;
 			}

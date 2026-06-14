@@ -41,6 +41,11 @@ final class Coywolf_SEO_Image_ID_Fixer {
 	const CHUNK = 25;
 
 	/**
+	 * How many example fixes to surface in the result.
+	 */
+	const MAX_SAMPLES = 3;
+
+	/**
 	 * Hooks.
 	 */
 	public function init() {
@@ -105,6 +110,7 @@ final class Coywolf_SEO_Image_ID_Fixer {
 			'posts_updated' => 0,
 			'images_fixed'  => 0,
 			'unmatched'     => 0,
+			'samples'       => array(),
 			'started'       => gmdate( 'c' ),
 			'finished'      => $total > 0 ? '' : gmdate( 'c' ),
 		);
@@ -129,6 +135,9 @@ final class Coywolf_SEO_Image_ID_Fixer {
 			update_option( self::STATE_OPTION, $state, false );
 			return $state;
 		}
+		if ( ! isset( $state['samples'] ) || ! is_array( $state['samples'] ) ) {
+			$state['samples'] = array();
+		}
 		foreach ( $ids as $post_id ) {
 			$post_id          = (int) $post_id;
 			$state['last_id'] = $post_id;
@@ -138,6 +147,15 @@ final class Coywolf_SEO_Image_ID_Fixer {
 			$state['unmatched']    += $result['unmatched'];
 			if ( $result['changed'] ) {
 				++$state['posts_updated'];
+			}
+			foreach ( $result['fixed_ids'] as $attachment_id ) {
+				if ( count( $state['samples'] ) >= self::MAX_SAMPLES ) {
+					break;
+				}
+				$sample = $this->build_sample( $post_id, (int) $attachment_id );
+				if ( $sample ) {
+					$state['samples'][] = $sample;
+				}
 			}
 		}
 		update_option( self::STATE_OPTION, $state, false );
@@ -218,13 +236,14 @@ final class Coywolf_SEO_Image_ID_Fixer {
 	 *
 	 * @param int  $post_id Post ID.
 	 * @param bool $dry_run Count only; do not save.
-	 * @return array { fixed:int, unmatched:int, changed:bool }
+	 * @return array { fixed:int, unmatched:int, changed:bool, fixed_ids:int[] }
 	 */
 	private function fix_post( $post_id, $dry_run ) {
 		$out  = array(
 			'fixed'     => 0,
 			'unmatched' => 0,
 			'changed'   => false,
+			'fixed_ids' => array(),
 		);
 		$post = get_post( $post_id );
 		if ( ! $post || '' === (string) $post->post_content || false === strpos( (string) $post->post_content, $this->uploads_path() ) ) {
@@ -235,12 +254,14 @@ final class Coywolf_SEO_Image_ID_Fixer {
 			'fixed'     => 0,
 			'unmatched' => 0,
 			'changed'   => false,
+			'fixed_ids' => array(),
 		);
 		$blocks = $this->walk_fix( parse_blocks( (string) $post->post_content ), $state );
 
 		$out['fixed']     = $state['fixed'];
 		$out['unmatched'] = $state['unmatched'];
 		$out['changed']   = $state['changed'];
+		$out['fixed_ids'] = $state['fixed_ids'];
 
 		if ( $state['changed'] && ! $dry_run ) {
 			$new = serialize_blocks( $blocks );
@@ -259,6 +280,33 @@ final class Coywolf_SEO_Image_ID_Fixer {
 			}
 		}
 		return $out;
+	}
+
+	/**
+	 * Build one preview sample: a fixed image's thumbnail plus its post's title
+	 * and edit-screen link.
+	 *
+	 * @param int $post_id       Post the image lives in.
+	 * @param int $attachment_id Attachment that was (or would be) linked.
+	 * @return array|false { thumb, title, edit, post }
+	 */
+	private function build_sample( $post_id, $attachment_id ) {
+		$post_id = (int) $post_id;
+		if ( $post_id <= 0 ) {
+			return false;
+		}
+		$thumb = wp_get_attachment_image_url( (int) $attachment_id, 'thumbnail' );
+		if ( ! $thumb ) {
+			$thumb = wp_get_attachment_image_url( (int) $attachment_id, 'full' );
+		}
+		$title = get_the_title( $post_id );
+		$edit  = get_edit_post_link( $post_id, 'raw' );
+		return array(
+			'thumb' => $thumb ? (string) $thumb : '',
+			'title' => '' !== (string) $title ? (string) $title : __( '(no title)', 'coywolf-seo' ),
+			'edit'  => $edit ? (string) $edit : '',
+			'post'  => $post_id,
+		);
 	}
 
 	/**
@@ -288,7 +336,8 @@ final class Coywolf_SEO_Image_ID_Fixer {
 						$block['innerContent'] = array( $new_html );
 						$blocks[ $i ]          = $block;
 						++$state['fixed'];
-						$state['changed'] = true;
+						$state['fixed_ids'][] = $id;
+						$state['changed']     = true;
 					} else {
 						++$state['unmatched'];
 					}

@@ -1349,6 +1349,29 @@ final class Coywolf_SEO_AI {
 	}
 
 	/**
+	 * When true, {@see maybe_queue()} ignores post saves — used to wrap a save
+	 * that changes content for a non-editorial reason.
+	 *
+	 * @var bool
+	 */
+	private static $queue_suspended = false;
+
+	/**
+	 * Suspend entity/description re-queuing across the next post save(s). Always
+	 * pair with {@see resume_queueing()}.
+	 */
+	public static function suspend_queueing() {
+		self::$queue_suspended = true;
+	}
+
+	/**
+	 * Resume entity/description re-queuing.
+	 */
+	public static function resume_queueing() {
+		self::$queue_suspended = false;
+	}
+
+	/**
 	 * Queue analysis when a post is published or updated.
 	 *
 	 * @param string  $new_status New status.
@@ -1357,6 +1380,12 @@ final class Coywolf_SEO_AI {
 	 */
 	public function maybe_queue( $new_status, $old_status, $post ) {
 		unset( $old_status );
+		// Suspended while another module saves a post for a non-content reason
+		// (e.g. the Image Text writer propagating alt/caption into image blocks),
+		// so that bookkeeping save does not re-queue entity/description analysis.
+		if ( self::$queue_suspended ) {
+			return;
+		}
 		if ( 'publish' !== $new_status || ( ! $this->enabled() && ! $this->descriptions_on() ) ) {
 			return;
 		}
