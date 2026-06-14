@@ -102,17 +102,18 @@ final class Coywolf_SEO_Image_ID_Fixer {
 	private function start( $dry_run ) {
 		$total = $this->candidate_count();
 		$state = array(
-			'status'        => $total > 0 ? 'running' : 'done',
-			'dry_run'       => (bool) $dry_run,
-			'last_id'       => 0,
-			'total'         => $total,
-			'posts_scanned' => 0,
-			'posts_updated' => 0,
-			'images_fixed'  => 0,
-			'unmatched'     => 0,
-			'samples'       => array(),
-			'started'       => gmdate( 'c' ),
-			'finished'      => $total > 0 ? '' : gmdate( 'c' ),
+			'status'           => $total > 0 ? 'running' : 'done',
+			'dry_run'          => (bool) $dry_run,
+			'last_id'          => 0,
+			'total'            => $total,
+			'posts_scanned'    => 0,
+			'posts_updated'    => 0,
+			'images_fixed'     => 0,
+			'images_converted' => 0,
+			'unmatched'        => 0,
+			'samples'          => array(),
+			'started'          => gmdate( 'c' ),
+			'finished'         => $total > 0 ? '' : gmdate( 'c' ),
 		);
 		update_option( self::STATE_OPTION, $state, false );
 		return $state;
@@ -143,8 +144,9 @@ final class Coywolf_SEO_Image_ID_Fixer {
 			$state['last_id'] = $post_id;
 			$result           = $this->fix_post( $post_id, ! empty( $state['dry_run'] ) );
 			++$state['posts_scanned'];
-			$state['images_fixed'] += $result['fixed'];
-			$state['unmatched']    += $result['unmatched'];
+			$state['images_fixed']     += $result['fixed'];
+			$state['images_converted'] += $result['converted'];
+			$state['unmatched']        += $result['unmatched'];
 			if ( $result['changed'] ) {
 				++$state['posts_updated'];
 			}
@@ -236,11 +238,12 @@ final class Coywolf_SEO_Image_ID_Fixer {
 	 *
 	 * @param int  $post_id Post ID.
 	 * @param bool $dry_run Count only; do not save.
-	 * @return array { fixed:int, unmatched:int, changed:bool, fixed_ids:int[] }
+	 * @return array { fixed:int, converted:int, unmatched:int, changed:bool, fixed_ids:int[] }
 	 */
 	private function fix_post( $post_id, $dry_run ) {
 		$out  = array(
 			'fixed'     => 0,
+			'converted' => 0,
 			'unmatched' => 0,
 			'changed'   => false,
 			'fixed_ids' => array(),
@@ -252,6 +255,7 @@ final class Coywolf_SEO_Image_ID_Fixer {
 
 		$state  = array(
 			'fixed'     => 0,
+			'converted' => 0,
 			'unmatched' => 0,
 			'changed'   => false,
 			'fixed_ids' => array(),
@@ -259,6 +263,7 @@ final class Coywolf_SEO_Image_ID_Fixer {
 		$blocks = $this->walk_fix( parse_blocks( (string) $post->post_content ), $state );
 
 		$out['fixed']     = $state['fixed'];
+		$out['converted'] = $state['converted'];
 		$out['unmatched'] = $state['unmatched'];
 		$out['changed']   = $state['changed'];
 		$out['fixed_ids'] = $state['fixed_ids'];
@@ -268,12 +273,13 @@ final class Coywolf_SEO_Image_ID_Fixer {
 			if ( $new !== (string) $post->post_content ) {
 				global $wpdb;
 				// Write post_content directly rather than via wp_update_post(): this
-				// is a purely additive maintenance fix, and going through the normal
-				// save would fire transition_post_status / wp_after_insert_post on
-				// every post — re-queuing AI analysis, pinging IndexNow, re-indexing
-				// links, creating revisions, and bumping the modified date. None of
-				// that is wanted for adding an attachment id, so bypass it and just
-				// flush the post cache.
+				// is block maintenance (adding an attachment id, or converting a
+				// Custom HTML / classic image figure to a core/image block), and
+				// going through the normal save would fire transition_post_status /
+				// wp_after_insert_post on every post — re-queuing AI analysis,
+				// pinging IndexNow, re-indexing links, creating revisions, and
+				// bumping the modified date. None of that is wanted here, so bypass
+				// it and just flush the post cache.
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bulk content maintenance; post cache cleared immediately below.
 				$wpdb->update( $wpdb->posts, array( 'post_content' => $new ), array( 'ID' => $post_id ) );
 				clean_post_cache( $post_id );
@@ -310,11 +316,13 @@ final class Coywolf_SEO_Image_ID_Fixer {
 	}
 
 	/**
-	 * Walk parsed blocks, adding ids to id-less core/image blocks whose src is an
-	 * uploads URL that resolves to an attachment. Mutates $state counters.
+	 * Walk parsed blocks: add ids to id-less core/image blocks, and convert
+	 * Custom HTML / classic blocks that are a single uploads image figure into
+	 * real core/image blocks. Both only act when the image resolves to an
+	 * attachment. Mutates $state counters. Recurses into innerBlocks.
 	 *
 	 * @param array $blocks Parsed blocks.
-	 * @param array $state  { fixed, unmatched, changed }.
+	 * @param array $state  { fixed, converted, unmatched, changed, fixed_ids }.
 	 * @return array Modified blocks.
 	 */
 	private function walk_fix( array $blocks, array &$state ) {
@@ -342,12 +350,150 @@ final class Coywolf_SEO_Image_ID_Fixer {
 						++$state['unmatched'];
 					}
 				}
+			} elseif ( 'core/html' === $name || '' === $name ) {
+				// A Custom HTML or classic (freeform) block that is just an image
+				// figure served from uploads → convert it to a real core/image
+				// block so the image tooling (alt/caption, srcset, editor controls)
+				// can manage it.
+				$converted = $this->convert_html_image( $block );
+				if ( null !== $converted ) {
+					$blocks[ $i ] = $converted['block'];
+					++$state['converted'];
+					$state['fixed_ids'][] = $converted['id'];
+					$state['changed']     = true;
+				}
 			}
 			if ( ! empty( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) ) {
 				$blocks[ $i ]['innerBlocks'] = $this->walk_fix( $block['innerBlocks'], $state );
 			}
 		}
 		return $blocks;
+	}
+
+	/* --------------------------------------------------------------------- *
+	 * Custom HTML / classic image → core/image conversion
+	 * --------------------------------------------------------------------- */
+
+	/**
+	 * Convert a core/html or classic (freeform) block that is exactly one image
+	 * figure served from uploads into a proper core/image block. Returns the
+	 * converted block plus its attachment id, or null to leave the block as-is.
+	 *
+	 * Conservative on purpose: the block must be a single <figure> wrapping a
+	 * single <img> (optionally a <figcaption>), with no link wrapper, and the
+	 * image must resolve to a Media Library attachment. Anything else — multiple
+	 * images, surrounding markup, a linked image, or an unresolved src — is left
+	 * untouched. The rebuilt markup matches core/image's own save() output (the
+	 * url/alt/caption are sourced from the markup; id/sizeSlug/linkDestination/
+	 * align/className live in the block attributes), so it validates cleanly in
+	 * the editor. An arbitrary inline figure style (e.g. style="margin-top:1rem")
+	 * is intentionally dropped — core/image can't store it.
+	 *
+	 * @param array $block Parsed block.
+	 * @return array|null { block: array, id: int }
+	 */
+	private function convert_html_image( array $block ) {
+		$html = isset( $block['innerHTML'] ) ? trim( (string) $block['innerHTML'] ) : '';
+		if ( '' === $html ) {
+			return null;
+		}
+		// Exactly one image figure and nothing else; no link wrapper.
+		if ( ! preg_match( '/^<figure\b.*<\/figure>$/is', $html ) ) {
+			return null;
+		}
+		$lower = strtolower( $html );
+		if ( 1 !== substr_count( $lower, '<img' ) || 1 !== substr_count( $lower, '<figure' ) ) {
+			return null;
+		}
+		if ( preg_match( '/<a[\s>]/i', $html ) ) {
+			return null;
+		}
+
+		$src = $this->img_src( $html );
+		if ( '' === $src || ! $this->is_uploads_url( $src ) ) {
+			return null;
+		}
+		$id = $this->resolve( $src );
+		if ( $id <= 0 ) {
+			return null;
+		}
+
+		// Alt + figure classes via the HTML API; caption inner HTML via regex so
+		// any inline caption formatting is preserved verbatim.
+		$alt          = '';
+		$figure_class = '';
+		if ( class_exists( 'WP_HTML_Tag_Processor' ) ) {
+			$tags = new WP_HTML_Tag_Processor( $html );
+			if ( $tags->next_tag( 'figure' ) ) {
+				$fc           = $tags->get_attribute( 'class' );
+				$figure_class = is_string( $fc ) ? $fc : '';
+			}
+			if ( $tags->next_tag( 'img' ) ) {
+				$a   = $tags->get_attribute( 'alt' );
+				$alt = is_string( $a ) ? $a : '';
+			}
+		}
+		$caption = '';
+		if ( preg_match( '/<figcaption\b[^>]*>(.*?)<\/figcaption>/is', $html, $cm ) ) {
+			$caption = trim( $cm[1] );
+		}
+
+		// Derive sizeSlug / align / extra className from the figure classes.
+		$size_slug = '';
+		$align     = '';
+		$extra     = array();
+		foreach ( preg_split( '/\s+/', (string) $figure_class ) as $cls ) {
+			if ( '' === $cls || 'wp-block-image' === $cls ) {
+				continue;
+			}
+			if ( preg_match( '/^size-(.+)$/', $cls, $m ) ) {
+				$size_slug = $m[1];
+			} elseif ( in_array( $cls, array( 'alignleft', 'alignright', 'aligncenter', 'alignwide', 'alignfull' ), true ) ) {
+				$align = substr( $cls, 5 );
+			} else {
+				$extra[] = $cls;
+			}
+		}
+		if ( '' === $size_slug ) {
+			$size_slug = 'full';
+		}
+		$class_name = implode( ' ', $extra );
+
+		// Canonical core/image markup.
+		$fig_classes = array( 'wp-block-image' );
+		if ( '' !== $align ) {
+			$fig_classes[] = 'align' . $align;
+		}
+		$fig_classes[] = 'size-' . $size_slug;
+		foreach ( $extra as $cls ) {
+			$fig_classes[] = $cls;
+		}
+		$img      = '<img src="' . esc_url( $src ) . '" alt="' . esc_attr( $alt ) . '" class="wp-image-' . (int) $id . '"/>';
+		$cap      = '' !== $caption ? '<figcaption class="wp-element-caption">' . $caption . '</figcaption>' : '';
+		$new_html = "\n" . '<figure class="' . esc_attr( implode( ' ', $fig_classes ) ) . '">' . $img . $cap . '</figure>' . "\n";
+
+		$attrs = array(
+			'id'              => (int) $id,
+			'sizeSlug'        => $size_slug,
+			'linkDestination' => 'none',
+		);
+		if ( '' !== $align ) {
+			$attrs['align'] = $align;
+		}
+		if ( '' !== $class_name ) {
+			$attrs['className'] = $class_name;
+		}
+
+		$block['blockName']    = 'core/image';
+		$block['attrs']        = $attrs;
+		$block['innerHTML']    = $new_html;
+		$block['innerContent'] = array( $new_html );
+		$block['innerBlocks']  = array();
+
+		return array(
+			'block' => $block,
+			'id'    => (int) $id,
+		);
 	}
 
 	/* --------------------------------------------------------------------- *

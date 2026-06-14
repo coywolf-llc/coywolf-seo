@@ -584,9 +584,11 @@ final class Coywolf_SEO_Admin {
 					'testBatches'       => __( 'Batches API:', 'coywolf-seo' ),
 					'confirmBulkDelete' => __( 'Delete the selected redirects?', 'coywolf-seo' ),
 					'idFixProgress'     => __( 'Scanning %SCAN% of %TOTAL% posts…', 'coywolf-seo' ),
-					'idFixPreview'      => __( 'Preview: %IMG% images in %POSTS% posts would be fixed (%UNM% uploads images had no Media Library match).', 'coywolf-seo' ),
-					'idFixDone'         => __( 'Done: fixed %IMG% images in %POSTS% posts (%UNM% uploads images had no Media Library match).', 'coywolf-seo' ),
-					'idFixConfirm'      => __( 'Add missing Media Library IDs to matching images in your posts and pages? This edits post content. If you have not run Preview yet, cancel and preview first.', 'coywolf-seo' ),
+					/* translators: 1: image IDs added, 2: Custom HTML images converted, 3: posts changed, 4: unmatched uploads images. */
+					'idFixPreview'      => __( 'Preview: %IMG% images would get an ID and %CONV% Custom HTML images would be converted, across %POSTS% posts (%UNM% uploads images had no Media Library match).', 'coywolf-seo' ),
+					/* translators: 1: image IDs added, 2: Custom HTML images converted, 3: posts changed, 4: unmatched uploads images. */
+					'idFixDone'         => __( 'Done: %IMG% images given an ID and %CONV% Custom HTML images converted, across %POSTS% posts (%UNM% uploads images had no Media Library match).', 'coywolf-seo' ),
+					'idFixConfirm'      => __( 'Add missing Media Library IDs and convert Custom HTML image blocks to image blocks in your posts and pages? This edits post content. If you have not run Preview yet, cancel and preview first.', 'coywolf-seo' ),
 					'idFixError'        => __( 'The run stopped unexpectedly — reload the page and try again. Already-fixed posts are skipped, so it is safe to re-run.', 'coywolf-seo' ),
 					'idFixSamples'      => __( 'Sample fixes:', 'coywolf-seo' ),
 				),
@@ -1660,7 +1662,7 @@ final class Coywolf_SEO_Admin {
 				<tr>
 					<td colspan="2">
 						<p class="description">
-							<?php esc_html_e( 'Older posts and images inserted by URL can have image blocks with no Media Library ID. This finds images in your posts and pages that are served from your uploads folder, matches each to its Media Library image, and adds the missing ID (and the responsive-image class) to the content. Only images in your own uploads folder that exactly match a Media Library image are given an ID — external images and anything that does not match are not changed. It is safe to re-run, but it edits post content, so run Preview first.', 'coywolf-seo' ); ?>
+							<?php esc_html_e( 'Older posts and images inserted by URL can have image blocks with no Media Library ID — and some images were added as Custom HTML or classic blocks instead of image blocks. This finds images in your posts and pages served from your uploads folder, matches each to its Media Library image, adds the missing ID (and the responsive-image class), and converts a Custom HTML/classic image figure into a proper image block so the image tools can manage it. Only images in your own uploads folder that exactly match a Media Library image are touched — external images and anything ambiguous (multiple images, a linked image, or surrounding markup) are left unchanged. Note: converting drops any custom inline figure styling. It is safe to re-run, but it edits post content, so run Preview first.', 'coywolf-seo' ); ?>
 						</p>
 						<div id="coywolf-seo-idfix">
 							<p>
