@@ -1135,6 +1135,7 @@ final class Coywolf_SEO_Admin {
 				array( 'coywolf-seo-section-robots', __( 'Robots.txt Manager', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'robots' ) ),
 				array( 'coywolf-seo-section-toggles', __( 'Turn off features', 'coywolf-seo' ), true ),
 				array( 'coywolf-seo-section-enrich', __( 'Enrich all content', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'ai' ) ),
+				array( 'coywolf-seo-section-imageids', __( 'Fix missing image IDs', 'coywolf-seo' ), true ),
 			);
 			?>
 			<ul class="coywolf-seo-settings-toc">
