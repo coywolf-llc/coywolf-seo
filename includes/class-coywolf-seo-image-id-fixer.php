@@ -326,48 +326,44 @@ final class Coywolf_SEO_Image_ID_Fixer {
 	 * @return array Modified blocks.
 	 */
 	private function walk_fix( array $blocks, array &$state ) {
-		foreach ( $blocks as $i => $block ) {
-			if ( ! is_array( $block ) ) {
-				continue;
-			}
-			$name = isset( $block['blockName'] ) ? (string) $block['blockName'] : '';
-			if ( 'core/image' === $name && empty( $block['attrs']['id'] ) ) {
-				$html = isset( $block['innerHTML'] ) ? (string) $block['innerHTML'] : '';
-				$src  = $this->img_src( $html );
-				if ( '' !== $src && $this->is_uploads_url( $src ) ) {
-					$id = $this->resolve( $src );
-					if ( $id > 0 ) {
-						$new_html             = $this->set_image_class( $html, $id );
-						$block['attrs']['id'] = $id;
-						$block['innerHTML']   = $new_html;
-						// core/image is a leaf: innerContent is the single chunk.
-						$block['innerContent'] = array( $new_html );
-						$blocks[ $i ]          = $block;
-						++$state['fixed'];
-						$state['fixed_ids'][] = $id;
+		return Coywolf_SEO_Block_Walker::map(
+			$blocks,
+			function ( $block ) use ( &$state ) {
+				$name = isset( $block['blockName'] ) ? (string) $block['blockName'] : '';
+				if ( 'core/image' === $name && empty( $block['attrs']['id'] ) ) {
+					$html = isset( $block['innerHTML'] ) ? (string) $block['innerHTML'] : '';
+					$src  = $this->img_src( $html );
+					if ( '' !== $src && $this->is_uploads_url( $src ) ) {
+						$id = $this->resolve( $src );
+						if ( $id > 0 ) {
+							$new_html             = $this->set_image_class( $html, $id );
+							$block['attrs']['id'] = $id;
+							$block['innerHTML']   = $new_html;
+							// core/image is a leaf: innerContent is the single chunk.
+							$block['innerContent'] = array( $new_html );
+							++$state['fixed'];
+							$state['fixed_ids'][] = $id;
+							$state['changed']     = true;
+						} else {
+							++$state['unmatched'];
+						}
+					}
+				} elseif ( 'core/html' === $name || '' === $name ) {
+					// A Custom HTML or classic (freeform) block that is just an image
+					// figure served from uploads → convert it to a real core/image
+					// block so the image tooling (alt/caption, srcset, editor
+					// controls) can manage it.
+					$converted = $this->convert_html_image( $block );
+					if ( null !== $converted ) {
+						$block = $converted['block'];
+						++$state['converted'];
+						$state['fixed_ids'][] = $converted['id'];
 						$state['changed']     = true;
-					} else {
-						++$state['unmatched'];
 					}
 				}
-			} elseif ( 'core/html' === $name || '' === $name ) {
-				// A Custom HTML or classic (freeform) block that is just an image
-				// figure served from uploads → convert it to a real core/image
-				// block so the image tooling (alt/caption, srcset, editor controls)
-				// can manage it.
-				$converted = $this->convert_html_image( $block );
-				if ( null !== $converted ) {
-					$blocks[ $i ] = $converted['block'];
-					++$state['converted'];
-					$state['fixed_ids'][] = $converted['id'];
-					$state['changed']     = true;
-				}
+				return $block;
 			}
-			if ( ! empty( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) ) {
-				$blocks[ $i ]['innerBlocks'] = $this->walk_fix( $block['innerBlocks'], $state );
-			}
-		}
-		return $blocks;
+		);
 	}
 
 	/* --------------------------------------------------------------------- *

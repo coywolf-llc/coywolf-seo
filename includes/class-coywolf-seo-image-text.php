@@ -1020,29 +1020,23 @@ final class Coywolf_SEO_Image_Text {
 	 */
 	private function fill_block_media( array $blocks, $id, $alt, $caption, $overwrite = false ) {
 		$changed = false;
-		foreach ( $blocks as $i => $block ) {
-			if ( ! is_array( $block ) ) {
-				continue;
-			}
-			$name = isset( $block['blockName'] ) ? (string) $block['blockName'] : '';
-			if ( 'core/image' === $name && isset( $block['attrs']['id'] ) && (int) $block['attrs']['id'] === (int) $id ) {
-				$new = $this->add_image_text( isset( $block['innerHTML'] ) ? (string) $block['innerHTML'] : '', $alt, $caption, $overwrite );
-				if ( null !== $new ) {
-					// core/image is a leaf block: its innerContent is the single
-					// HTML chunk, with no null placeholders for child blocks.
-					$blocks[ $i ]['innerHTML']    = $new;
-					$blocks[ $i ]['innerContent'] = array( $new );
-					$changed                      = true;
+		$blocks  = Coywolf_SEO_Block_Walker::map(
+			$blocks,
+			function ( $block ) use ( $id, $alt, $caption, $overwrite, &$changed ) {
+				$name = isset( $block['blockName'] ) ? (string) $block['blockName'] : '';
+				if ( 'core/image' === $name && isset( $block['attrs']['id'] ) && (int) $block['attrs']['id'] === (int) $id ) {
+					$new = $this->add_image_text( isset( $block['innerHTML'] ) ? (string) $block['innerHTML'] : '', $alt, $caption, $overwrite );
+					if ( null !== $new ) {
+						// core/image is a leaf block: its innerContent is the single
+						// HTML chunk, with no null placeholders for child blocks.
+						$block['innerHTML']    = $new;
+						$block['innerContent'] = array( $new );
+						$changed               = true;
+					}
 				}
+				return $block;
 			}
-			if ( ! empty( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) ) {
-				$inner = $this->fill_block_media( $block['innerBlocks'], $id, $alt, $caption, $overwrite );
-				if ( $inner['changed'] ) {
-					$blocks[ $i ]['innerBlocks'] = $inner['blocks'];
-					$changed                     = true;
-				}
-			}
-		}
+		);
 		return array(
 			'blocks'  => $blocks,
 			'changed' => $changed,
