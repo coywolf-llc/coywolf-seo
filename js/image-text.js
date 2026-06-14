@@ -398,14 +398,17 @@
 				}
 				aiFailures++;
 				if ( aiFailures >= 5 ) {
-					// Persistent failure (expired login/nonce, server down): stop
-					// hammering and surface it. The run itself continues server-side
-					// on WP-Cron; reloading the page resumes tracking.
+					// Persistent failure (expired login/nonce, server down). The run
+					// continues server-side on WP-Cron, so RELOAD to re-attach cleanly
+					// (and to land on the login screen if the session expired) rather
+					// than offering a Resume that could restart a still-running run.
 					if ( aiMessage ) {
 						aiMessage.querySelector( 'p' ).textContent = ( err && err.message ) || cfg.i18n.requestErr;
 						show( aiMessage, true );
 					}
-					aiButtons( false, true );
+					window.setTimeout( function () {
+						window.location.reload();
+					}, 3000 );
 					return;
 				}
 				schedulePoll( 6000 );
@@ -497,6 +500,10 @@
 				} ) );
 				api( '/image-text/ack' ).catch( function () {} );
 			} );
+		} else if ( 'cancelled' === aiStatus ) {
+			// A Stopped run leaves a 'cancelled' state behind; acknowledge it so the
+			// row doesn't linger in the database until the next run.
+			api( '/image-text/ack' ).catch( function () {} );
 		}
 	}
 } )();

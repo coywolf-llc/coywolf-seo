@@ -177,6 +177,12 @@ final class Coywolf_SEO_Image_Text {
 		if ( empty( $fresh['status'] ) || 'running' !== $fresh['status'] ) {
 			return false;
 		}
+		// A fresh Start seeds a new run_id. If it changed under us, this advancer
+		// belongs to a run that has since been replaced — drop its now-stale write
+		// so it can't corrupt the new run's cursor, counters, or field list.
+		if ( (string) ( $fresh['run_id'] ?? '' ) !== (string) ( $state['run_id'] ?? '' ) ) {
+			return false;
+		}
 		update_option( self::BATCH_OPTION, $state, false );
 		return true;
 	}
@@ -207,6 +213,14 @@ final class Coywolf_SEO_Image_Text {
 
 		if ( $resume ) {
 			$state = $this->get_batch();
+			// Resuming a run that is still running (e.g. the page lost its
+			// connection, hit the poll-failure cap, and the user clicked Resume)
+			// must NOT restart it — that would cancel a healthy run and re-bill it.
+			// Treat it as a no-op that just makes sure the worker is scheduled.
+			if ( ! empty( $state['status'] ) && 'running' === $state['status'] ) {
+				$this->kick_worker();
+				return $state;
+			}
 			if ( ! empty( $state['status'] ) && 'error' === $state['status'] ) {
 				$state['status']             = 'running';
 				$state['consecutive_errors'] = 0;
@@ -238,6 +252,9 @@ final class Coywolf_SEO_Image_Text {
 
 		$state = array(
 			'status'             => 'running',
+			// Unique per-run token: an in-flight advancer from a replaced run
+			// checks this in bulk_persist() and drops its stale write.
+			'run_id'             => uniqid( '', true ),
 			'mode'               => $mode,
 			'realtime'           => (bool) $realtime,
 			'fields'             => $fields,
