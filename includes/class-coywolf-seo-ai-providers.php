@@ -117,4 +117,53 @@ class Coywolf_SEO_AI_Providers {
 		}
 		return $out;
 	}
+
+	/**
+	 * Transient-key prefixes for the two model lists (text/enrichment and
+	 * vision/Image Text). Each is suffixed with the provider id, so switching
+	 * providers never surfaces another's list.
+	 */
+	const MODELS_CACHE_TEXT   = 'coywolf_seo_ai_models';
+	const MODELS_CACHE_VISION = 'coywolf_seo_image_models';
+
+	/**
+	 * The shared "list models, cached per provider for 12 hours" routine behind
+	 * both the enrichment and Image Text model dropdowns. The caller supplies the
+	 * key prefix, a fetch callback (the live list), and an optional fallback
+	 * callback used (uncached) when the live fetch returns nothing.
+	 *
+	 * @param string        $prefix   One of the MODELS_CACHE_* prefixes.
+	 * @param callable      $fetch    Returns the live model list (id/name rows).
+	 * @param callable|null $fallback Returns a fallback list when $fetch is empty.
+	 * @return array
+	 */
+	public static function cached_models( $prefix, callable $fetch, ?callable $fallback = null ) {
+		$cache_key = $prefix . '_' . self::current_id();
+		$cached    = get_transient( $cache_key );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+		$models = call_user_func( $fetch );
+		if ( ! is_array( $models ) || empty( $models ) ) {
+			return null !== $fallback ? (array) call_user_func( $fallback ) : array();
+		}
+		set_transient( $cache_key, $models, 12 * HOUR_IN_SECONDS );
+		return $models;
+	}
+
+	/**
+	 * Drop every cached model list — both the enrichment and Image Text caches,
+	 * for every provider — plus the legacy single-key cache. This is the single
+	 * place model caches are invalidated (whenever an API key or the active
+	 * service changes, and on uninstall), so neither dropdown serves a stale list
+	 * after a key change.
+	 */
+	public static function flush_model_caches() {
+		foreach ( self::ids() as $id ) {
+			delete_transient( self::MODELS_CACHE_TEXT . '_' . $id );
+			delete_transient( self::MODELS_CACHE_VISION . '_' . $id );
+		}
+		// Legacy single-key cache from the pre-multi-provider era.
+		delete_transient( self::MODELS_CACHE_TEXT );
+	}
 }

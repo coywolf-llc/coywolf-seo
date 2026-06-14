@@ -62,6 +62,19 @@ final class Coywolf_SEO_AI_Batch {
 	}
 
 	/**
+	 * Build a facade for the active provider with its stored key, using either a
+	 * caller-supplied model or the provider's configured one. The single place
+	 * the enrichment and Image Text runs construct a batch client.
+	 *
+	 * @param string $model Model ID, or '' for the provider's configured model.
+	 * @return self
+	 */
+	public static function for_current( $model = '' ) {
+		$provider = Coywolf_SEO_AI_Providers::current();
+		return new self( $provider, $provider->key(), '' !== (string) $model ? (string) $model : $provider->model() );
+	}
+
+	/**
 	 * One batch request entry, in the active provider's shape.
 	 *
 	 * @param string $custom_id  Caller's correlation ID.
