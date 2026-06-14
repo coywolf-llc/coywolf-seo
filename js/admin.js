@@ -185,6 +185,16 @@
 			$( this ).closest( 'form' ).trigger( 'submit' );
 		} );
 
+		// News sitemap: the Include and Categories rows only apply when the
+		// News sitemap itself is enabled.
+		function syncNewsRows() {
+			$( '.coywolf-seo-news-row' ).toggle( $( '#coywolf-seo-news-enabled' ).prop( 'checked' ) );
+		}
+		$( '#coywolf-seo-news-enabled' ).on( 'change', syncNewsRows );
+		if ( $( '#coywolf-seo-news-enabled' ).length ) {
+			syncNewsRows();
+		}
+
 		// News sitemap: only show the category list when it applies.
 		$( '#coywolf-seo-news-cat-mode' ).on( 'change', function () {
 			$( '#coywolf-seo-news-cats' ).toggle( $( this ).val() !== 'all' );
