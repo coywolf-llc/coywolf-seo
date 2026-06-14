@@ -187,6 +187,13 @@ final class Coywolf_SEO {
 	private $image_text;
 
 	/**
+	 * Attachment-ID fixer (Settings-page tool).
+	 *
+	 * @var Coywolf_SEO_Image_ID_Fixer
+	 */
+	private $image_id_fixer;
+
+	/**
 	 * Link Manager module (admin page, AJAX endpoints, event-driven indexing,
 	 * background re-check cron). Constructed unconditionally so its non-admin
 	 * hooks (AJAX worker, cron, indexing) are available; init() no-ops its
@@ -286,6 +293,10 @@ final class Coywolf_SEO {
 		// routes and editor integration must register on every request.
 		$this->image_text = new Coywolf_SEO_Image_Text();
 		$this->image_text->init();
+
+		// Attachment-ID fixer: an admin-ajax maintenance tool on the Settings page.
+		$this->image_id_fixer = new Coywolf_SEO_Image_ID_Fixer();
+		$this->image_id_fixer->init();
 
 		// Not admin-gated: the Link Manager runs AJAX workers, WP-Cron re-checks,
 		// and event-driven indexing on non-admin requests too. init() no-ops its

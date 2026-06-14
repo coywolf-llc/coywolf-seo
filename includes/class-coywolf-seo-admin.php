@@ -557,6 +557,7 @@ final class Coywolf_SEO_Admin {
 				'ajaxUrl'         => admin_url( 'admin-ajax.php' ),
 				'bulkStatusNonce' => wp_create_nonce( 'coywolf_seo_bulk_status' ),
 				'bulkActionNonce' => wp_create_nonce( 'coywolf_seo_bulk_action' ),
+				'idFixNonce'      => wp_create_nonce( 'coywolf_seo_idfix' ),
 				'i18n'            => array(
 					'selectImage'       => __( 'Select image', 'coywolf-seo' ),
 					'pasteOrSelect'     => __( 'Paste an image URL or select one', 'coywolf-seo' ),
@@ -582,6 +583,11 @@ final class Coywolf_SEO_Admin {
 					'testMessages'      => __( 'Regular API:', 'coywolf-seo' ),
 					'testBatches'       => __( 'Batches API:', 'coywolf-seo' ),
 					'confirmBulkDelete' => __( 'Delete the selected redirects?', 'coywolf-seo' ),
+					'idFixProgress'     => __( 'Scanning %SCAN% of %TOTAL% posts…', 'coywolf-seo' ),
+					'idFixPreview'      => __( 'Preview: %IMG% images in %POSTS% posts would be fixed (%UNM% uploads images had no Media Library match).', 'coywolf-seo' ),
+					'idFixDone'         => __( 'Done: fixed %IMG% images in %POSTS% posts (%UNM% uploads images had no Media Library match).', 'coywolf-seo' ),
+					'idFixConfirm'      => __( 'Add missing Media Library IDs to matching images in your posts and pages? This edits post content. If you have not run Preview yet, cancel and preview first.', 'coywolf-seo' ),
+					'idFixError'        => __( 'The run stopped unexpectedly — reload the page and try again. Already-fixed posts are skipped, so it is safe to re-run.', 'coywolf-seo' ),
 				),
 				'robotsRestore'   => $this->robots_restore_config(),
 			)
@@ -1645,6 +1651,28 @@ final class Coywolf_SEO_Admin {
 					</tbody>
 			</table>
 			<?php endif; // End Enrich all content. ?>
+
+			<h2 id="coywolf-seo-section-imageids"><?php esc_html_e( 'Fix missing image IDs', 'coywolf-seo' ); ?></h2>
+			<table class="form-table" role="presentation">
+				<tbody>
+				<tr>
+					<td colspan="2">
+						<p class="description">
+							<?php esc_html_e( 'Older posts and images inserted by URL can have image blocks with no Media Library ID. This finds images in your posts and pages that are served from your uploads folder, matches each to its Media Library image, and adds the missing ID (and the responsive-image class) to the content. Only images in your own uploads folder that exactly match a Media Library image are given an ID — external images and anything that does not match are not changed. It is safe to re-run, but it edits post content, so run Preview first.', 'coywolf-seo' ); ?>
+						</p>
+						<div id="coywolf-seo-idfix">
+							<p>
+								<button type="button" class="button" id="coywolf-seo-idfix-preview"><?php esc_html_e( 'Preview', 'coywolf-seo' ); ?></button>
+								<button type="button" class="button button-primary" id="coywolf-seo-idfix-run"><?php esc_html_e( 'Fix image IDs', 'coywolf-seo' ); ?></button>
+								<button type="button" class="button hidden" id="coywolf-seo-idfix-stop"><?php esc_html_e( 'Stop', 'coywolf-seo' ); ?></button>
+							</p>
+							<div class="coywolf-seo-progress hidden" id="coywolf-seo-idfix-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="coywolf-seo-progress-bar"></div></div>
+							<p class="description" id="coywolf-seo-idfix-result" role="status" aria-live="polite" aria-atomic="true"></p>
+						</div>
+					</td>
+				</tr>
+				</tbody>
+			</table>
 		</div>
 		<?php
 	}

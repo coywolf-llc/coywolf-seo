@@ -46,6 +46,7 @@ foreach ( array( 'anthropic', 'openai', 'google' ) as $coywolf_seo_ai_service ) 
 
 // Image Text batch state + model-list cache.
 delete_option( 'coywolf_seo_image_text_batch' );
+delete_option( 'coywolf_seo_image_id_fix' );
 delete_transient( 'coywolf_seo_image_models' );
 foreach ( array( 'coywolf_seo_redirects', 'coywolf_seo_404s', 'coywolf_seo_deleted' ) as $coywolf_seo_redirect_table ) {
 	$coywolf_seo_table_name = $wpdb->prefix . $coywolf_seo_redirect_table;
