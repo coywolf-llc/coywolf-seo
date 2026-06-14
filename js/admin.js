@@ -578,8 +578,8 @@
 				return b;
 			}
 			var restoreBtn = button( t.restore || 'Restore', 'button-primary' );
-			var keepBtn = button( t.keep || 'Keep', '' );
-			var cancelBtn = button( t.cancel || 'Cancel', 'button-link' );
+			var keepBtn = button( t.keep || 'Keep', 'button-secondary' );
+			var cancelBtn = button( t.cancel || 'Cancel', 'button-secondary' );
 			function close() {
 				if ( overlay.parentNode ) {
 					overlay.parentNode.removeChild( overlay );
@@ -636,21 +636,30 @@
 			}
 		}
 
-		// Settings page: prompt the moment the user turns the feature off (only
-		// when a physical robots.txt is being managed). The choice rides in a
-		// hidden field that save_settings() reads.
+		// Settings page: prompt when the form is SAVED while the user is turning
+		// the manager off, so the choice rides in a hidden field that
+		// save_settings() reads alongside every other change on the page.
 		var toggle = rr.toggleId ? document.getElementById( rr.toggleId ) : null;
 		var hidden = rr.hiddenId ? document.getElementById( rr.hiddenId ) : null;
-		if ( toggle && hidden ) {
-			toggle.addEventListener( 'change', function () {
-				if ( ! rr.show || ! toggle.checked || toggle.defaultChecked ) {
-					hidden.value = '';
-					return;
+		var form = toggle ? toggle.closest( 'form' ) : null;
+		if ( form && toggle && hidden ) {
+			var robotsResolved = false;
+			form.addEventListener( 'submit', function ( e ) {
+				// Only prompt when the manager is being turned OFF (the box is now
+				// checked but started unchecked) and it is active.
+				if ( robotsResolved || ! rr.show || ! toggle.checked || toggle.defaultChecked ) {
+					return; // Save normally.
 				}
+				e.preventDefault();
+				// WordPress's Save button is <input name="submit">, which shadows
+				// form.submit — call the native method so the form actually posts.
+				var save = function () { robotsResolved = true; HTMLFormElement.prototype.submit.call( form ); };
 				showModal(
-					function () { hidden.value = 'restore'; },
-					function () { hidden.value = 'keep'; },
-					function () { toggle.checked = false; hidden.value = ''; }
+					function () { hidden.value = 'restore'; save(); },
+					function () { hidden.value = 'keep'; save(); },
+					// Cancel undoes ONLY the turn-off: leave the manager on, but
+					// still save every other change on the page.
+					function () { toggle.checked = false; hidden.value = ''; save(); }
 				);
 			} );
 		}
