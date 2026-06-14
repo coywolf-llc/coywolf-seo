@@ -63,18 +63,55 @@
 		var notice = noticeState[ 0 ];
 		var setNotice = noticeState[ 1 ];
 
-		// While this panel is mounted (an image block is selected), flag the
-		// editor so CSS hides core's redundant "Alternative text" control — this
-		// panel edits the same block alt. Removed on deselect so other media
+		// While this panel is mounted (an image block is selected), hide core's
+		// redundant "Alternative text" control — this panel edits the same block
+		// alt. Done in JS rather than CSS so it works regardless of the browser's
+		// :has() support or Gutenberg's exact class names: core's alt control is
+		// the one whose help links to the WCAG image tutorial (a stable anchor);
+		// we hide that control's container and re-apply across the inspector's
+		// React re-renders. On unmount the controls are restored, so other media
 		// blocks (Cover, Media & Text…) keep their own alt field.
 		useEffect( function () {
-			var body = document.body;
-			if ( ! body ) {
-				return undefined;
+			var hidden = [];
+			var apply = function () {
+				var links = document.querySelectorAll( 'a[href*="w3.org/WAI"]' );
+				for ( var i = 0; i < links.length; i++ ) {
+					var item = links[ i ].closest( '.components-tools-panel-item' ) ||
+						links[ i ].closest( '.components-base-control' );
+					if ( item && 'none' !== item.style.display ) {
+						item.style.display = 'none';
+						if ( -1 === hidden.indexOf( item ) ) {
+							hidden.push( item );
+						}
+					}
+				}
+			};
+			var scheduled = false;
+			var schedule = function () {
+				if ( scheduled ) {
+					return;
+				}
+				scheduled = true;
+				window.requestAnimationFrame( function () {
+					scheduled = false;
+					apply();
+				} );
+			};
+			apply();
+			var observer = null;
+			if ( window.MutationObserver && document.body ) {
+				observer = new window.MutationObserver( schedule );
+				observer.observe( document.body, { childList: true, subtree: true } );
 			}
-			body.classList.add( 'coywolf-seo-it-active' );
 			return function () {
-				body.classList.remove( 'coywolf-seo-it-active' );
+				if ( observer ) {
+					observer.disconnect();
+				}
+				for ( var j = 0; j < hidden.length; j++ ) {
+					if ( hidden[ j ] ) {
+						hidden[ j ].style.display = '';
+					}
+				}
 			};
 		}, [] );
 
