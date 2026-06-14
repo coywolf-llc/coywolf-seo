@@ -729,7 +729,8 @@ final class Coywolf_SEO_Image_Text {
 		wp_enqueue_style( 'coywolf-seo-it-editor' );
 		wp_add_inline_style(
 			'coywolf-seo-it-editor',
-			'body.coywolf-seo-it-active .components-tools-panel-item:has( a[href*="w3.org/WAI" ] ) { display: none; }'
+			'body.coywolf-seo-it-active .components-tools-panel-item:has(a[href*="w3.org/WAI"]){display:none;}'
+			. 'body.coywolf-seo-it-active .components-tools-panel-item .components-textarea-control{display:none;}'
 		);
 	}
 
