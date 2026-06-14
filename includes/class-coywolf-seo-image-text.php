@@ -30,6 +30,13 @@ final class Coywolf_SEO_Image_Text {
 	const BATCH_OPTION = 'coywolf_seo_image_text_batch';
 
 	/**
+	 * WP-Cron hook that advances a bulk run in the background, so it keeps
+	 * processing — and saving results — whether or not the Image Text page
+	 * stays open.
+	 */
+	const BULK_HOOK = 'coywolf_seo_image_text_bulk';
+
+	/**
 	 * Seconds of work per REST step request. Each image is one Claude call,
 	 * so a step usually covers one to four images.
 	 */
@@ -66,6 +73,7 @@ final class Coywolf_SEO_Image_Text {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'wp_enqueue_media', array( $this, 'enqueue_media' ) );
 		add_action( 'admin_post_coywolf_seo_save_image_instructions', array( $this, 'save_instructions' ) );
+		add_action( self::BULK_HOOK, array( $this, 'bulk_worker' ) );
 	}
 
 	/**
@@ -143,6 +151,37 @@ final class Coywolf_SEO_Image_Text {
 	}
 
 	/**
+	 * Re-read run state bypassing the options cache, so a write decision sees a
+	 * Stop/Cancel (or a fresh restart) made by a concurrent request rather than
+	 * this process's stale in-memory copy.
+	 *
+	 * @return array
+	 */
+	private function bulk_state_fresh() {
+		wp_cache_delete( self::BATCH_OPTION, 'options' );
+		return $this->get_batch();
+	}
+
+	/**
+	 * Persist progress ONLY while the run we are advancing is still the live
+	 * running run. If a concurrent request cancelled it (Stop) or replaced it
+	 * (a fresh Start), drop the write so the worker can't clobber that change
+	 * back to 'running' and resurrect a stopped run (which would keep spending
+	 * on the AI service). Mirrors the Enrich worker's bulk_persist().
+	 *
+	 * @param array $state Working state to write.
+	 * @return bool True if written; false if the run was cancelled/replaced.
+	 */
+	private function bulk_persist( array $state ) {
+		$fresh = $this->bulk_state_fresh();
+		if ( empty( $fresh['status'] ) || 'running' !== $fresh['status'] ) {
+			return false;
+		}
+		update_option( self::BATCH_OPTION, $state, false );
+		return true;
+	}
+
+	/**
 	 * Start (or restart) a bulk run.
 	 *
 	 * @param array  $fields       Field keys to write.
@@ -173,9 +212,19 @@ final class Coywolf_SEO_Image_Text {
 				$state['consecutive_errors'] = 0;
 				$state['message']            = '';
 				update_option( self::BATCH_OPTION, $state, false );
+				$this->kick_worker();
 				return $state;
 			}
 		}
+		// A fresh start replaces any existing run. Tear the old one down first —
+		// cancel its in-flight remote batch (so it stops accruing cost) and drop
+		// its worker event — so we don't leave an orphaned batch or a second cron
+		// chain advancing a now-overwritten cursor.
+		$existing = $this->get_batch();
+		if ( isset( $existing['status'] ) && in_array( $existing['status'], array( 'running', 'error' ), true ) ) {
+			$this->cancel_batch();
+		}
+
 		$fields = array_values( array_intersect( $fields, self::FIELDS ) );
 		if ( empty( $fields ) ) {
 			return new WP_Error( 'coywolf_seo_no_fields', __( 'Pick at least one field to write.', 'coywolf-seo' ) );
@@ -216,12 +265,104 @@ final class Coywolf_SEO_Image_Text {
 			'batch_started'      => 0,
 		);
 		update_option( self::BATCH_OPTION, $state, false );
+		if ( 'running' === $state['status'] ) {
+			$this->kick_worker();
+		}
 		return $state;
+	}
+
+	/* --------------------------------------------------------------------- *
+	 * Background worker (WP-Cron)
+	 *
+	 * A run advances on WP-Cron rather than by the browser driving each step,
+	 * so it continues — and saves results — after the user leaves the page.
+	 * The page only polls status. This mirrors the Enrich bulk worker.
+	 * --------------------------------------------------------------------- */
+
+	/**
+	 * Schedule the worker to run immediately and nudge WP-Cron, so a freshly
+	 * started or resumed run begins without waiting for a natural cron tick.
+	 */
+	private function kick_worker() {
+		if ( ! wp_next_scheduled( self::BULK_HOOK ) ) {
+			wp_schedule_single_event( time(), self::BULK_HOOK );
+		}
+		spawn_cron();
+	}
+
+	/**
+	 * Self-heal: make sure a still-running run has a pending worker event,
+	 * rescheduling (and nudging cron) when one has gone missing. Cheap enough
+	 * to call from every status poll.
+	 *
+	 * @param array $state Current run state.
+	 */
+	private function ensure_worker_scheduled( array $state ) {
+		if ( empty( $state['status'] ) || 'running' !== $state['status'] ) {
+			return;
+		}
+		$next = wp_next_scheduled( self::BULK_HOOK );
+		if ( false === $next ) {
+			wp_schedule_single_event( time() + $this->worker_delay( $state ), self::BULK_HOOK );
+			spawn_cron();
+		} elseif ( $next <= time() ) {
+			// The event is due but nothing has fired it yet (low-traffic site, or
+			// DISABLE_WP_CRON with no system cron). While the page is open and
+			// polling, nudge the loopback so the run keeps moving anyway.
+			spawn_cron();
+		}
+	}
+
+	/**
+	 * Seconds until the next worker tick: poll a remote batch gently; drain
+	 * local work (real-time analysis, or the next chunk to submit) briskly.
+	 *
+	 * @param array $state Run state.
+	 * @return int
+	 */
+	private function worker_delay( array $state ) {
+		return ! empty( $state['awaiting_batch'] ) ? 30 : 10;
+	}
+
+	/**
+	 * WP-Cron callback: advance the run one step, then reschedule the next tick
+	 * while it is still running. This is what keeps a bulk run going after the
+	 * user closes the page.
+	 */
+	public function bulk_worker() {
+		$this->advance_bulk();
+		$state = $this->get_batch();
+		if ( ! empty( $state['status'] ) && 'running' === $state['status'] && ! wp_next_scheduled( self::BULK_HOOK ) ) {
+			wp_schedule_single_event( time() + $this->worker_delay( $state ), self::BULK_HOOK );
+		}
+	}
+
+	/**
+	 * Advance the run by one {@see step_batch()} step under a non-blocking named
+	 * lock, so a cron tick and a status-poll self-heal can't process the same
+	 * chunk twice. On MySQL an explicit 0 means another process holds the lock;
+	 * other backends return non-0 and proceed (matching the Enrich worker).
+	 */
+	private function advance_bulk() {
+		global $wpdb;
+		$lock = 'coywolf_seo_image_text_' . get_current_blog_id();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- non-blocking named lock; one advancer at a time.
+		if ( '0' === (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 0)', $lock ) ) ) {
+			return;
+		}
+
+		$state = $this->get_batch();
+		if ( ! empty( $state['status'] ) && 'running' === $state['status'] ) {
+			$this->step_batch();
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- releases the named lock above.
+		$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
 	}
 
 	/**
 	 * Work one REST step of the active run, dispatching to the real-time or
-	 * Batch-API engine the run was started in.
+	 * Batch-API engine the run was started in. Invoked by the background worker.
 	 *
 	 * @return array State.
 	 */
@@ -301,10 +442,17 @@ final class Coywolf_SEO_Image_Text {
 					}
 				}
 			}
-			update_option( self::BATCH_OPTION, $state, false );
+			// Persist through the guard: if Stop/Cancel landed during this image's
+			// (multi-second) API call, abort instead of writing 'running' back.
+			if ( ! $this->bulk_persist( $state ) ) {
+				return $this->get_batch();
+			}
 		} while ( 'running' === $state['status'] && microtime( true ) < $deadline );
 
-		update_option( self::BATCH_OPTION, $state, false );
+		// Terminal ('done'/'error') or budget-hit write — same guard.
+		if ( ! $this->bulk_persist( $state ) ) {
+			return $this->get_batch();
+		}
 		return $state;
 	}
 
@@ -374,8 +522,8 @@ final class Coywolf_SEO_Image_Text {
 		if ( empty( $ids ) ) {
 			$state['status']         = 'done';
 			$state['awaiting_batch'] = false;
-			update_option( self::BATCH_OPTION, $state, false );
-			return $state;
+			$this->bulk_persist( $state );
+			return $this->get_batch();
 		}
 
 		// Snapshot the chunk's starting point and counters so a submit failure
@@ -408,8 +556,17 @@ final class Coywolf_SEO_Image_Text {
 		if ( empty( $requests ) ) {
 			// Whole chunk failed preparation; the next step picks up where the
 			// cursor now points.
-			update_option( self::BATCH_OPTION, $state, false );
+			if ( ! $this->bulk_persist( $state ) ) {
+				return $this->get_batch();
+			}
 			return $state;
+		}
+
+		// Stop/Cancel may have landed while the chunk was being prepared (reading
+		// and base64-encoding images is slow). Don't spend on a cancelled run.
+		$fresh = $this->bulk_state_fresh();
+		if ( empty( $fresh['status'] ) || 'running' !== $fresh['status'] ) {
+			return $fresh;
 		}
 
 		$batch_id = $batch->submit( $requests );
@@ -422,8 +579,8 @@ final class Coywolf_SEO_Image_Text {
 			$state['errors']  = $snap_errors;
 			$state['status']  = 'error';
 			$state['message'] = $batch_id->get_error_message();
-			update_option( self::BATCH_OPTION, $state, false );
-			return $state;
+			$this->bulk_persist( $state );
+			return $this->get_batch();
 		}
 
 		$state['batch_id']       = (string) $batch_id;
@@ -431,7 +588,12 @@ final class Coywolf_SEO_Image_Text {
 		$state['awaiting_batch'] = true;
 		$state['batch_started']  = time();
 		$state['current']        = '';
-		update_option( self::BATCH_OPTION, $state, false );
+		if ( ! $this->bulk_persist( $state ) ) {
+			// Cancelled in the moment between the pre-submit check and now; cancel
+			// the just-submitted batch so it stops accruing cost at the provider.
+			$batch->cancel( (string) $batch_id );
+			return $this->get_batch();
+		}
 		return $state;
 	}
 
@@ -448,8 +610,8 @@ final class Coywolf_SEO_Image_Text {
 		if ( is_wp_error( $poll ) ) {
 			$state['status']  = 'error';
 			$state['message'] = $poll->get_error_message();
-			update_option( self::BATCH_OPTION, $state, false );
-			return $state;
+			$this->bulk_persist( $state );
+			return $this->get_batch();
 		}
 		if ( empty( $poll['ended'] ) ) {
 			// Batch APIs guarantee completion within 24h; if a batch is stuck
@@ -459,20 +621,20 @@ final class Coywolf_SEO_Image_Text {
 			if ( $started > 0 && ( time() - $started ) > 30 * HOUR_IN_SECONDS ) {
 				$state['status']  = 'error';
 				$state['message'] = __( 'The batch is taking unusually long at the AI service. Resume to keep waiting, or cancel and try again.', 'coywolf-seo' );
-				update_option( self::BATCH_OPTION, $state, false );
-				return $state;
+				$this->bulk_persist( $state );
+				return $this->get_batch();
 			}
-			$state['awaiting_batch'] = true; // Still processing remotely; the client paces the next poll.
-			update_option( self::BATCH_OPTION, $state, false );
-			return $state;
+			$state['awaiting_batch'] = true; // Still processing remotely; the cron worker polls again later.
+			$this->bulk_persist( $state );
+			return $this->get_batch();
 		}
 
 		$results = $batch->results( (string) $poll['results_url'] );
 		if ( is_wp_error( $results ) ) {
 			$state['status']  = 'error';
 			$state['message'] = $results->get_error_message();
-			update_option( self::BATCH_OPTION, $state, false );
-			return $state;
+			$this->bulk_persist( $state );
+			return $this->get_batch();
 		}
 
 		foreach ( (array) ( $state['map'] ?? array() ) as $custom_id => $id ) {
@@ -521,7 +683,9 @@ final class Coywolf_SEO_Image_Text {
 		$state['batch_id']       = '';
 		$state['map']            = array();
 		$state['awaiting_batch'] = false;
-		update_option( self::BATCH_OPTION, $state, false );
+		if ( ! $this->bulk_persist( $state ) ) {
+			return $this->get_batch();
+		}
 		return $state;
 	}
 
@@ -1006,6 +1170,7 @@ final class Coywolf_SEO_Image_Text {
 			$state['status'] = 'cancelled';
 			update_option( self::BATCH_OPTION, $state, false );
 		}
+		wp_unschedule_hook( self::BULK_HOOK );
 		return $state;
 	}
 
@@ -1348,13 +1513,14 @@ final class Coywolf_SEO_Image_Text {
 					<button type="button" class="button hidden" id="coywolf-seo-it-ai-resume"><?php esc_html_e( 'Resume', 'coywolf-seo' ); ?></button>
 				</p>
 				<?php if ( $supports_vision_batch ) : ?>
-					<p class="description"><?php esc_html_e( 'By default the run uses the cheaper background Batch API (about half price; results within the hour, up to 24 hours). Tick this to process immediately at the standard rate. Keep this page open so finished files are saved as they come back.', 'coywolf-seo' ); ?></p>
+					<p class="description"><?php esc_html_e( 'By default the run uses the cheaper background Batch API (about half price; results within the hour, up to 24 hours). Tick this to process immediately at the standard rate. Either way the run continues in the background — you can leave this page and come back any time to check progress.', 'coywolf-seo' ); ?></p>
 				<?php else : ?>
-					<p class="description"><?php esc_html_e( 'This AI service processes image text in real time (the discounted Batch API is not available for it), so each file is analyzed immediately at the standard rate.', 'coywolf-seo' ); ?></p>
+					<p class="description"><?php esc_html_e( 'This AI service processes image text in real time (the discounted Batch API is not available for it), so each file is analyzed immediately at the standard rate. The run continues in the background — you can leave this page and come back any time to check progress.', 'coywolf-seo' ); ?></p>
 				<?php endif; ?>
 
 				<div class="coywolf-seo-it-progress hidden" id="coywolf-seo-it-ai-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="coywolf-seo-it-progress-bar"></div><span class="coywolf-seo-it-progress-text" aria-live="polite"></span></div>
 				<p class="coywolf-seo-it-current hidden" id="coywolf-seo-it-ai-current" aria-live="polite"></p>
+				<p class="description coywolf-seo-it-bgnote hidden" id="coywolf-seo-it-ai-bgnote" aria-live="polite"></p>
 				<div class="notice notice-error inline hidden" id="coywolf-seo-it-ai-message"><p></p></div>
 				<details class="hidden" id="coywolf-seo-it-ai-errors">
 					<summary aria-live="polite"></summary>
@@ -1389,7 +1555,7 @@ final class Coywolf_SEO_Image_Text {
 	public function register_routes() {
 		register_rest_route(
 			'coywolf-seo/v1',
-			'/image-text/(?P<op>start|step|cancel|status|estimate)',
+			'/image-text/(?P<op>start|step|cancel|status|estimate|ack)',
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
 				'permission_callback' => array( $this, 'can_manage' ),
@@ -1475,13 +1641,32 @@ final class Coywolf_SEO_Image_Text {
 				);
 				break;
 			case 'step':
-				$state = $this->step_batch();
+				// The browser polls this while the page is open. Do one unit of
+				// work inline (lock-guarded, so it never collides with the cron
+				// worker) AND keep the background worker scheduled. This way the
+				// run always progresses while the page is open — even on hosts
+				// where WP-Cron or the loopback request can't fire — while the
+				// cron worker carries it on after the page is closed.
+				$this->advance_bulk();
+				$state = $this->get_batch();
+				$this->ensure_worker_scheduled( $state );
 				break;
 			case 'cancel':
 				$state = $this->cancel_batch();
 				break;
+			case 'ack':
+				// One-shot: once the browser has shown a finished/cancelled run's
+				// summary, forget it so it doesn't reappear on every later visit.
+				$acked = $this->get_batch();
+				if ( isset( $acked['status'] ) && in_array( $acked['status'], array( 'done', 'cancelled' ), true ) ) {
+					delete_option( self::BATCH_OPTION );
+					wp_unschedule_hook( self::BULK_HOOK );
+				}
+				$state = $this->get_batch();
+				break;
 			default:
 				$state = $this->get_batch();
+				$this->ensure_worker_scheduled( $state );
 		}
 		return is_wp_error( $state ) ? $state : rest_ensure_response( $state );
 	}
@@ -1535,30 +1720,33 @@ final class Coywolf_SEO_Image_Text {
 						'out' => Coywolf_SEO_Image_AI::EST_OUTPUT_TOKENS,
 					),
 					'i18n'        => array(
-						'starting'         => __( 'Contacting the AI service…', 'coywolf-seo' ),
-						'batchWaiting'     => __( 'Processing in the background at the AI service… keep this page open to save results as they finish.', 'coywolf-seo' ),
+						'starting'          => __( 'Contacting the AI service…', 'coywolf-seo' ),
+						'batchWaiting'      => __( 'Processing in the background at the AI service. You can leave this page and come back any time to check progress — results are saved automatically.', 'coywolf-seo' ),
+						'runningBackground' => __( 'Processing in the background. You can leave this page and come back any time to check progress — results are saved automatically.', 'coywolf-seo' ),
+						/* translators: 1: written, 2: skipped, 3: failed — replaced in JS. */
+						'completed'         => __( 'Completed — %1$s written, %2$s skipped, %3$s failed.', 'coywolf-seo' ),
 						/* translators: 1: number of images done, 2: total images — replaced in JS. */
-						'progress'         => __( '%1$s of %2$s analyzed', 'coywolf-seo' ),
+						'progress'          => __( '%1$s of %2$s analyzed', 'coywolf-seo' ),
 						/* translators: %s: image file name — replaced in JS. */
-						'analyzingFile'    => __( 'Analyzing %s…', 'coywolf-seo' ),
-						'doneReload'       => __( 'Done — reloading…', 'coywolf-seo' ),
-						'failed'           => __( 'failed', 'coywolf-seo' ),
+						'analyzingFile'     => __( 'Analyzing %s…', 'coywolf-seo' ),
+						'doneReload'        => __( 'Done — reloading…', 'coywolf-seo' ),
+						'failed'            => __( 'failed', 'coywolf-seo' ),
 						/* translators: %s: number of posts/pages updated — replaced in JS. */
-						'postsUpdated'     => __( '%s posts updated', 'coywolf-seo' ),
-						'errorsOf'         => __( 'errors', 'coywolf-seo' ),
-						'requestErr'       => __( 'The request failed. Check your connection and try again.', 'coywolf-seo' ),
+						'postsUpdated'      => __( '%s posts updated', 'coywolf-seo' ),
+						'errorsOf'          => __( 'errors', 'coywolf-seo' ),
+						'requestErr'        => __( 'The request failed. Check your connection and try again.', 'coywolf-seo' ),
 						/* translators: 1: file count, 2: estimated cost — replaced in JS. */
-						'estEmpty'         => __( 'Write missing text (Start): %1$s files — about %2$s.', 'coywolf-seo' ),
+						'estEmpty'          => __( 'Write missing text (Start): %1$s files — about %2$s.', 'coywolf-seo' ),
 						/* translators: %s: file count — replaced in JS. */
-						'estEmptyUnknown'  => __( 'Write missing text (Start): %s files — no pricing data for this model.', 'coywolf-seo' ),
+						'estEmptyUnknown'   => __( 'Write missing text (Start): %s files — no pricing data for this model.', 'coywolf-seo' ),
 						/* translators: 1: file count, 2: estimated cost — replaced in JS. */
-						'estAll'           => __( 'Re-analyze all: %1$s files — about %2$s.', 'coywolf-seo' ),
+						'estAll'            => __( 'Re-analyze all: %1$s files — about %2$s.', 'coywolf-seo' ),
 						/* translators: %s: file count — replaced in JS. */
-						'estAllUnknown'    => __( 'Re-analyze all: %s files — no pricing data for this model.', 'coywolf-seo' ),
-						'estNote'          => __( 'Assumes ~2,500 input / 250 output tokens per file (including surrounding-article context); actual cost varies with image size and text length, and multi-page PDFs cost more.', 'coywolf-seo' ),
-						'estNothing'       => __( 'Write missing text (Start): nothing to do — every file already has the selected fields filled.', 'coywolf-seo' ),
-						'estNoFields'      => __( 'Pick at least one field to estimate and run.', 'coywolf-seo' ),
-						'confirmReanalyze' => __( 'Re-analyze every image (and PDF, if included) for the selected fields, overwriting text that already exists? This makes a fresh API call for every file and costs the full estimated amount.', 'coywolf-seo' ),
+						'estAllUnknown'     => __( 'Re-analyze all: %s files — no pricing data for this model.', 'coywolf-seo' ),
+						'estNote'           => __( 'Assumes ~2,500 input / 250 output tokens per file (including surrounding-article context); actual cost varies with image size and text length, and multi-page PDFs cost more.', 'coywolf-seo' ),
+						'estNothing'        => __( 'Write missing text (Start): nothing to do — every file already has the selected fields filled.', 'coywolf-seo' ),
+						'estNoFields'       => __( 'Pick at least one field to estimate and run.', 'coywolf-seo' ),
+						'confirmReanalyze'  => __( 'Re-analyze every image (and PDF, if included) for the selected fields, overwriting text that already exists? This makes a fresh API call for every file and costs the full estimated amount.', 'coywolf-seo' ),
 					),
 				)
 			) . ';',

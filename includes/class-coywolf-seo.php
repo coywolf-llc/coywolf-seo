@@ -480,6 +480,7 @@ final class Coywolf_SEO {
 		flush_rewrite_rules();
 		wp_unschedule_hook( Coywolf_SEO_AI::CRON_HOOK );
 		wp_unschedule_hook( Coywolf_SEO_AI::BULK_HOOK );
+		wp_unschedule_hook( Coywolf_SEO_Image_Text::BULK_HOOK );
 		// Unwrap the managed robots.txt block so the file survives as a plain,
 		// unmanaged robots.txt (physical mode); virtual mode just stops serving.
 		Coywolf_SEO_Robots::on_deactivate();

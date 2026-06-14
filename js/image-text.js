@@ -82,6 +82,7 @@
 	if ( aiPanel ) {
 		var aiProgress = document.getElementById( 'coywolf-seo-it-ai-progress' );
 		var aiCurrent = document.getElementById( 'coywolf-seo-it-ai-current' );
+		var aiBgNote = document.getElementById( 'coywolf-seo-it-ai-bgnote' );
 		var aiMessage = document.getElementById( 'coywolf-seo-it-ai-message' );
 		var aiErrors = document.getElementById( 'coywolf-seo-it-ai-errors' );
 		var aiStart = document.getElementById( 'coywolf-seo-it-ai-start' );
@@ -92,6 +93,8 @@
 		var aiEstimate = document.getElementById( 'coywolf-seo-it-ai-estimate' );
 		var aiRealtime = document.getElementById( 'coywolf-seo-it-ai-realtime' );
 		var aiCancelled = false;
+		var aiPollTimer = null; // The single outstanding poll timer (no overlapping chains).
+		var aiFailures = 0; // Consecutive request failures, to stop polling a dead endpoint.
 
 		// Default mode is the discounted Batch API; real-time is opt-in. A
 		// provider without vision batching (the checkbox is pre-checked and
@@ -341,19 +344,46 @@
 			}
 		};
 
-		var loopAI = function () {
+		// Show / hide the "you can leave this page" note for an active run.
+		var setBgNote = function ( state ) {
+			if ( ! aiBgNote ) {
+				return;
+			}
+			if ( 'running' === state.status ) {
+				aiBgNote.textContent = state.awaiting_batch ? cfg.i18n.batchWaiting : cfg.i18n.runningBackground;
+				show( aiBgNote, true );
+			} else {
+				show( aiBgNote, false );
+			}
+		};
+
+		// Schedule the next tick, replacing any pending one so two chains can never
+		// run at once (a poll storm).
+		var schedulePoll = function ( ms ) {
+			window.clearTimeout( aiPollTimer );
+			aiPollTimer = window.setTimeout( pollAI, ms );
+		};
+
+		// Drive the run forward one step per call while the page is open (the
+		// server also advances it on WP-Cron when the page is closed, so the run
+		// keeps going either way). Renders the latest state each tick.
+		function pollAI() {
+			if ( aiCancelled ) {
+				return;
+			}
 			api( '/image-text/step' ).then( function ( state ) {
+				aiFailures = 0;
 				renderAI( state );
+				setBgNote( state );
 				if ( 'running' === state.status && ! aiCancelled ) {
 					if ( state.awaiting_batch ) {
-						// A batch is processing remotely; poll gently rather than
-						// hammering the step endpoint.
 						setProgress( aiProgress, state.done, state.total, cfg.i18n.batchWaiting );
-						window.setTimeout( loopAI, 8000 );
-					} else {
-						loopAI();
 					}
+					// A real-time step does ~20s of work in-request, so a short gap
+					// is fine; poll a remote batch more gently.
+					schedulePoll( state.awaiting_batch ? 10000 : 1500 );
 				} else {
+					show( aiBgNote, false );
 					aiButtons( false, 'error' === state.status );
 					if ( 'done' === state.status ) {
 						setProgress( aiProgress, 1, 1, cfg.i18n.doneReload );
@@ -363,10 +393,24 @@
 					}
 				}
 			} ).catch( function ( err ) {
-				window.alert( err.message );
-				aiButtons( false, true );
+				if ( aiCancelled ) {
+					return;
+				}
+				aiFailures++;
+				if ( aiFailures >= 5 ) {
+					// Persistent failure (expired login/nonce, server down): stop
+					// hammering and surface it. The run itself continues server-side
+					// on WP-Cron; reloading the page resumes tracking.
+					if ( aiMessage ) {
+						aiMessage.querySelector( 'p' ).textContent = ( err && err.message ) || cfg.i18n.requestErr;
+						show( aiMessage, true );
+					}
+					aiButtons( false, true );
+					return;
+				}
+				schedulePoll( 6000 );
 			} );
-		};
+		}
 
 		var startAI = function ( resume, force ) {
 			var selection = aiSelection();
@@ -386,7 +430,7 @@
 				resume: !! resume,
 				model: aiModel ? aiModel.value : '',
 			} )
-				.then( loopAI )
+				.then( pollAI )
 				.catch( function ( err ) {
 					window.alert( err.message );
 					aiButtons( false, false );
@@ -413,20 +457,46 @@
 		if ( aiStop ) {
 			aiStop.addEventListener( 'click', function () {
 				aiCancelled = true;
+				window.clearTimeout( aiPollTimer );
 				api( '/image-text/cancel' ).then( function () {
 					window.location.reload();
+				} ).catch( function ( err ) {
+					// The cancel request failed; the run may still be going. Re-enable
+					// tracking so the user can see its state and retry Stop.
+					aiCancelled = false;
+					window.alert( ( err && err.message ) || cfg.i18n.requestErr );
+					pollAI();
 				} );
 			} );
 		}
 
 		var aiStatus = aiPanel.getAttribute( 'data-status' );
 		if ( 'running' === aiStatus ) {
+			// A run is in progress (it may have been started on another visit, or
+			// kept going in the background while the page was closed) — resume
+			// showing its live status.
 			aiButtons( true, false );
 			show( aiProgress, true );
-			loopAI();
+			pollAI();
 		} else if ( 'error' === aiStatus ) {
 			aiButtons( false, true );
 			api( '/image-text/status' ).then( renderAI );
+		} else if ( 'done' === aiStatus ) {
+			// A run finished (possibly while the page was closed): show its summary
+			// once, then acknowledge it so the banner doesn't reappear on every
+			// future visit.
+			aiButtons( false, false );
+			api( '/image-text/status' ).then( function ( state ) {
+				renderAI( state );
+				show( aiCurrent, false );
+				show( aiProgress, true );
+				setProgress( aiProgress, state.total || 1, state.total || 1, fmt( cfg.i18n.completed, {
+					'%1$s': state.written || 0,
+					'%2$s': state.skipped || 0,
+					'%3$s': state.failed || 0,
+				} ) );
+				api( '/image-text/ack' ).catch( function () {} );
+			} );
 		}
 	}
 } )();
