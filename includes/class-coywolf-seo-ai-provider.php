@@ -223,6 +223,23 @@ abstract class Coywolf_SEO_AI_Provider {
 	abstract public function batch_build( $custom_id, $model, $system, $user, $max_tokens );
 
 	/**
+	 * Build one provider-shaped batch request line carrying a vision (image or
+	 * PDF) input. Mirrors {@see batch_build()} but the user turn is a base64
+	 * media block plus the text prompt — the batch equivalent of
+	 * {@see vision_generate()}. The submit/poll/results transport is identical
+	 * to text batches; only the request body differs.
+	 *
+	 * @param string $custom_id  Correlation id.
+	 * @param string $model      Model id.
+	 * @param string $system     System instruction.
+	 * @param array  $payload     { block:'image'|'document', media_type:string, data:base64 }.
+	 * @param string $prompt     User prompt.
+	 * @param int    $max_tokens Output cap.
+	 * @return array
+	 */
+	abstract public function batch_build_vision( $custom_id, $model, $system, array $payload, $prompt, $max_tokens );
+
+	/**
 	 * Submit a batch of requests built by {@see batch_build()}.
 	 *
 	 * @param string $key      API key.
@@ -267,6 +284,19 @@ abstract class Coywolf_SEO_AI_Provider {
 	 */
 	public function supports_batch() {
 		return true;
+	}
+
+	/**
+	 * Whether this provider's Batch API is verified to handle vision (image /
+	 * PDF) requests. The Image Text bulk writer only batches when this is true;
+	 * otherwise it falls back to real-time per-image calls at standard price.
+	 * Defaults to {@see supports_batch()}; a provider whose vision batching is
+	 * unverified overrides this to false.
+	 *
+	 * @return bool
+	 */
+	public function supports_vision_batch() {
+		return $this->supports_batch();
 	}
 
 	/* ------------------------------------------------------------------ *
@@ -369,6 +399,25 @@ abstract class Coywolf_SEO_AI_Provider {
 			}
 		}
 		return 0.0;
+	}
+
+	/**
+	 * Whether a price table has any prefix matching the model — i.e. whether
+	 * {@see price_lookup()} would return a real figure rather than the 0.0
+	 * no-match sentinel. Lets cost UIs say "estimate unavailable" instead of
+	 * showing "$0.00" (which reads as free) for an unpriced model.
+	 *
+	 * @param array  $prices Price table.
+	 * @param string $model  Model id.
+	 * @return bool
+	 */
+	public static function price_known( array $prices, $model ) {
+		foreach ( $prices as $prefix => $price ) {
+			if ( 0 === strpos( (string) $model, (string) $prefix ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**

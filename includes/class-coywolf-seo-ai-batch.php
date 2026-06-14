@@ -78,6 +78,22 @@ final class Coywolf_SEO_AI_Batch {
 	}
 
 	/**
+	 * One vision (image/PDF) batch request entry, in the active provider's
+	 * shape. Mirrors {@see request()} but carries a base64 media block, so the
+	 * Image Text bulk writer can run through the discounted Batch API.
+	 *
+	 * @param string $custom_id  Caller's correlation ID.
+	 * @param string $system     System prompt.
+	 * @param array  $payload     { block, media_type, data } from the image client.
+	 * @param string $prompt     User prompt (the analysis instruction).
+	 * @param int    $max_tokens Output token allowance.
+	 * @return array
+	 */
+	public function request_vision( $custom_id, $system, array $payload, $prompt, $max_tokens = 1024 ) {
+		return $this->provider->batch_build_vision( $custom_id, $this->model, $system, $payload, $prompt, $max_tokens );
+	}
+
+	/**
 	 * Submit a batch.
 	 *
 	 * @param array $requests Entries from request().
@@ -150,6 +166,34 @@ final class Coywolf_SEO_AI_Batch {
 	 */
 	public static function estimate_cost( $model, $input, $output ) {
 		return Coywolf_SEO_AI_Provider::price_lookup( self::prices(), $model, $input, $output );
+	}
+
+	/**
+	 * Standard (real-time, non-discounted) prices per million tokens for the
+	 * active provider. Used when a bulk run is set to real-time processing,
+	 * which bypasses the Batch API and pays the full rate for immediate results.
+	 *
+	 * @return array Model prefix => [ input $/MTok, output $/MTok ].
+	 */
+	public static function standard_prices() {
+		/**
+		 * Standard-rate token prices per million, keyed by model prefix.
+		 *
+		 * @param array $prices Prefix => [input, output].
+		 */
+		return (array) apply_filters( 'coywolf_seo_ai_standard_prices', Coywolf_SEO_AI_Providers::current()->standard_prices() );
+	}
+
+	/**
+	 * Estimated standard (real-time) cost in dollars.
+	 *
+	 * @param string $model  Model ID.
+	 * @param int    $input  Input tokens.
+	 * @param int    $output Output tokens.
+	 * @return float
+	 */
+	public static function estimate_cost_standard( $model, $input, $output ) {
+		return Coywolf_SEO_AI_Provider::price_lookup( self::standard_prices(), $model, $input, $output );
 	}
 
 	/**

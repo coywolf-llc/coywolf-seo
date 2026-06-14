@@ -154,9 +154,12 @@ final class Coywolf_SEO_Image_Text {
 	 *                             Image blocks already placed in posts/pages
 	 *                             (only for the alt/caption fields this run
 	 *                             writes).
+	 * @param bool   $realtime     Process each file immediately at the standard
+	 *                             rate instead of through the discounted,
+	 *                             asynchronous Batch API.
 	 * @return array|WP_Error State.
 	 */
-	public function start_batch( array $fields, $overwrite, $resume = false, $model = '', $include_pdfs = false, $propagate = false ) {
+	public function start_batch( array $fields, $overwrite, $resume = false, $model = '', $include_pdfs = false, $propagate = false, $realtime = false ) {
 		if ( ! $this->ai->is_configured() ) {
 			return new WP_Error( 'coywolf_seo_no_key', __( 'Add your AI service API key on the Settings page first.', 'coywolf-seo' ) );
 		}
@@ -176,8 +179,16 @@ final class Coywolf_SEO_Image_Text {
 			return new WP_Error( 'coywolf_seo_no_fields', __( 'Pick at least one field to write.', 'coywolf-seo' ) );
 		}
 
+		// Bulk image text defaults to the discounted, asynchronous Batch API.
+		// Real-time is opt-in (faster, full price). A provider whose vision
+		// batching is unverified (Gemini) always falls back to real-time.
+		$supports_batch = Coywolf_SEO_AI_Providers::current()->supports_vision_batch();
+		$mode           = ( ! $realtime && $supports_batch ) ? 'batch' : 'realtime';
+
 		$state = array(
 			'status'             => 'running',
+			'mode'               => $mode,
+			'realtime'           => (bool) $realtime,
 			'fields'             => $fields,
 			'overwrite'          => (bool) $overwrite,
 			'include_pdfs'       => (bool) $include_pdfs,
@@ -196,13 +207,19 @@ final class Coywolf_SEO_Image_Text {
 			'consecutive_errors' => 0,
 			'current'            => '',
 			'message'            => '',
+			// Batch-mode bookkeeping (unused by the real-time path).
+			'batch_id'           => '',
+			'map'                => array(),
+			'awaiting_batch'     => false,
+			'batch_started'      => 0,
 		);
 		update_option( self::BATCH_OPTION, $state, false );
 		return $state;
 	}
 
 	/**
-	 * Work one REST step of the active run.
+	 * Work one REST step of the active run, dispatching to the real-time or
+	 * Batch-API engine the run was started in.
 	 *
 	 * @return array State.
 	 */
@@ -211,7 +228,19 @@ final class Coywolf_SEO_Image_Text {
 		if ( empty( $state['status'] ) || 'running' !== $state['status'] ) {
 			return $state;
 		}
+		if ( isset( $state['mode'] ) && 'batch' === $state['mode'] ) {
+			return $this->step_async( $state );
+		}
+		return $this->step_realtime( $state );
+	}
 
+	/**
+	 * Real-time engine: analyze each file synchronously within a time budget.
+	 *
+	 * @param array $state Run state.
+	 * @return array State.
+	 */
+	private function step_realtime( array $state ) {
 		$deadline = microtime( true ) + self::TIME_BUDGET;
 		do {
 			$id = $this->next_candidate( $state );
@@ -275,6 +304,241 @@ final class Coywolf_SEO_Image_Text {
 
 		update_option( self::BATCH_OPTION, $state, false );
 		return $state;
+	}
+
+	/* --------------------------------------------------------------------- *
+	 * Batch-API engine (asynchronous, discounted)
+	 * --------------------------------------------------------------------- */
+
+	/**
+	 * Batch facade for the active provider, key, and the run's chosen model.
+	 *
+	 * @param string $model Run model ('' = the Settings/provider model).
+	 * @return Coywolf_SEO_AI_Batch
+	 */
+	private function batch_facade( $model ) {
+		$provider  = Coywolf_SEO_AI_Providers::current();
+		$use_model = ( '' !== (string) $model ) ? (string) $model : $provider->model();
+		return new Coywolf_SEO_AI_Batch( $provider, $this->ai->api_key(), $use_model );
+	}
+
+	/**
+	 * Up to $limit candidate attachment IDs after the run's cursor.
+	 *
+	 * @param array $state Run state.
+	 * @param int   $limit Chunk size.
+	 * @return int[]
+	 */
+	private function next_candidates( array $state, $limit ) {
+		global $wpdb;
+		$where = $this->candidate_where( (array) $state['fields'], ! empty( $state['overwrite'] ), ! empty( $state['include_pdfs'] ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- the WHERE fragment is assembled from literal SQL only.
+		$rows = $wpdb->get_col( $wpdb->prepare( "SELECT p.ID FROM {$wpdb->posts} p WHERE {$where} AND p.ID > %d ORDER BY p.ID ASC LIMIT %d", (int) $state['last_id'], (int) $limit ) );
+		return array_map( 'intval', (array) $rows );
+	}
+
+	/**
+	 * One Batch-API step: collect a finished batch, or submit the next chunk.
+	 *
+	 * @param array $state Run state.
+	 * @return array State.
+	 */
+	private function step_async( array $state ) {
+		$batch = $this->batch_facade( isset( $state['model'] ) ? (string) $state['model'] : '' );
+
+		if ( '' !== (string) ( $state['batch_id'] ?? '' ) ) {
+			return $this->collect_async( $state, $batch );
+		}
+		return $this->submit_async( $state, $batch );
+	}
+
+	/**
+	 * Submit the next chunk of files as one vision batch. Files that cannot be
+	 * prepared are recorded as per-file failures and left out of the batch.
+	 *
+	 * @param array                $state Run state.
+	 * @param Coywolf_SEO_AI_Batch $batch Batch facade.
+	 * @return array State.
+	 */
+	private function submit_async( array $state, Coywolf_SEO_AI_Batch $batch ) {
+		/**
+		 * Files per submitted vision batch. Each carries a base64 image, so the
+		 * chunk is kept small to bound request size and memory.
+		 *
+		 * @param int $size Default 10.
+		 */
+		$chunk = max( 1, (int) apply_filters( 'coywolf_seo_image_batch_size', 10 ) );
+		$ids   = $this->next_candidates( $state, $chunk );
+		if ( empty( $ids ) ) {
+			$state['status']         = 'done';
+			$state['awaiting_batch'] = false;
+			update_option( self::BATCH_OPTION, $state, false );
+			return $state;
+		}
+
+		// Snapshot the chunk's starting point and counters so a submit failure
+		// can roll the WHOLE chunk back atomically — otherwise Resume would skip
+		// past the cursor and silently lose the prepared files.
+		$chunk_start = (int) $state['last_id'];
+		$snap_done   = (int) $state['done'];
+		$snap_failed = (int) $state['failed'];
+		$snap_errors = (array) $state['errors'];
+
+		$requests = array();
+		$map      = array();
+		foreach ( $ids as $id ) {
+			$id = (int) $id;
+			// Advance the cursor past every file in the chunk, processed or not,
+			// so the next chunk never re-queries it (rolled back on submit error).
+			$state['last_id'] = $id;
+			$custom_id        = 'a' . $id;
+			$request          = $this->ai->build_batch_request( $batch, $custom_id, $id );
+			if ( is_wp_error( $request ) ) {
+				++$state['done'];
+				++$state['failed'];
+				$this->record_batch_error( $state, $id, $request->get_error_message() );
+				continue;
+			}
+			$requests[]        = $request;
+			$map[ $custom_id ] = $id;
+		}
+
+		if ( empty( $requests ) ) {
+			// Whole chunk failed preparation; the next step picks up where the
+			// cursor now points.
+			update_option( self::BATCH_OPTION, $state, false );
+			return $state;
+		}
+
+		$batch_id = $batch->submit( $requests );
+		if ( is_wp_error( $batch_id ) ) {
+			// Roll the entire chunk back so Resume re-processes it intact
+			// (re-prep is local and free; nothing is silently skipped).
+			$state['last_id'] = $chunk_start;
+			$state['done']    = $snap_done;
+			$state['failed']  = $snap_failed;
+			$state['errors']  = $snap_errors;
+			$state['status']  = 'error';
+			$state['message'] = $batch_id->get_error_message();
+			update_option( self::BATCH_OPTION, $state, false );
+			return $state;
+		}
+
+		$state['batch_id']       = (string) $batch_id;
+		$state['map']            = $map;
+		$state['awaiting_batch'] = true;
+		$state['batch_started']  = time();
+		$state['current']        = '';
+		update_option( self::BATCH_OPTION, $state, false );
+		return $state;
+	}
+
+	/**
+	 * Poll the in-flight batch; once ended, write each file's text and clear it
+	 * so the next step submits the following chunk.
+	 *
+	 * @param array                $state Run state.
+	 * @param Coywolf_SEO_AI_Batch $batch Batch facade.
+	 * @return array State.
+	 */
+	private function collect_async( array $state, Coywolf_SEO_AI_Batch $batch ) {
+		$poll = $batch->poll( (string) $state['batch_id'] );
+		if ( is_wp_error( $poll ) ) {
+			$state['status']  = 'error';
+			$state['message'] = $poll->get_error_message();
+			update_option( self::BATCH_OPTION, $state, false );
+			return $state;
+		}
+		if ( empty( $poll['ended'] ) ) {
+			// Batch APIs guarantee completion within 24h; if a batch is stuck
+			// well past that, fail the run rather than poll forever so the user
+			// can Resume (which retries the same batch) or cancel.
+			$started = (int) ( $state['batch_started'] ?? 0 );
+			if ( $started > 0 && ( time() - $started ) > 30 * HOUR_IN_SECONDS ) {
+				$state['status']  = 'error';
+				$state['message'] = __( 'The batch is taking unusually long at the AI service. Resume to keep waiting, or cancel and try again.', 'coywolf-seo' );
+				update_option( self::BATCH_OPTION, $state, false );
+				return $state;
+			}
+			$state['awaiting_batch'] = true; // Still processing remotely; the client paces the next poll.
+			update_option( self::BATCH_OPTION, $state, false );
+			return $state;
+		}
+
+		$results = $batch->results( (string) $poll['results_url'] );
+		if ( is_wp_error( $results ) ) {
+			$state['status']  = 'error';
+			$state['message'] = $results->get_error_message();
+			update_option( self::BATCH_OPTION, $state, false );
+			return $state;
+		}
+
+		foreach ( (array) ( $state['map'] ?? array() ) as $custom_id => $id ) {
+			$id = (int) $id;
+			++$state['done'];
+			$state['current'] = wp_basename( (string) get_post_meta( $id, '_wp_attached_file', true ) );
+
+			$result = isset( $results[ $custom_id ] ) ? $results[ $custom_id ] : null;
+			if ( ! is_array( $result ) || empty( $result['ok'] ) ) {
+				++$state['failed'];
+				$message = ( is_array( $result ) && ! empty( $result['error'] ) )
+					? (string) $result['error']
+					: __( 'The batch returned no result for this file.', 'coywolf-seo' );
+				$this->record_batch_error( $state, $id, $message );
+				continue;
+			}
+
+			$fields = $this->ai->parse_fields( (string) $result['text'] );
+			if ( is_wp_error( $fields ) ) {
+				++$state['failed'];
+				$this->record_batch_error( $state, $id, $fields->get_error_message() );
+				continue;
+			}
+
+			$written = $this->ai->save_image_text( $id, $fields, (array) $state['fields'], ! empty( $state['overwrite'] ) );
+			if ( ! empty( $written ) ) {
+				++$state['written'];
+			} else {
+				++$state['skipped'];
+			}
+			if ( ! empty( $state['propagate'] ) && wp_attachment_is_image( $id ) ) {
+				$alt     = in_array( 'alt_text', (array) $state['fields'], true )
+					? (string) get_post_meta( $id, '_wp_attachment_image_alt', true )
+					: '';
+				$caption = in_array( 'caption', (array) $state['fields'], true )
+					? (string) get_post_field( 'post_excerpt', $id )
+					: '';
+				if ( '' !== trim( $alt ) || '' !== trim( $caption ) ) {
+					$state['posts_updated'] += $this->propagate_image_text( $id, $alt, $caption, ! empty( $state['overwrite'] ) );
+				}
+			}
+		}
+
+		// Chunk done: clear it so the next step submits the following chunk (or
+		// finishes when the cursor reaches the end).
+		$state['batch_id']       = '';
+		$state['map']            = array();
+		$state['awaiting_batch'] = false;
+		update_option( self::BATCH_OPTION, $state, false );
+		return $state;
+	}
+
+	/**
+	 * Record a per-file error in the run state, capped at 50 entries.
+	 *
+	 * @param array  $state   Run state (by reference).
+	 * @param int    $id      Attachment ID.
+	 * @param string $message Error message.
+	 */
+	private function record_batch_error( array &$state, $id, $message ) {
+		if ( count( (array) $state['errors'] ) >= 50 ) {
+			return;
+		}
+		$state['errors'][] = array(
+			'id'      => (int) $id,
+			'name'    => wp_basename( (string) get_post_meta( (int) $id, '_wp_attached_file', true ) ),
+			'message' => (string) $message,
+		);
 	}
 
 	/* --------------------------------------------------------------------- *
@@ -531,6 +795,11 @@ final class Coywolf_SEO_Image_Text {
 	public function cancel_batch() {
 		$state = $this->get_batch();
 		if ( ! empty( $state['status'] ) && in_array( $state['status'], array( 'running', 'error' ), true ) ) {
+			// Best-effort cancel of an in-flight remote batch so it stops
+			// accruing cost at the provider.
+			if ( ! empty( $state['batch_id'] ) ) {
+				$this->batch_facade( isset( $state['model'] ) ? (string) $state['model'] : '' )->cancel( (string) $state['batch_id'] );
+			}
 			$state['status'] = 'cancelled';
 			update_option( self::BATCH_OPTION, $state, false );
 		}
@@ -811,7 +1080,7 @@ final class Coywolf_SEO_Image_Text {
 
 			<div class="coywolf-seo-it-panel" id="coywolf-seo-it-ai" data-status="<?php echo esc_attr( $status ); ?>">
 				<h2><?php esc_html_e( 'Bulk write image text', 'coywolf-seo' ); ?></h2>
-				<p><?php esc_html_e( 'Each file is analyzed with one small API request, a few files at a time, so the run survives slow servers and big libraries. You can stop at any point and resume later — finished files are never re-billed.', 'coywolf-seo' ); ?></p>
+				<p><?php esc_html_e( 'The run processes the library in small chunks, so it survives slow servers and big libraries. You can stop at any point and resume later — finished files are never re-billed.', 'coywolf-seo' ); ?></p>
 
 				<fieldset id="coywolf-seo-it-ai-fields">
 					<legend class="screen-reader-text"><?php esc_html_e( 'Fields to write', 'coywolf-seo' ); ?></legend>
@@ -840,10 +1109,15 @@ final class Coywolf_SEO_Image_Text {
 					<label for="coywolf-seo-it-ai-model"><strong><?php esc_html_e( 'Model for this run', 'coywolf-seo' ); ?></strong></label><br />
 					<select id="coywolf-seo-it-ai-model">
 						<?php foreach ( $models as $model ) : ?>
-							<?php $model_pricing = Coywolf_SEO_Image_AI::model_pricing( $model['id'] ); ?>
+							<?php
+							$model_pricing       = Coywolf_SEO_Image_AI::model_pricing( $model['id'] );
+							$model_pricing_batch = Coywolf_SEO_Image_AI::model_pricing( $model['id'], true );
+							?>
 							<option value="<?php echo esc_attr( $model['id'] ); ?>"
 								data-in="<?php echo esc_attr( null !== $model_pricing ? number_format( $model_pricing['input'], 2, '.', '' ) : '' ); ?>"
 								data-out="<?php echo esc_attr( null !== $model_pricing ? number_format( $model_pricing['output'], 2, '.', '' ) : '' ); ?>"
+								data-batch-in="<?php echo esc_attr( null !== $model_pricing_batch ? number_format( $model_pricing_batch['input'], 2, '.', '' ) : '' ); ?>"
+								data-batch-out="<?php echo esc_attr( null !== $model_pricing_batch ? number_format( $model_pricing_batch['output'], 2, '.', '' ) : '' ); ?>"
 								<?php selected( $settings_model, $model['id'] ); ?>><?php echo esc_html( $model['name'] ); ?></option>
 						<?php endforeach; ?>
 					</select>
@@ -859,12 +1133,22 @@ final class Coywolf_SEO_Image_Text {
 					<p class="coywolf-seo-it-estimate-note description"></p>
 				</div>
 
+				<?php $supports_vision_batch = Coywolf_SEO_AI_Providers::current()->supports_vision_batch(); ?>
 				<p>
 					<button type="button" class="button button-primary" id="coywolf-seo-it-ai-start"><?php esc_html_e( 'Start', 'coywolf-seo' ); ?></button>
 					<button type="button" class="button" id="coywolf-seo-it-ai-reanalyze"><?php esc_html_e( 'Re-analyze all', 'coywolf-seo' ); ?></button>
+					<label class="coywolf-seo-it-check coywolf-seo-it-inline">
+						<input type="checkbox" id="coywolf-seo-it-ai-realtime" <?php checked( ! $supports_vision_batch ); ?> <?php disabled( ! $supports_vision_batch ); ?> />
+						<?php esc_html_e( 'Use real-time processing', 'coywolf-seo' ); ?>
+					</label>
 					<button type="button" class="button hidden" id="coywolf-seo-it-ai-stop"><?php esc_html_e( 'Stop', 'coywolf-seo' ); ?></button>
 					<button type="button" class="button hidden" id="coywolf-seo-it-ai-resume"><?php esc_html_e( 'Resume', 'coywolf-seo' ); ?></button>
 				</p>
+				<?php if ( $supports_vision_batch ) : ?>
+					<p class="description"><?php esc_html_e( 'By default the run uses the cheaper background Batch API (about half price; results within the hour, up to 24 hours). Tick this to process immediately at the standard rate. Keep this page open so finished files are saved as they come back.', 'coywolf-seo' ); ?></p>
+				<?php else : ?>
+					<p class="description"><?php esc_html_e( 'This AI service processes image text in real time (the discounted Batch API is not available for it), so each file is analyzed immediately at the standard rate.', 'coywolf-seo' ); ?></p>
+				<?php endif; ?>
 
 				<div class="coywolf-seo-it-progress hidden" id="coywolf-seo-it-ai-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="coywolf-seo-it-progress-bar"></div><span class="coywolf-seo-it-progress-text" aria-live="polite"></span></div>
 				<p class="coywolf-seo-it-current hidden" id="coywolf-seo-it-ai-current" aria-live="polite"></p>
@@ -966,7 +1250,8 @@ final class Coywolf_SEO_Image_Text {
 					rest_sanitize_boolean( $request->get_param( 'resume' ) ),
 					sanitize_text_field( (string) $request->get_param( 'model' ) ),
 					rest_sanitize_boolean( $request->get_param( 'include_pdfs' ) ),
-					rest_sanitize_boolean( $request->get_param( 'propagate_captions' ) )
+					rest_sanitize_boolean( $request->get_param( 'propagate_captions' ) ),
+					rest_sanitize_boolean( $request->get_param( 'realtime' ) )
 				);
 				break;
 			case 'estimate':
@@ -1036,14 +1321,19 @@ final class Coywolf_SEO_Image_Text {
 			'coywolf-seo-image-text',
 			'window.coywolfSEOImageText = ' . wp_json_encode(
 				array(
-					'restRoot'  => esc_url_raw( rest_url( 'coywolf-seo/v1' ) ),
-					'nonce'     => wp_create_nonce( 'wp_rest' ),
-					'estTokens' => array(
+					'restRoot'    => esc_url_raw( rest_url( 'coywolf-seo/v1' ) ),
+					'nonce'       => wp_create_nonce( 'wp_rest' ),
+					// Whether the active provider's Batch API handles vision; when
+					// false the run is always real-time and the estimate prices at
+					// the standard rate.
+					'visionBatch' => Coywolf_SEO_AI_Providers::current()->supports_vision_batch(),
+					'estTokens'   => array(
 						'in'  => Coywolf_SEO_Image_AI::EST_INPUT_TOKENS,
 						'out' => Coywolf_SEO_Image_AI::EST_OUTPUT_TOKENS,
 					),
-					'i18n'      => array(
+					'i18n'        => array(
 						'starting'         => __( 'Contacting the AI service…', 'coywolf-seo' ),
+						'batchWaiting'     => __( 'Processing in the background at the AI service… keep this page open to save results as they finish.', 'coywolf-seo' ),
 						/* translators: 1: number of images done, 2: total images — replaced in JS. */
 						'progress'         => __( '%1$s of %2$s analyzed', 'coywolf-seo' ),
 						/* translators: %s: image file name — replaced in JS. */

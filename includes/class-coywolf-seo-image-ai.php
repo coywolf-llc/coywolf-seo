@@ -50,14 +50,18 @@ final class Coywolf_SEO_Image_AI {
 
 	/**
 	 * Pricing for a model ID, by longest matching prefix, from the active
-	 * provider's standard (non-batch) price table.
+	 * provider's price table.
 	 *
 	 * @param string $model_id Model ID.
+	 * @param bool   $batch    Use the discounted Batch-API table instead of the
+	 *                         standard (real-time) one.
 	 * @return array|null { input: float, output: float } USD/MTok, or null when unknown.
 	 */
-	public static function model_pricing( $model_id ) {
+	public static function model_pricing( $model_id, $batch = false ) {
 		$model_id = (string) $model_id;
-		$prices   = Coywolf_SEO_AI_Providers::current()->standard_prices();
+		$prices   = $batch
+			? Coywolf_SEO_AI_Providers::current()->batch_prices()
+			: Coywolf_SEO_AI_Providers::current()->standard_prices();
 		$best     = null;
 		$best_len = 0;
 		foreach ( $prices as $prefix => $price ) {
@@ -79,10 +83,11 @@ final class Coywolf_SEO_Image_AI {
 	 * Rough USD cost per analyzed image for a model.
 	 *
 	 * @param string $model_id Model ID.
+	 * @param bool   $batch    Price at the discounted Batch-API rate.
 	 * @return float|null
 	 */
-	public static function estimated_cost_per_image( $model_id ) {
-		$pricing = self::model_pricing( $model_id );
+	public static function estimated_cost_per_image( $model_id, $batch = false ) {
+		$pricing = self::model_pricing( $model_id, $batch );
 		if ( null === $pricing ) {
 			return null;
 		}
@@ -180,12 +185,6 @@ final class Coywolf_SEO_Image_AI {
 			return $payload;
 		}
 
-		$system = 'You write accessibility-first metadata for files in a WordPress media library, '
-			. 'following WCAG-aligned guidance for alternative text, titles, captions, and descriptions. '
-			. 'You write for the people who depend on this text — screen reader and braille users, and anyone on a '
-			. 'text-only or broken-image fallback — and never for search engines. '
-			. 'You respond with raw JSON only: a single JSON object, no markdown fences, no commentary.';
-
 		$provider  = Coywolf_SEO_AI_Providers::current();
 		$use_model = ( is_string( $model ) && preg_match( '/^[a-z0-9._-]+$/i', $model ) && '' !== $model ) ? $model : $provider->model();
 
@@ -193,16 +192,39 @@ final class Coywolf_SEO_Image_AI {
 			$this->api_key(),
 			$use_model,
 			$payload,
-			$system,
+			$this->system_prompt(),
 			$this->prompt( $attachment_id, 'document' === $payload['block'] ),
 			self::MAX_TOKENS
 		);
 		if ( is_wp_error( $res ) ) {
 			return $res;
 		}
-		$text = (string) ( $res['text'] ?? '' );
+		return $this->parse_fields( (string) ( $res['text'] ?? '' ) );
+	}
 
-		$fields = $this->decode_json( $text );
+	/**
+	 * The shared system instruction for every image/PDF analysis (real-time or
+	 * batch).
+	 *
+	 * @return string
+	 */
+	private function system_prompt() {
+		return 'You write accessibility-first metadata for files in a WordPress media library, '
+			. 'following WCAG-aligned guidance for alternative text, titles, captions, and descriptions. '
+			. 'You write for the people who depend on this text — screen reader and braille users, and anyone on a '
+			. 'text-only or broken-image fallback — and never for search engines. '
+			. 'You respond with raw JSON only: a single JSON object, no markdown fences, no commentary.';
+	}
+
+	/**
+	 * Turn raw model output into the four sanitized text fields. Shared by the
+	 * real-time path and the bulk Batch-API collector.
+	 *
+	 * @param string $text Raw assistant text (a JSON object).
+	 * @return array|WP_Error { alt_text, title, caption, description }
+	 */
+	public function parse_fields( $text ) {
+		$fields = $this->decode_json( (string) $text );
 		if ( ! is_array( $fields ) ) {
 			return new WP_Error( 'coywolf_seo_api', __( 'The AI service returned a response that could not be parsed. Try again.', 'coywolf-seo' ) );
 		}
@@ -221,6 +243,32 @@ final class Coywolf_SEO_Image_AI {
 			return new WP_Error( 'coywolf_seo_api', __( 'The AI service did not return usable image text. Try again.', 'coywolf-seo' ) );
 		}
 		return $clean;
+	}
+
+	/**
+	 * Build one Batch-API request line for an attachment's accessibility text,
+	 * for the bulk Image Text writer's batch mode. Returns the provider-shaped
+	 * request, or WP_Error when the file cannot be prepared (unsupported,
+	 * missing, too large) — the caller records that as a per-file failure and
+	 * leaves it out of the batch.
+	 *
+	 * @param Coywolf_SEO_AI_Batch $batch         Facade built with the run model.
+	 * @param string               $custom_id     Correlation id (round-trips to results).
+	 * @param int                  $attachment_id Attachment ID.
+	 * @return array|WP_Error
+	 */
+	public function build_batch_request( Coywolf_SEO_AI_Batch $batch, $custom_id, $attachment_id ) {
+		$payload = $this->attachment_payload( $attachment_id );
+		if ( is_wp_error( $payload ) ) {
+			return $payload;
+		}
+		return $batch->request_vision(
+			$custom_id,
+			$this->system_prompt(),
+			$payload,
+			$this->prompt( $attachment_id, 'document' === $payload['block'] ),
+			self::MAX_TOKENS
+		);
 	}
 
 	/**
