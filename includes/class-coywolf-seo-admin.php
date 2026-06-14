@@ -588,6 +588,7 @@ final class Coywolf_SEO_Admin {
 					'idFixDone'         => __( 'Done: fixed %IMG% images in %POSTS% posts (%UNM% uploads images had no Media Library match).', 'coywolf-seo' ),
 					'idFixConfirm'      => __( 'Add missing Media Library IDs to matching images in your posts and pages? This edits post content. If you have not run Preview yet, cancel and preview first.', 'coywolf-seo' ),
 					'idFixError'        => __( 'The run stopped unexpectedly — reload the page and try again. Already-fixed posts are skipped, so it is safe to re-run.', 'coywolf-seo' ),
+					'idFixSamples'      => __( 'Sample fixes:', 'coywolf-seo' ),
 				),
 				'robotsRestore'   => $this->robots_restore_config(),
 			)
@@ -1668,6 +1669,7 @@ final class Coywolf_SEO_Admin {
 							</p>
 							<div class="coywolf-seo-progress hidden" id="coywolf-seo-idfix-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="coywolf-seo-progress-bar"></div></div>
 							<p class="description" id="coywolf-seo-idfix-result" role="status" aria-live="polite" aria-atomic="true"></p>
+							<div id="coywolf-seo-idfix-samples" class="coywolf-seo-idfix-samples hidden"></div>
 						</div>
 					</td>
 				</tr>
