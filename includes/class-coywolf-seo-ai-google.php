@@ -289,6 +289,46 @@ final class Coywolf_SEO_AI_Google extends Coywolf_SEO_AI_Provider {
 	/**
 	 * {@inheritdoc}
 	 *
+	 * Mirrors {@see vision_generate()}'s inline_data part. NOTE: Gemini vision
+	 * batching is unverified, so {@see supports_vision_batch()} returns false
+	 * and the Image Text writer never calls this in practice — it falls back to
+	 * real-time. Implemented for contract completeness and future enablement.
+	 */
+	public function batch_build_vision( $custom_id, $model, $system, array $payload, $prompt, $max_tokens ) {
+		return array(
+			'request'  => array(
+				'system_instruction' => array(
+					'parts' => array(
+						array( 'text' => (string) $system ),
+					),
+				),
+				'contents'           => array(
+					array(
+						'role'  => 'user',
+						'parts' => array(
+							array(
+								'inline_data' => array(
+									'mime_type' => (string) $payload['media_type'],
+									'data'      => (string) $payload['data'],
+								),
+							),
+							array( 'text' => (string) $prompt ),
+						),
+					),
+				),
+				'generationConfig'   => array(
+					'maxOutputTokens' => max( 100, (int) $max_tokens ),
+				),
+			),
+			'metadata' => array(
+				'key' => (string) $custom_id,
+			),
+		);
+	}
+
+	/**
+	 * {@inheritdoc}
+	 *
 	 * NOTE: needs verification against a live Gemini key. Submits inline
 	 * requests via batchGenerateContent; the response is a long-running
 	 * operation whose 'name' (e.g. 'batches/abc' or 'operations/...') is the
@@ -442,6 +482,17 @@ final class Coywolf_SEO_AI_Google extends Coywolf_SEO_AI_Provider {
 	 */
 	public function supports_batch() {
 		return true;
+	}
+
+	/**
+	 * {@inheritdoc}
+	 *
+	 * Gemini Batch Mode with inline vision (inline_data) requests is unverified
+	 * against a live key, so the Image Text bulk writer stays on real-time
+	 * per-image calls for this provider rather than risk a malformed batch.
+	 */
+	public function supports_vision_batch() {
+		return false;
 	}
 
 	/* ------------------------------------------------------------------ *

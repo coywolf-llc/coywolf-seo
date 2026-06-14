@@ -231,13 +231,18 @@
 			return $bulkArea.find( '#coywolf-seo-bulk-force' ).is( ':checked' ) ? 1 : 0;
 		}
 
+		function bulkRealtimeChecked() {
+			return $bulkArea.find( '#coywolf-seo-bulk-realtime' ).is( ':checked' ) ? 1 : 0;
+		}
+
 		function bulkOp( op ) {
 			$bulkArea.css( 'opacity', 0.5 ).find( 'button' ).prop( 'disabled', true );
 			$.post( config.ajaxUrl, {
 				action: 'coywolf_seo_bulk_action',
 				_ajax_nonce: config.bulkActionNonce,
 				op: op,
-				force: 'start' === op ? bulkForceChecked() : 0
+				force: 'start' === op ? bulkForceChecked() : 0,
+				realtime: 'start' === op ? bulkRealtimeChecked() : 0
 			} ).done( function ( res ) {
 				if ( res && res.success ) {
 					bulkRender( res.data.html, res.data.status );
@@ -305,7 +310,8 @@
 				action: 'coywolf_seo_bulk_estimate',
 				_ajax_nonce: config.bulkStatusNonce,
 				model: model || '',
-				force: bulkForceChecked()
+				force: bulkForceChecked(),
+				realtime: bulkRealtimeChecked()
 			} ).done( function ( res ) {
 				if ( ! res || ! res.success ) {
 					return;
@@ -316,14 +322,27 @@
 						$estimate.text(
 							( config.i18n.estimateNone || 'Everything is current — re-analyzing all %POSTS% posts costs ~$%COST%.' )
 								.replace( '%POSTS%', d.force_posts )
-								.replace( '%COST%', Number( d.force_cost ).toFixed( 2 ) )
+								.replace( '%COST%', false === d.priced ? '?' : Number( d.force_cost ).toFixed( 2 ) )
 						);
 					} else {
 						$estimate.text( config.i18n.estimateEmpty || 'There is no published content to enrich yet.' );
 					}
 					return;
 				}
-				var line = ( config.i18n.estimateLine || '%POSTS% posts, ~$%COST%, reserve $%RESERVE% (%MODEL%)' )
+				// Unpriced model: never render a misleading "$0.00" as if free.
+				if ( false === d.priced ) {
+					$estimate.text(
+						( config.i18n.estimateUnpriced || '%POSTS% posts need enrichment; no pricing data for %MODEL%.' )
+							.replace( '%POSTS%', d.posts )
+							.replace( '%SKIPPED%', d.skipped )
+							.replace( '%MODEL%', d.model )
+					);
+					return;
+				}
+				var template = d.realtime
+					? ( config.i18n.estimateLineRT || config.i18n.estimateLine || '%POSTS% posts, ~$%COST% (%MODEL%)' )
+					: ( config.i18n.estimateLine || '%POSTS% posts, ~$%COST%, reserve $%RESERVE% (%MODEL%)' );
+				var line = template
 					.replace( '%POSTS%', d.posts )
 					.replace( '%SKIPPED%', d.skipped )
 					.replace( '%COST%', Number( d.est_cost ).toFixed( 2 ) )
@@ -342,6 +361,9 @@
 				loadEstimate( $( this ).val(), true );
 			} );
 			$( document ).on( 'change', '#coywolf-seo-bulk-force', function () {
+				loadEstimate( '', false );
+			} );
+			$( document ).on( 'change', '#coywolf-seo-bulk-realtime', function () {
 				loadEstimate( '', false );
 			} );
 		}

@@ -269,6 +269,43 @@ final class Coywolf_SEO_AI_Anthropic extends Coywolf_SEO_AI_Provider {
 
 	/**
 	 * {@inheritdoc}
+	 *
+	 * The user turn carries a base64 image/document block plus the text prompt,
+	 * exactly as {@see vision_generate()} builds it — only wrapped as a batch
+	 * request line.
+	 */
+	public function batch_build_vision( $custom_id, $model, $system, array $payload, $prompt, $max_tokens ) {
+		return array(
+			'custom_id' => (string) $custom_id,
+			'params'    => array(
+				'model'      => (string) $model,
+				'max_tokens' => max( 100, (int) $max_tokens ),
+				'system'     => (string) $system,
+				'messages'   => array(
+					array(
+						'role'    => 'user',
+						'content' => array(
+							array(
+								'type'   => (string) $payload['block'],
+								'source' => array(
+									'type'       => 'base64',
+									'media_type' => (string) $payload['media_type'],
+									'data'       => (string) $payload['data'],
+								),
+							),
+							array(
+								'type' => 'text',
+								'text' => (string) $prompt,
+							),
+						),
+					),
+				),
+			),
+		);
+	}
+
+	/**
+	 * {@inheritdoc}
 	 */
 	public function batch_submit( $key, $model, array $requests ) {
 		$response = $this->batch_http( $key, 'POST', self::BATCH_ENDPOINT, array( 'requests' => array_values( $requests ) ) );
@@ -406,25 +443,30 @@ final class Coywolf_SEO_AI_Anthropic extends Coywolf_SEO_AI_Provider {
 	/**
 	 * {@inheritdoc}
 	 *
-	 * Batch-discounted prices per million tokens — already the 50% batch rate.
+	 * Batch-discounted prices per million tokens. Derived as half the standard
+	 * table so EVERY model the standard table prices (incl. Claude 3.x and
+	 * fable) also resolves under the batch rate — a model that matched standard
+	 * but not batch used to estimate as $0 and read as "free". The legacy
+	 * Opus 4.0/4.1 entries keep their published (non-50%) batch rates.
 	 */
 	public function batch_prices() {
+		$batch = array();
+		foreach ( $this->standard_prices() as $prefix => $price ) {
+			$batch[ $prefix ] = array( (float) $price[0] / 2, (float) $price[1] / 2 );
+		}
+		// Legacy Opus 4.0/4.1 batch rates are not a clean 50% of standard.
+		$batch['claude-opus-4-1']        = array( 7.5, 37.5 );
+		$batch['claude-opus-4-20250514'] = array( 7.5, 37.5 );
+		$batch['claude-opus-4']          = array( 2.5, 12.5 );
+		$batch['claude-sonnet-4']        = array( 1.5, 7.5 );
+		$batch['claude-haiku-4']         = array( 0.5, 2.5 );
+
 		/**
 		 * Batch-rate token prices per million, keyed by model prefix.
 		 *
 		 * @param array $prices Prefix => [input, output].
 		 */
-		return (array) apply_filters(
-			'coywolf_seo_ai_batch_prices',
-			array(
-				// Legacy Opus 4.0/4.1 kept their higher standard rates.
-				'claude-opus-4-1'        => array( 7.5, 37.5 ),
-				'claude-opus-4-20250514' => array( 7.5, 37.5 ),
-				'claude-opus-4'          => array( 2.5, 12.5 ),
-				'claude-sonnet-4'        => array( 1.5, 7.5 ),
-				'claude-haiku-4'         => array( 0.5, 2.5 ),
-			)
-		);
+		return (array) apply_filters( 'coywolf_seo_ai_batch_prices', $batch );
 	}
 
 	/* ------------------------------------------------------------------ *

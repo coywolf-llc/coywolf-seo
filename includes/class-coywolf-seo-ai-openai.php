@@ -342,6 +342,61 @@ final class Coywolf_SEO_AI_OpenAI extends Coywolf_SEO_AI_Provider {
 
 	/**
 	 * {@inheritdoc}
+	 *
+	 * Mirrors {@see vision_generate()}'s body — a file/image content part plus
+	 * the text prompt — wrapped as a /v1/chat/completions batch line.
+	 */
+	public function batch_build_vision( $custom_id, $model, $system, array $payload, $prompt, $max_tokens ) {
+		$block      = isset( $payload['block'] ) ? (string) $payload['block'] : 'image';
+		$media_type = isset( $payload['media_type'] ) ? (string) $payload['media_type'] : '';
+		$data       = isset( $payload['data'] ) ? (string) $payload['data'] : '';
+
+		if ( 'document' === $block ) {
+			$file_part = array(
+				'type' => 'file',
+				'file' => array(
+					'filename'  => 'document.pdf',
+					'file_data' => 'data:application/pdf;base64,' . $data,
+				),
+			);
+		} else {
+			$file_part = array(
+				'type'      => 'image_url',
+				'image_url' => array(
+					'url' => 'data:' . $media_type . ';base64,' . $data,
+				),
+			);
+		}
+
+		return array(
+			'custom_id' => (string) $custom_id,
+			'method'    => 'POST',
+			'url'       => '/v1/chat/completions',
+			'body'      => array(
+				'model'                 => (string) $model,
+				'max_completion_tokens' => max( 100, (int) $max_tokens ),
+				'messages'              => array(
+					array(
+						'role'    => 'system',
+						'content' => (string) $system,
+					),
+					array(
+						'role'    => 'user',
+						'content' => array(
+							$file_part,
+							array(
+								'type' => 'text',
+								'text' => (string) $prompt,
+							),
+						),
+					),
+				),
+			),
+		);
+	}
+
+	/**
+	 * {@inheritdoc}
 	 */
 	public function batch_submit( $key, $model, array $requests ) {
 		// 1. Build the JSONL body — one request object per line.

@@ -119,7 +119,7 @@ final class Coywolf_SEO_AI {
 		}
 		check_admin_referer( 'coywolf_seo_bulk_enrich' );
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce checked above.
-		$this->start_bulk( ! empty( $_POST['coywolf_seo_bulk_force'] ) );
+		$this->start_bulk( ! empty( $_POST['coywolf_seo_bulk_force'] ), ! empty( $_POST['coywolf_seo_bulk_realtime'] ) );
 
 		wp_safe_redirect( admin_url( 'admin.php?page=coywolf-seo-settings&bulk-started=1' ) );
 		exit;
@@ -130,11 +130,13 @@ final class Coywolf_SEO_AI {
 	 * batch), pre-screen the content, seed the state machine, and submit
 	 * the first batch.
 	 *
-	 * @param bool $force Re-analyze everything: skip the unchanged-content
-	 *                    check so every published post and page gets fresh
-	 *                    entities and descriptions.
+	 * @param bool $force    Re-analyze everything: skip the unchanged-content
+	 *                       check so every published post and page gets fresh
+	 *                       entities and descriptions.
+	 * @param bool $realtime Process synchronously at standard price instead of
+	 *                       through the discounted, asynchronous Batch API.
 	 */
-	public function start_bulk( $force = false ) {
+	public function start_bulk( $force = false, $realtime = false ) {
 		// A stale tab or double-submit must not orphan an in-flight run:
 		// clean up (including the remote batch) before starting fresh.
 		$existing = $this->bulk_state_fresh();
@@ -187,6 +189,7 @@ final class Coywolf_SEO_AI {
 				array(
 					'status'        => empty( $queue ) ? 'done' : 'running',
 					'stage'         => $this->enabled() ? 'extract_submit' : 'describe_submit',
+					'realtime'      => (bool) $realtime,
 					'total'         => count( $queue ),
 					'done'          => 0,
 					'failed'        => 0,
@@ -389,12 +392,49 @@ final class Coywolf_SEO_AI {
 	private function bulk_step( array $state, $deadline ) {
 		switch ( $state['stage'] ) {
 			case 'extract_submit':
+				if ( ! empty( $state['realtime'] ) ) {
+					return $this->bulk_realtime_stage(
+						$state,
+						$deadline,
+						$this->extract_system(),
+						false,
+						function ( $post_id, $text, &$row ) {
+							$row['mentions'] = $this->parse_mentions( $text );
+						},
+						'ground'
+					);
+				}
 				return $this->bulk_submit_stage( $state, 'extract_wait', $this->extract_system(), false, 2000 );
 
 			case 'describe_submit':
+				if ( ! empty( $state['realtime'] ) ) {
+					return $this->bulk_realtime_stage(
+						$state,
+						$deadline,
+						$this->describe_system(),
+						false,
+						function ( $post_id, $text, &$row ) {
+							$row['description'] = $this->clean_description( $text );
+						},
+						'finalize'
+					);
+				}
 				return $this->bulk_submit_stage( $state, 'describe_wait', $this->describe_system(), false, 300 );
 
 			case 'disambig_submit':
+				if ( ! empty( $state['realtime'] ) ) {
+					return $this->bulk_realtime_stage(
+						$state,
+						$deadline,
+						$this->disambiguate_system(),
+						true,
+						function ( $post_id, $text, &$row ) {
+							$decoded        = $this->decode_json( $text );
+							$row['choices'] = is_array( $decoded ) ? $decoded : array();
+						},
+						'verify'
+					);
+				}
 				return $this->bulk_submit_stage( $state, 'disambig_wait', $this->disambiguate_system(), true, 1000 );
 
 			case 'extract_wait':
@@ -574,6 +614,86 @@ final class Coywolf_SEO_AI {
 	}
 
 	/**
+	 * Real-time equivalent of the submit→wait pair: instead of submitting a
+	 * batch and polling, call the model synchronously for each post in the
+	 * stage and apply the collector immediately. Runs inside the advance time
+	 * budget and resumes across cron ticks, so a slow stage spans several
+	 * passes. On completion it jumps straight to the stage the batch path's
+	 * collector would have reached (skipping the wait stage entirely).
+	 *
+	 * @param array    $state      Run state.
+	 * @param int      $deadline   Unix time budget limit.
+	 * @param string   $system     System prompt for every request.
+	 * @param bool     $queued     Build from state.queue (disambiguation)
+	 *                             instead of the whole pipeline.
+	 * @param callable $collector  function( $post_id, $text, &$row ) — stores
+	 *                             the parsed result, matching the batch path.
+	 * @param string   $next_stage Stage to enter once the queue drains.
+	 * @return bool Whether another step can run immediately.
+	 */
+	private function bulk_realtime_stage( array $state, $deadline, $system, $queued, $collector, $next_stage ) {
+		// First entry into the stage seeds its work queue.
+		if ( ! isset( $state['stage_queue'] ) || ! is_array( $state['stage_queue'] ) ) {
+			$state['stage_queue'] = $queued ? array_values( (array) $state['queue'] ) : array_values( (array) $state['pipeline'] );
+		}
+
+		while ( time() < $deadline && ! empty( $state['stage_queue'] ) ) {
+			$post_id = (int) array_shift( $state['stage_queue'] );
+			$post    = get_post( $post_id );
+			if ( ! $post ) {
+				// Vanished post: drop it from the pipeline so later stages skip it.
+				$state['pipeline'] = array_values( array_diff( (array) $state['pipeline'], array( $post_id ) ) );
+				if ( ! $this->bulk_persist( $state ) ) {
+					return false;
+				}
+				continue;
+			}
+
+			$title   = get_the_title( $post );
+			$content = $this->plain_content( $post );
+			if ( $queued ) {
+				$row  = (array) get_post_meta( $post_id, self::BULK_META, true );
+				$user = $this->disambiguate_user( (array) ( $row['ambiguous'] ?? array() ), $title, $content );
+			} else {
+				$user = $this->prompt_user( $title, $content );
+			}
+
+			try {
+				$text = (string) $this->generate( $system, $user );
+			} catch ( \Throwable $e ) {
+				// A failed post leaves the pipeline (mirrors the batch collector,
+				// which drops posts whose request errored).
+				$this->bulk_fail_post( $post_id, $e->getMessage(), $state );
+				$state['pipeline'] = array_values( array_diff( (array) $state['pipeline'], array( $post_id ) ) );
+				if ( ! $this->bulk_persist( $state ) ) {
+					return false;
+				}
+				continue;
+			}
+
+			// generateText() returns no token counts; approximate from lengths
+			// so the lifetime average that powers the estimator stays useful.
+			$state['usage_in']  = (int) $state['usage_in'] + (int) ceil( ( strlen( $system ) + strlen( $user ) ) / 4 );
+			$state['usage_out'] = (int) $state['usage_out'] + (int) ceil( strlen( $text ) / 4 );
+
+			$row = (array) get_post_meta( $post_id, self::BULK_META, true );
+			call_user_func_array( $collector, array( $post_id, $text, &$row ) );
+			update_post_meta( $post_id, self::BULK_META, $row );
+			if ( ! $this->bulk_persist( $state ) ) {
+				return false;
+			}
+		}
+
+		if ( empty( $state['stage_queue'] ) ) {
+			$state['stage']       = $next_stage;
+			$state['stage_queue'] = null;
+			$state['queue']       = array_values( (array) $state['pipeline'] );
+			return $this->bulk_persist( $state );
+		}
+		return true;
+	}
+
+	/**
 	 * Poll the in-flight batch; when it has ended, hand each post's text
 	 * to the collector and move to the next stage.
 	 *
@@ -737,12 +857,21 @@ final class Coywolf_SEO_AI {
 	/**
 	 * What a bulk run would process and roughly cost.
 	 *
-	 * @param string $model Model to price ('' = the saved/default model).
-	 * @param bool   $force Price a re-analyze-all run (no unchanged skip).
-	 * @return array posts, skipped, est_cost, reserve_cost, model, from_history.
+	 * @param string $model    Model to price ('' = the saved/default model).
+	 * @param bool   $force    Price a re-analyze-all run (no unchanged skip).
+	 * @param bool   $realtime Price a real-time run at the standard rate (no
+	 *                         Batch API discount, no upfront reserve).
+	 * @return array posts, skipped, est_cost, reserve_cost, model, from_history, realtime.
 	 */
-	public function bulk_estimate( $model = '', $force = false ) {
+	public function bulk_estimate( $model = '', $force = false, $realtime = false ) {
 		$model = '' !== $model ? $model : $this->model();
+		$cost  = $realtime
+			? array( 'Coywolf_SEO_AI_Batch', 'estimate_cost_standard' )
+			: array( 'Coywolf_SEO_AI_Batch', 'estimate_cost' );
+		// Whether the chosen model has a price in the table the run will use, so
+		// the UI can say "estimate unavailable" rather than a misleading $0.
+		$price_table = $realtime ? Coywolf_SEO_AI_Batch::standard_prices() : Coywolf_SEO_AI_Batch::prices();
+		$priced      = Coywolf_SEO_AI_Provider::price_known( $price_table, $model );
 
 		$scan = get_transient( 'coywolf_seo_bulk_scan' );
 		if ( ! is_array( $scan ) ) {
@@ -806,7 +935,7 @@ final class Coywolf_SEO_AI {
 					$avg_in_post = (int) $history['avg_input'];
 					$avg_out     = (int) $history['avg_output'];
 				}
-				$force_cost = round( Coywolf_SEO_AI_Batch::estimate_cost( $model, $avg_in_post * $eligible, $avg_out * $eligible ), 2 );
+				$force_cost = round( (float) call_user_func( $cost, $model, $avg_in_post * $eligible, $avg_out * $eligible ), 2 );
 			}
 			return array(
 				'posts'        => 0,
@@ -815,6 +944,8 @@ final class Coywolf_SEO_AI {
 				'reserve_cost' => 0.0,
 				'model'        => $model,
 				'from_history' => false,
+				'realtime'     => (bool) $realtime,
+				'priced'       => $priced,
 				'force_posts'  => $eligible,
 				'force_cost'   => $force_cost,
 			);
@@ -834,12 +965,16 @@ final class Coywolf_SEO_AI {
 			$avg_out     = (int) $history['avg_output'];
 		}
 
-		$est_cost = Coywolf_SEO_AI_Batch::estimate_cost( $model, $avg_in_post * $stale, $avg_out * $stale );
+		$est_cost = (float) call_user_func( $cost, $model, $avg_in_post * $stale, $avg_out * $stale );
 
-		// What Anthropic's upfront check needs to clear: the worst case of
-		// the largest single batch (the extraction chunk).
-		$chunk        = min( $stale, max( 1, (int) apply_filters( 'coywolf_seo_bulk_batch_size', 100 ) ) );
-		$reserve_cost = Coywolf_SEO_AI_Batch::estimate_cost( $model, (int) ( $avg_in_post * $chunk ), 2000 * $chunk );
+		// What Anthropic's upfront check needs to clear: the worst case of the
+		// largest single batch (the extraction chunk). Real-time runs make one
+		// call at a time, so there is no upfront batch reserve.
+		$reserve_cost = 0.0;
+		if ( ! $realtime ) {
+			$chunk        = min( $stale, max( 1, (int) apply_filters( 'coywolf_seo_bulk_batch_size', 100 ) ) );
+			$reserve_cost = Coywolf_SEO_AI_Batch::estimate_cost( $model, (int) ( $avg_in_post * $chunk ), 2000 * $chunk );
+		}
 
 		return array(
 			'posts'        => $stale,
@@ -848,6 +983,8 @@ final class Coywolf_SEO_AI {
 			'reserve_cost' => round( $reserve_cost, 2 ),
 			'model'        => $model,
 			'from_history' => $from_history,
+			'realtime'     => (bool) $realtime,
+			'priced'       => $priced,
 		);
 	}
 
@@ -860,10 +997,11 @@ final class Coywolf_SEO_AI {
 			wp_send_json_error( array(), 403 );
 		}
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce checked above.
-		$model = isset( $_POST['model'] ) ? preg_replace( '/[^a-z0-9.\-]/', '', strtolower( (string) wp_unslash( $_POST['model'] ) ) ) : '';
-		$force = ! empty( $_POST['force'] );
+		$model    = isset( $_POST['model'] ) ? preg_replace( '/[^a-z0-9.\-]/', '', strtolower( (string) wp_unslash( $_POST['model'] ) ) ) : '';
+		$force    = ! empty( $_POST['force'] );
+		$realtime = ! empty( $_POST['realtime'] );
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
-		wp_send_json_success( $this->bulk_estimate( $model, $force ) );
+		wp_send_json_success( $this->bulk_estimate( $model, $force, $realtime ) );
 	}
 
 	/**
@@ -949,26 +1087,43 @@ final class Coywolf_SEO_AI {
 	 * @return array status/total/done/percent.
 	 */
 	public function bulk_status() {
-		$state   = (array) get_option( self::BULK_OPTION, array() );
-		$total   = isset( $state['total'] ) ? (int) $state['total'] : 0;
-		$done    = isset( $state['done'] ) ? (int) $state['done'] : 0;
-		$percent = $total > 0 ? (int) floor( ( $done / $total ) * 100 ) : 0;
-		$service = Coywolf_SEO_AI_Providers::current()->short_label();
-		$labels  = array(
-			'extract_submit'  => __( 'Submitting the entity-extraction batch…', 'coywolf-seo' ),
-			/* translators: %s: the active AI service name (Claude, OpenAI, Gemini). */
-			'extract_wait'    => sprintf( __( 'Entity extraction processing at %s (batch rates)…', 'coywolf-seo' ), $service ),
-			'ground'          => __( 'Grounding entities against Wikidata…', 'coywolf-seo' ),
-			'disambig_submit' => __( 'Submitting the disambiguation batch…', 'coywolf-seo' ),
-			/* translators: %s: the active AI service name (Claude, OpenAI, Gemini). */
-			'disambig_wait'   => sprintf( __( 'Disambiguation processing at %s (batch rates)…', 'coywolf-seo' ), $service ),
-			'verify'          => __( 'Verifying entities…', 'coywolf-seo' ),
-			'describe_submit' => __( 'Submitting the meta-description batch…', 'coywolf-seo' ),
-			/* translators: %s: the active AI service name (Claude, OpenAI, Gemini). */
-			'describe_wait'   => sprintf( __( 'Meta descriptions processing at %s (batch rates)…', 'coywolf-seo' ), $service ),
-			'finalize'        => __( 'Saving results…', 'coywolf-seo' ),
-		);
-		$stage   = isset( $state['stage'] ) ? (string) $state['stage'] : '';
+		$state    = (array) get_option( self::BULK_OPTION, array() );
+		$total    = isset( $state['total'] ) ? (int) $state['total'] : 0;
+		$done     = isset( $state['done'] ) ? (int) $state['done'] : 0;
+		$percent  = $total > 0 ? (int) floor( ( $done / $total ) * 100 ) : 0;
+		$service  = Coywolf_SEO_AI_Providers::current()->short_label();
+		$realtime = ! empty( $state['realtime'] );
+		if ( $realtime ) {
+			// Real-time runs sit on the *_submit stages while they call the
+			// model per post; the *_wait stages are never reached.
+			$labels = array(
+				/* translators: %s: the active AI service name (Claude, OpenAI, Gemini). */
+				'extract_submit'  => sprintf( __( 'Extracting entities with %s (real-time)…', 'coywolf-seo' ), $service ),
+				'ground'          => __( 'Grounding entities against Wikidata…', 'coywolf-seo' ),
+				/* translators: %s: the active AI service name (Claude, OpenAI, Gemini). */
+				'disambig_submit' => sprintf( __( 'Disambiguating with %s (real-time)…', 'coywolf-seo' ), $service ),
+				'verify'          => __( 'Verifying entities…', 'coywolf-seo' ),
+				/* translators: %s: the active AI service name (Claude, OpenAI, Gemini). */
+				'describe_submit' => sprintf( __( 'Writing meta descriptions with %s (real-time)…', 'coywolf-seo' ), $service ),
+				'finalize'        => __( 'Saving results…', 'coywolf-seo' ),
+			);
+		} else {
+			$labels = array(
+				'extract_submit'  => __( 'Submitting the entity-extraction batch…', 'coywolf-seo' ),
+				/* translators: %s: the active AI service name (Claude, OpenAI, Gemini). */
+				'extract_wait'    => sprintf( __( 'Entity extraction processing at %s (batch rates)…', 'coywolf-seo' ), $service ),
+				'ground'          => __( 'Grounding entities against Wikidata…', 'coywolf-seo' ),
+				'disambig_submit' => __( 'Submitting the disambiguation batch…', 'coywolf-seo' ),
+				/* translators: %s: the active AI service name (Claude, OpenAI, Gemini). */
+				'disambig_wait'   => sprintf( __( 'Disambiguation processing at %s (batch rates)…', 'coywolf-seo' ), $service ),
+				'verify'          => __( 'Verifying entities…', 'coywolf-seo' ),
+				'describe_submit' => __( 'Submitting the meta-description batch…', 'coywolf-seo' ),
+				/* translators: %s: the active AI service name (Claude, OpenAI, Gemini). */
+				'describe_wait'   => sprintf( __( 'Meta descriptions processing at %s (batch rates)…', 'coywolf-seo' ), $service ),
+				'finalize'        => __( 'Saving results…', 'coywolf-seo' ),
+			);
+		}
+		$stage = isset( $state['stage'] ) ? (string) $state['stage'] : '';
 		return array(
 			'status'        => isset( $state['status'] ) ? (string) $state['status'] : '',
 			'total'         => $total,

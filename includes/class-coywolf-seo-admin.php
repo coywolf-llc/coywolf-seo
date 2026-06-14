@@ -195,7 +195,12 @@ final class Coywolf_SEO_Admin {
 					<input type="checkbox" id="coywolf-seo-bulk-force" name="coywolf_seo_bulk_force" value="1" />
 					<?php esc_html_e( 'Re-analyze all', 'coywolf-seo' ); ?>
 				</label>
+				<label class="coywolf-seo-bulk-force-label">
+					<input type="checkbox" id="coywolf-seo-bulk-realtime" name="coywolf_seo_bulk_realtime" value="1" />
+					<?php esc_html_e( 'Use real-time processing', 'coywolf-seo' ); ?>
+				</label>
 			</form>
+			<p class="description"><?php esc_html_e( 'Real-time processing returns results immediately at the standard (full) rate, instead of the cheaper background Batch API (results within the hour, up to 24 hours).', 'coywolf-seo' ); ?></p>
 			<?php if ( 'done' === $coywolf_seo_bulk['status'] && '' !== $coywolf_seo_bulk['finished'] ) : ?>
 				<?php if ( $coywolf_seo_bulk['failed'] > 0 ) : ?>
 					<p class="description" style="color:#b32d2e">
@@ -241,7 +246,7 @@ final class Coywolf_SEO_Admin {
 		switch ( $op ) {
 			case 'start':
 				// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce checked above.
-				$ai->start_bulk( ! empty( $_POST['force'] ) );
+				$ai->start_bulk( ! empty( $_POST['force'] ), ! empty( $_POST['realtime'] ) );
 				break;
 			case 'stop':
 				$ai->pause_bulk();
@@ -526,8 +531,10 @@ final class Coywolf_SEO_Admin {
 					'confirmBulkForce'  => __( 'Re-analyze EVERY published post and page now, including content that is already current? Every item makes fresh API calls, so this costs the full estimated amount each time.', 'coywolf-seo' ),
 					'confirmBulkCancel' => __( 'Cancel this run for good? The remaining queue is discarded — a new run would re-check every post from the start (already-analyzed content is skipped at no cost).', 'coywolf-seo' ),
 					'estimateLine'      => __( '%POSTS% posts need enrichment (%SKIPPED% already current). Estimated cost: ~$%COST% at batch rates for %MODEL%.', 'coywolf-seo' ) . ' ' . Coywolf_SEO_AI_Providers::current()->bulk_cost_note(),
+					'estimateLineRT'    => __( '%POSTS% posts need enrichment (%SKIPPED% already current). Estimated cost: ~$%COST% at standard (real-time) rates for %MODEL%.', 'coywolf-seo' ),
 					'estimateNone'      => __( 'Everything is already analyzed with the current settings — re-analyzing everything (%POSTS% posts, ~$%COST%) will incur new costs.', 'coywolf-seo' ),
 					'estimateEmpty'     => __( 'There is no published content to enrich yet.', 'coywolf-seo' ),
+					'estimateUnpriced'  => __( '%POSTS% posts need enrichment (%SKIPPED% already current). No pricing data for %MODEL%, so the cost can\'t be estimated — the run still incurs API charges.', 'coywolf-seo' ),
 					'estimateUnsaved'   => __( '(Previewing an unsaved model — the run uses the saved Model setting.)', 'coywolf-seo' ),
 					'estimateHistory'   => __( 'Based on your measured average usage.', 'coywolf-seo' ),
 					'estimateHeuristic' => __( 'Rough estimate based on content length.', 'coywolf-seo' ),

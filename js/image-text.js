@@ -90,7 +90,18 @@
 		var aiResume = document.getElementById( 'coywolf-seo-it-ai-resume' );
 		var aiModel = document.getElementById( 'coywolf-seo-it-ai-model' );
 		var aiEstimate = document.getElementById( 'coywolf-seo-it-ai-estimate' );
+		var aiRealtime = document.getElementById( 'coywolf-seo-it-ai-realtime' );
 		var aiCancelled = false;
+
+		// Default mode is the discounted Batch API; real-time is opt-in. A
+		// provider without vision batching (the checkbox is pre-checked and
+		// disabled server-side) is always real-time.
+		var aiUseRealtime = function () {
+			if ( ! cfg.visionBatch ) {
+				return true;
+			}
+			return !! ( aiRealtime && aiRealtime.checked );
+		};
 
 		/* ---- Cost estimator -------------------------------------------- */
 		var aiFieldInputs = function () {
@@ -110,6 +121,7 @@
 				overwrite: document.getElementById( 'coywolf-seo-it-ai-overwrite' ).checked,
 				include_pdfs: !! ( pdfsBox && pdfsBox.checked ),
 				propagate_captions: !! ( propBox && propBox.checked && ! propBox.disabled ),
+				realtime: aiUseRealtime(),
 			};
 		};
 		// Propagation only applies when a per-block field (alt text or
@@ -155,8 +167,11 @@
 		// pricing data.
 		var aiPerFile = function () {
 			var option = aiModel ? aiModel.options[ aiModel.selectedIndex ] : null;
-			var inPrice = option ? parseFloat( option.getAttribute( 'data-in' ) ) : NaN;
-			var outPrice = option ? parseFloat( option.getAttribute( 'data-out' ) ) : NaN;
+			// Batch mode (the default) prices at the discounted Batch-API rate;
+			// real-time prices at the standard rate.
+			var batch = ! aiUseRealtime();
+			var inPrice = option ? parseFloat( option.getAttribute( batch ? 'data-batch-in' : 'data-in' ) ) : NaN;
+			var outPrice = option ? parseFloat( option.getAttribute( batch ? 'data-batch-out' : 'data-out' ) ) : NaN;
 			if ( isNaN( inPrice ) || isNaN( outPrice ) ) {
 				return null;
 			}
@@ -267,11 +282,19 @@
 			if ( aiModel ) {
 				aiModel.disabled = ! enabled;
 			}
+			if ( aiRealtime ) {
+				// Stays disabled while a run is active, and permanently when the
+				// provider has no vision batch (real-time is the only option).
+				aiRealtime.disabled = ! enabled || ! cfg.visionBatch;
+			}
 			show( aiEstimate, enabled );
 		};
 
 		if ( aiModel ) {
 			aiModel.addEventListener( 'change', renderEstimate );
+		}
+		if ( aiRealtime ) {
+			aiRealtime.addEventListener( 'change', renderEstimate );
 		}
 		aiFieldInputs().forEach( function ( box ) {
 			box.addEventListener( 'change', refreshCount );
@@ -322,7 +345,14 @@
 			api( '/image-text/step' ).then( function ( state ) {
 				renderAI( state );
 				if ( 'running' === state.status && ! aiCancelled ) {
-					loopAI();
+					if ( state.awaiting_batch ) {
+						// A batch is processing remotely; poll gently rather than
+						// hammering the step endpoint.
+						setProgress( aiProgress, state.done, state.total, cfg.i18n.batchWaiting );
+						window.setTimeout( loopAI, 8000 );
+					} else {
+						loopAI();
+					}
 				} else {
 					aiButtons( false, 'error' === state.status );
 					if ( 'done' === state.status ) {
@@ -352,6 +382,7 @@
 				overwrite: force ? true : selection.overwrite,
 				include_pdfs: selection.include_pdfs,
 				propagate_captions: selection.propagate_captions,
+				realtime: selection.realtime,
 				resume: !! resume,
 				model: aiModel ? aiModel.value : '',
 			} )
