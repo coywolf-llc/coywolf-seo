@@ -664,4 +664,76 @@
 			} );
 		}
 	} );
+	/* ------------------------------------------------------------------ *
+	 * Settings: "Fix missing image IDs" maintenance tool. Runs in chunks via
+	 * admin-ajax; Preview is a dry run, Fix applies the changes.
+	 * ------------------------------------------------------------------ */
+	$( function () {
+		var $idfix = $( '#coywolf-seo-idfix' );
+		if ( ! $idfix.length ) {
+			return;
+		}
+		var $preview = $( '#coywolf-seo-idfix-preview' );
+		var $run = $( '#coywolf-seo-idfix-run' );
+		var $stop = $( '#coywolf-seo-idfix-stop' );
+		var $progress = $( '#coywolf-seo-idfix-progress' );
+		var $result = $( '#coywolf-seo-idfix-result' );
+		var running = false;
+
+		function post( data ) {
+			return $.post( config.ajaxUrl, $.extend( { action: 'coywolf_seo_idfix', _ajax_nonce: config.idFixNonce }, data ) );
+		}
+		function buttons( on ) {
+			$preview.prop( 'disabled', on );
+			$run.prop( 'disabled', on );
+			$stop.toggleClass( 'hidden', ! on );
+		}
+		function fill( tmpl, d ) {
+			return String( tmpl )
+				.replace( '%IMG%', d.images_fixed )
+				.replace( '%POSTS%', d.posts_updated )
+				.replace( '%UNM%', d.unmatched )
+				.replace( '%SCAN%', d.posts_scanned )
+				.replace( '%TOTAL%', d.total );
+		}
+		function render( d ) {
+			// Always show 100% once done, even if the candidate set shrank mid-run.
+			var pct = 'done' === d.status ? 100 : ( d.total > 0 ? Math.min( 100, Math.round( ( d.posts_scanned / d.total ) * 100 ) ) : 0 );
+			$progress.removeClass( 'hidden' ).attr( 'aria-valuenow', pct ).find( '.coywolf-seo-progress-bar' ).css( 'width', pct + '%' );
+			if ( 'done' === d.status ) {
+				$result.text( fill( d.dry_run ? ( config.i18n.idFixPreview || 'Preview: %IMG% images in %POSTS% posts (%UNM% unmatched).' ) : ( config.i18n.idFixDone || 'Fixed %IMG% images in %POSTS% posts (%UNM% unmatched).' ), d ) );
+			} else {
+				$result.text( fill( config.i18n.idFixProgress || 'Scanning %SCAN% of %TOTAL% posts…', d ) );
+			}
+		}
+		function failed() {
+			running = false;
+			buttons( false );
+			$result.text( config.i18n.idFixError || 'The run stopped unexpectedly — reload the page and try again.' );
+		}
+		function loop() {
+			post( { op: 'step' } ).done( function ( res ) {
+				if ( ! res || ! res.success ) { failed(); return; }
+				render( res.data );
+				if ( 'running' === res.data.status && running ) { loop(); } else { running = false; buttons( false ); }
+			} ).fail( failed );
+		}
+		function startRun( dry ) {
+			running = true;
+			buttons( true );
+			$result.text( '' );
+			post( { op: 'start', dry_run: dry ? 1 : 0 } ).done( function ( res ) {
+				if ( ! res || ! res.success ) { failed(); return; }
+				render( res.data );
+				if ( 'running' === res.data.status ) { loop(); } else { running = false; buttons( false ); }
+			} ).fail( failed );
+		}
+		$preview.on( 'click', function () { startRun( true ); } );
+		$run.on( 'click', function () {
+			if ( window.confirm( config.i18n.idFixConfirm || 'Add missing image IDs to your posts and pages? This edits post content.' ) ) {
+				startRun( false );
+			}
+		} );
+		$stop.on( 'click', function () { running = false; post( { op: 'cancel' } ); buttons( false ); } );
+	} );
 } )( jQuery );
