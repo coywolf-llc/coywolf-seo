@@ -304,6 +304,15 @@
 		// Bulk cost estimator: load on the settings page, refresh when the
 		// Model dropdown changes (previewing without saving).
 		var $estimate = $( '#coywolf-seo-bulk-estimate' );
+		// Format a dollar amount without rounding a real-but-tiny cost down to
+		// "0.00" (which reads as free) — sub-cent totals keep more precision.
+		function fmtCost( value ) {
+			var v = Number( value ) || 0;
+			if ( v > 0 && v < 0.01 ) {
+				return v.toFixed( 4 );
+			}
+			return v.toFixed( 2 );
+		}
 		function loadEstimate( model, unsaved ) {
 			$estimate.html( '<em>' + $estimate.data( 'loading' ) + '</em>' );
 			$.post( config.ajaxUrl, {
@@ -322,7 +331,7 @@
 						$estimate.text(
 							( config.i18n.estimateNone || 'Everything is current — re-analyzing all %POSTS% posts costs ~$%COST%.' )
 								.replace( '%POSTS%', d.force_posts )
-								.replace( '%COST%', false === d.priced ? '?' : Number( d.force_cost ).toFixed( 2 ) )
+								.replace( '%COST%', false === d.priced ? '?' : fmtCost( d.force_cost ) )
 						);
 					} else {
 						$estimate.text( config.i18n.estimateEmpty || 'There is no published content to enrich yet.' );
@@ -345,8 +354,8 @@
 				var line = template
 					.replace( '%POSTS%', d.posts )
 					.replace( '%SKIPPED%', d.skipped )
-					.replace( '%COST%', Number( d.est_cost ).toFixed( 2 ) )
-					.replace( '%RESERVE%', Number( d.reserve_cost ).toFixed( 2 ) )
+					.replace( '%COST%', fmtCost( d.est_cost ) )
+					.replace( '%RESERVE%', fmtCost( d.reserve_cost ) )
 					.replace( '%MODEL%', d.model );
 				line += ' ' + ( d.from_history ? ( config.i18n.estimateHistory || '' ) : ( config.i18n.estimateHeuristic || '' ) );
 				if ( unsaved ) {

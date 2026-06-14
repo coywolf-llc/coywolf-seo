@@ -224,6 +224,11 @@ final class Coywolf_SEO_Image_AI {
 	 * @return array|WP_Error { alt_text, title, caption, description }
 	 */
 	public function parse_fields( $text ) {
+		if ( '' === trim( (string) $text ) ) {
+			// An empty body usually means the model hit its output-token limit
+			// before answering (common with reasoning models on complex images).
+			return new WP_Error( 'coywolf_seo_api', __( 'The AI service returned an empty response (it may have run out of output tokens). Try again, or pick a different model.', 'coywolf-seo' ) );
+		}
 		$fields = $this->decode_json( (string) $text );
 		if ( ! is_array( $fields ) ) {
 			return new WP_Error( 'coywolf_seo_api', __( 'The AI service returned a response that could not be parsed. Try again.', 'coywolf-seo' ) );
