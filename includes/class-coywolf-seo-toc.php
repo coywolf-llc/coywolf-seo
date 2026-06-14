@@ -105,6 +105,21 @@ class Coywolf_SEO_TOC {
 			wp_enqueue_script( 'coywolf-seo-toc-view' );
 		}
 
+		// Global scroll-margin-top for anchor targets, so a fixed/sticky header
+		// doesn't cover a jumped-to heading. Only emitted on TOC pages (this
+		// runs from the block render) and only when the setting is above zero.
+		// Added once per request even if several TOC blocks are present.
+		static $margin_added = false;
+		if ( ! $margin_added ) {
+			$margin = (int) Coywolf_SEO_Options::get( 'scroll_margin_top' );
+			if ( $margin > 0 ) {
+				$unit = Coywolf_SEO_Options::get( 'scroll_margin_unit' );
+				$unit = in_array( $unit, array( 'rem', 'px' ), true ) ? $unit : 'rem';
+				wp_add_inline_style( 'coywolf-seo-toc', '[id]{scroll-margin-top:' . $margin . $unit . ';}' );
+				$margin_added = true;
+			}
+		}
+
 		$wrapper = get_block_wrapper_attributes( array( 'class' => self::PLACEHOLDER_CLASS ) );
 
 		// The placeholder carries everything the content filter needs; it is

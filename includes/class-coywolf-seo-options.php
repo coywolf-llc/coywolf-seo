@@ -59,6 +59,11 @@ final class Coywolf_SEO_Options {
 			'robots_max_image'             => true,
 			'robots_max_snippet'           => true,
 			'robots_max_video'             => true,
+			// Table of Contents jump-link scroll offset (0 = off). Applied as
+			// scroll-margin-top on pages that use the TOC so a sticky header
+			// does not cover a jumped-to heading.
+			'scroll_margin_top'            => 0,
+			'scroll_margin_unit'           => 'rem', // rem | px.
 			// IndexNow.
 			'indexnow_enabled'             => false,
 			'indexnow_key'                 => '',
@@ -218,6 +223,13 @@ final class Coywolf_SEO_Options {
 
 		if ( isset( $raw['image_text_instructions'] ) ) {
 			$out['image_text_instructions'] = sanitize_textarea_field( $raw['image_text_instructions'] );
+		}
+
+		if ( isset( $raw['scroll_margin_top'] ) ) {
+			$out['scroll_margin_top'] = max( 0, min( 999, (int) $raw['scroll_margin_top'] ) );
+		}
+		if ( isset( $raw['scroll_margin_unit'] ) ) {
+			$out['scroll_margin_unit'] = in_array( $raw['scroll_margin_unit'], array( 'rem', 'px' ), true ) ? $raw['scroll_margin_unit'] : 'rem';
 		}
 
 		if ( isset( $raw['og_image_id'] ) ) {
