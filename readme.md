@@ -59,6 +59,100 @@ Updates are delivered straight from the project's GitHub releases via the bundle
 
 Privacy-first: this plugin includes no analytics, no tracking, and no data gathering — nothing about you, your site, or your visitors is ever collected. Outbound connections exist only for features you turn on: with IndexNow enabled, the changed URL is sent to Bing's IndexNow endpoint on publish, update, and delete; with AI enrichment enabled, the published post's title and content are sent to Anthropic's API using your own API key, entity names are looked up on Wikidata's public API. Nothing else, nowhere else.
 
+## Frequently Asked Questions
+
+### Does the plugin auto-generate titles and meta descriptions?
+
+Titles are composed from your settings, with the site name appended only where you enable it (a force-rewrite option handles themes that build their own title tag). Meta descriptions are never auto-generated — the homepage uses the Tagline, posts and pages use their manual Excerpt, terms use their description — unless you turn on AI meta descriptions or exclude meta descriptions entirely.
+
+### Why don't my pages show Article schema?
+
+Each page outputs one JSON-LD graph, but pages default to no Article type. Set a default in Site Details → Pages, or override it per page in the SEO panel.
+
+### Which AI service does enrichment use, and what do I need?
+
+Bring your own API key for Claude (Anthropic), OpenAI, or Google Gemini and pick one in Settings (or define it in `wp-config.php`). The AI features require WordPress 7.0+ because they run on its bundled AI client.
+
+### Can the AI invent entities or make up schema?
+
+No. The model only extracts entity names; the real items are looked up on Wikidata's public API, the model chooses among them, and the chosen item's type is verified — so identifiers are never fabricated.
+
+### What does "Enrich all content" cost, and how long does it take?
+
+It runs through your service's Batch API at roughly half the standard token price, in the background, and can take up to an hour. Posts already analyzed with the current settings are skipped, so re-running is inexpensive.
+
+### If I turn AI enrichment off, do I lose my data?
+
+No — detected entities and generated descriptions and image text are kept and still used. Only your saved API key is deleted (re-enter it when you turn AI back on; a key in `wp-config.php` is ignored while off).
+
+### Does the bulk "Write image text" run need the page to stay open?
+
+No. It processes in the background on WP-Cron, so you can leave and come back to check progress. On a very low-traffic site, leaving the tab open helps it along.
+
+### What's the difference between Batch and real-time image text?
+
+Bulk image text defaults to the cheaper Batch API (about half price; results within the hour, up to 24 hours). Tick "real-time" for immediate processing at the standard rate. Gemini has no vision Batch API, so it always runs in real time.
+
+### Why is some image alt text left blank?
+
+Alt text is intentionally left empty for purely decorative images (an accessibility best practice). Title, caption, and description are always written.
+
+### What does "Fix missing image IDs" do?
+
+Two things, each only when an uploads-folder image exactly matches a Media Library item: it adds the missing attachment ID to in-content images, and it converts Custom HTML or classic image figures into real image blocks. Run Preview first — it edits post content — and note that converting drops any custom inline figure styling.
+
+### Why aren't my in-content images getting the new alt text and captions?
+
+Propagation only updates `core/image` blocks that reference the file, and only empty fields unless "Overwrite" is on. Images added as Custom HTML or by URL aren't matched until you run "Fix missing image IDs" first.
+
+### What happens to a deleted post's URL?
+
+The moment you delete a published post or page, the Redirects screen asks what to do with its URL — mark it gone (410), redirect it, or dismiss. Pending decisions also wait on the Redirects page.
+
+### Can I import redirects from another plugin?
+
+Yes — from the Redirection plugin (even when it's deactivated, read straight from the database) and from Yoast SEO Premium. Duplicates are skipped, so importing is safe to re-run.
+
+### Does the Link Manager re-scan everything every time?
+
+Only the first analysis is a full scan; after that the inventory keeps itself current as you create, edit, and delete posts. A Throughput setting tunes how hard it scans.
+
+### What's the difference between virtual and physical robots.txt?
+
+Virtual (the default) means WordPress serves robots.txt with your managed rules injected — no file is written. Physical mode writes a real file and preserves your hand-written lines. On activation, the manager imports and tidies any existing robots.txt.
+
+### Can I get my original robots.txt back?
+
+Yes. Turning the Robots.txt Manager off — or deactivating the plugin — prompts you to restore your original robots.txt or keep the managed rules.
+
+### Why doesn't the table of contents go out of date?
+
+It's built when the page is served, not when you save, so headings added later (including by shortcodes and synced patterns) are always included. Each heading has an "Exclude from table of contents" toggle, and a minimum-headings threshold keeps the table off short posts.
+
+### How is the mobile alternative image different from normal responsive images?
+
+It's true art direction: your phone-specific image is served below 768px through a `<picture>` media query, so it's guaranteed on small screens rather than left to the browser's `srcset` guesswork. The breakpoint is filterable.
+
+### Does this conflict with Yoast, Rank Math, or AIOSEO?
+
+No. While the other plugin is active, Coywolf SEO suppresses its front-end output and edit-screen boxes through that plugin's own switches, so nothing is duplicated as you migrate — but it leaves their sitemaps and redirects running.
+
+### Are there Twitter/X meta tags?
+
+No — X reads Open Graph, so only `og:` tags are output. Categories and tags can also carry their own Page Title and Open Graph image, set right on the term screen.
+
+### Does Duplicate Post copy my SEO settings?
+
+Yes — it copies the content, excerpt, taxonomies, featured image, template, and custom fields, including the SEO meta, into a new draft you own with a fresh slug and date. The original's old-URL redirect history stays with the original.
+
+### What happens to my data if I turn a feature off, deactivate, or delete the plugin?
+
+Turning a feature off keeps all of its data and just hides it (turning AI off also deletes the saved API key). Deactivating keeps everything and only pauses background jobs. Deleting removes all of the plugin's data, so back up first — but edits the tools made to your content (added image IDs, converted blocks, image text saved to the Media Library) remain, because those live in WordPress itself.
+
+### Does Import/Export include my API keys?
+
+No. Settings, author properties, and redirect rules export as JSON; API keys are never exported.
+
 ## Changelog
 
 ### 1.0.71
