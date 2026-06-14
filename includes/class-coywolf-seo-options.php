@@ -314,20 +314,40 @@ final class Coywolf_SEO_Options {
 	 * @return array Property => array( input | fields ).
 	 */
 	public static function property_inputs() {
+		// Entity-reference properties (worksFor, founder, …) share one shallow
+		// sub-field set: a name, a URL, and an @id pointing at the referenced
+		// node. Defined once and reused to stay DRY.
+		$entity_ref = array(
+			'fields' => array(
+				'name' => array(
+					'label' => __( 'Name', 'coywolf-seo' ),
+					'input' => 'text',
+				),
+				'url'  => array(
+					'label' => __( 'URL', 'coywolf-seo' ),
+					'input' => 'url',
+				),
+				'@id'  => array(
+					'label' => __( '@id (entity reference)', 'coywolf-seo' ),
+					'input' => 'url',
+				),
+			),
+		);
+
 		return array(
-			'@id'               => array( 'input' => 'url' ),
-			'url'               => array( 'input' => 'url' ),
-			'sameAs'            => array( 'input' => 'url' ),
-			'logo'              => array( 'input' => 'image' ),
-			'image'             => array( 'input' => 'image' ),
-			'email'             => array( 'input' => 'email' ),
-			'telephone'         => array( 'input' => 'tel' ),
-			'faxNumber'         => array( 'input' => 'tel' ),
-			'foundingDate'      => array( 'input' => 'date' ),
-			'birthDate'         => array( 'input' => 'date' ),
-			'numberOfEmployees' => array( 'input' => 'number' ),
-			'ethicsPolicy'      => array( 'input' => 'url' ),
-			'address'           => array(
+			'@id'                => array( 'input' => 'url' ),
+			'url'                => array( 'input' => 'url' ),
+			'sameAs'             => array( 'input' => 'url' ),
+			'logo'               => array( 'input' => 'image' ),
+			'image'              => array( 'input' => 'image' ),
+			'email'              => array( 'input' => 'email' ),
+			'telephone'          => array( 'input' => 'tel' ),
+			'faxNumber'          => array( 'input' => 'tel' ),
+			'foundingDate'       => array( 'input' => 'date' ),
+			'birthDate'          => array( 'input' => 'date' ),
+			'numberOfEmployees'  => array( 'input' => 'number' ),
+			'ethicsPolicy'       => array( 'input' => 'url' ),
+			'address'            => array(
 				'fields' => array(
 					'streetAddress'   => array(
 						'label' => __( 'Street address', 'coywolf-seo' ),
@@ -351,7 +371,7 @@ final class Coywolf_SEO_Options {
 					),
 				),
 			),
-			'contactPoint'      => array(
+			'contactPoint'       => array(
 				'fields' => array(
 					'telephone'   => array(
 						'label' => __( 'Telephone', 'coywolf-seo' ),
@@ -367,6 +387,14 @@ final class Coywolf_SEO_Options {
 					),
 				),
 			),
+			'worksFor'           => $entity_ref,
+			'affiliation'        => $entity_ref,
+			'alumniOf'           => $entity_ref,
+			'memberOf'           => $entity_ref,
+			'founder'            => $entity_ref,
+			'parentOrganization' => $entity_ref,
+			'subOrganization'    => $entity_ref,
+			'brand'              => $entity_ref,
 		);
 	}
 
