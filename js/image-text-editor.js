@@ -14,6 +14,9 @@
  * Alt and caption live on the block; title and description live on the
  * attachment (saved through the core media REST endpoint). The generate
  * button saves all four to the Media Library and fills the block fields.
+ * Images not in the Media Library (no attachment id — e.g. inserted by URL or
+ * in older posts) still get the alt and caption fields; the attachment-only
+ * parts (Title, Description, Generate, Save) are hidden for them.
  *
  * Built with wp.element directly — no build step.
  */
@@ -167,6 +170,12 @@
 				} );
 		}
 
+		// Title and Description live on the Media Library attachment, and the
+		// Generate/Save buttons act on it — so they only apply when the block is
+		// linked to an attachment. Alt and caption live on the block itself, so
+		// they always work (including for images inserted by URL with no id).
+		var hasId = !! id;
+
 		return el(
 			PanelBody,
 			{ title: __( 'Image text', 'coywolf-seo' ), initialOpen: false },
@@ -179,14 +188,14 @@
 					setAttributes( { alt: value } );
 				},
 			} ),
-			el( TextControl, {
+			hasId ? el( TextControl, {
 				label: __( 'Title', 'coywolf-seo' ),
 				value: titleValue,
 				__nextHasNoMarginBottom: true,
 				__next40pxDefaultSize: true,
 				onChange: setTitle,
 				help: '',
-			} ),
+			} ) : null,
 			el( TextareaControl, {
 				label: __( 'Caption', 'coywolf-seo' ),
 				value: attributes.caption ? String( attributes.caption ) : '',
@@ -196,15 +205,15 @@
 					setAttributes( { caption: value } );
 				},
 			} ),
-			el( TextareaControl, {
+			hasId ? el( TextareaControl, {
 				label: __( 'Description', 'coywolf-seo' ),
 				value: descValue,
 				rows: 3,
 				__nextHasNoMarginBottom: true,
 				onChange: setDescription,
 				help: __( 'Title and Description are stored on the image in the Media Library.', 'coywolf-seo' ),
-			} ),
-			el(
+			} ) : null,
+			hasId ? el(
 				'div',
 				{ className: 'coywolf-seo-it-editor-buttons' },
 				cfg.configured
@@ -228,14 +237,24 @@
 					},
 					__( 'Save to Media Library', 'coywolf-seo' )
 				)
-			),
+			) : null,
+			! hasId ? el(
+				'p',
+				{ className: 'coywolf-seo-it-editor-note', style: { color: '#646970', marginTop: '8px' } },
+				__( 'This image is not in the Media Library, so AI generation, Title, and Description are not available. Alternative text and caption are saved on the image here.', 'coywolf-seo' )
+			) : null,
 			notice ? el( 'p', { className: 'coywolf-seo-it-editor-notice' }, notice ) : null
 		);
 	}
 
 	var withImageText = wp.compose.createHigherOrderComponent( function ( BlockEdit ) {
 		return function ( props ) {
-			if ( 'core/image' !== props.name || ! props.attributes.id ) {
+			// Show for any image block that actually has an image — by id OR by
+			// url. Older posts (and images inserted by URL) often have no id;
+			// gating on id alone left those blocks with core's redundant alt
+			// field and no Image Text panel. Empty placeholders (no image yet)
+			// are still skipped.
+			if ( 'core/image' !== props.name || ( ! props.attributes.id && ! props.attributes.url ) ) {
 				return el( BlockEdit, props );
 			}
 			return el(
