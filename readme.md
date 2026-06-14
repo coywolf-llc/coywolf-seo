@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.67
+- **Version:** 1.0.68
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -60,6 +60,9 @@ Updates are delivered straight from the project's GitHub releases via the bundle
 Privacy-first: this plugin includes no analytics, no tracking, and no data gathering — nothing about you, your site, or your visitors is ever collected. Outbound connections exist only for features you turn on: with IndexNow enabled, the changed URL is sent to Bing's IndexNow endpoint on publish, update, and delete; with AI enrichment enabled, the published post's title and content are sent to Anthropic's API using your own API key, entity names are looked up on Wikidata's public API. Nothing else, nowhere else.
 
 ## Changelog
+
+### 1.0.68
+- Bulk Image Text runs in the background (WP-Cron) so you can leave the page (#69).
 
 ### 1.0.67
 - Add "Fix missing image IDs" jump link to the Settings TOC list (#68).
