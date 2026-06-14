@@ -121,10 +121,18 @@
 		function generate() {
 			setBusy( true );
 			setNotice( '' );
+			// Pass the post being edited so the AI gets this article's context
+			// (and the image's position within it) for better alt/caption text.
+			var postId = 0;
+			try {
+				postId = wp.data.select( 'core/editor' ).getCurrentPostId() || 0;
+			} catch ( e ) {
+				postId = 0;
+			}
 			apiFetch( {
 				path: '/coywolf-seo/v1/image-text/generate',
 				method: 'POST',
-				data: { id: id, save: true },
+				data: { id: id, save: true, post_id: postId },
 			} )
 				.then( function ( res ) {
 					setAttributes( { alt: res.alt_text, caption: res.caption } );
