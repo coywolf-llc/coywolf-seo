@@ -213,9 +213,7 @@ final class Coywolf_SEO_AI_Google extends Coywolf_SEO_AI_Provider {
 					),
 				),
 			),
-			'generationConfig'  => array(
-				'maxOutputTokens' => max( 100, (int) $max_tokens ),
-			),
+			'generationConfig'  => $this->vision_generation_config( $model, $max_tokens ),
 		);
 
 		$response = wp_remote_post(
@@ -246,6 +244,32 @@ final class Coywolf_SEO_AI_Google extends Coywolf_SEO_AI_Provider {
 			'input'  => (int) ( $data['usageMetadata']['promptTokenCount'] ?? 0 ),
 			'output' => (int) ( $data['usageMetadata']['candidatesTokenCount'] ?? 0 ),
 		);
+	}
+
+	/**
+	 * generationConfig for a vision request. Gemini 2.5 models "think" before
+	 * answering, and those reasoning tokens count against maxOutputTokens — on a
+	 * complex image (e.g. a text-heavy screenshot) a tight budget is spent
+	 * thinking and the JSON answer comes back empty/truncated and unparseable.
+	 * So: disable thinking on the 2.5 Flash family (it is not needed for this
+	 * extraction), ask for JSON output directly, and give a generous output
+	 * ceiling for models that keep thinking on.
+	 *
+	 * @param string $model      Model id.
+	 * @param int    $max_tokens Caller's output allowance.
+	 * @return array
+	 */
+	private function vision_generation_config( $model, $max_tokens ) {
+		$config = array(
+			'maxOutputTokens'  => max( 4096, (int) $max_tokens ),
+			'responseMimeType' => 'application/json',
+		);
+		// thinkingBudget => 0 is supported on the 2.5 Flash family; sending it to
+		// models that do not support it (1.5 / 2.0) would error, so gate on it.
+		if ( 0 === strpos( (string) $model, 'gemini-2.5-flash' ) ) {
+			$config['thinkingConfig'] = array( 'thinkingBudget' => 0 );
+		}
+		return $config;
 	}
 
 	/* ------------------------------------------------------------------ *
@@ -316,9 +340,7 @@ final class Coywolf_SEO_AI_Google extends Coywolf_SEO_AI_Provider {
 						),
 					),
 				),
-				'generationConfig'   => array(
-					'maxOutputTokens' => max( 100, (int) $max_tokens ),
-				),
+				'generationConfig'   => $this->vision_generation_config( $model, $max_tokens ),
 			),
 			'metadata' => array(
 				'key' => (string) $custom_id,
