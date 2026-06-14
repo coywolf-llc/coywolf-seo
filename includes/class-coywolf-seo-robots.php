@@ -201,19 +201,6 @@ final class Coywolf_SEO_Robots {
 	}
 
 	/**
-	 * Whether the plugin is actively managing a PHYSICAL robots.txt file right
-	 * now (the feature is on and serving from a file on disk). That is the only
-	 * case where turning the feature off — or deactivating the plugin — leaves a
-	 * file behind, so it gates the "restore your robots.txt?" prompt. In virtual
-	 * mode there is nothing on disk and the prompt is unnecessary.
-	 *
-	 * @return bool
-	 */
-	public function is_physical_managed() {
-		return Coywolf_SEO_Options::feature_enabled( 'robots' ) && 'physical' === $this->get_mode();
-	}
-
-	/**
 	 * Restore the robots.txt captured on first activation (see on_activate()).
 	 * If the site originally had a physical file, its exact contents are written
 	 * back; if it was virtual (no file), any physical file the plugin created is

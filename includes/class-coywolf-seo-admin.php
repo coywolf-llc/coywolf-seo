@@ -472,9 +472,12 @@ final class Coywolf_SEO_Admin {
 	 * @return array
 	 */
 	private function robots_restore_config() {
-		$robots = Coywolf_SEO_Robots::instance();
 		return array(
-			'show'     => $robots->is_physical_managed(),
+			// Prompt whenever the Robots.txt Manager is active (it captured a
+			// backup on activation). restore_backup() handles both modes:
+			// physical restores the original file, virtual removes any file the
+			// plugin created so WordPress serves its default again.
+			'show'     => Coywolf_SEO_Options::feature_enabled( 'robots' ),
 			'basename' => plugin_basename( COYWOLF_SEO_FILE ),
 			'param'    => 'coywolf_seo_robots_deact',
 			'toggleId' => 'coywolf-seo-feature-robots-off',
