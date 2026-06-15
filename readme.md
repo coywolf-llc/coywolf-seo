@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.82
+- **Version:** 1.0.83
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -215,6 +215,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 ![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
 
 ## Changelog
+
+### 1.0.83
+- Address WordPress.org review: sanitize inputs, drop remote calls, document external services (#84).
 
 ### 1.0.82
 - Fix Link Manager corrupting post content on save (iframes, backslashes) (#83).
