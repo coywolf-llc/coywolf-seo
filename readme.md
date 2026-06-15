@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.75
+- **Version:** 1.0.76
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -154,6 +154,9 @@ Turning a feature off keeps all of its data and just hides it (turning AI off al
 No. Settings, author properties, and redirect rules export as JSON; API keys are never exported.
 
 ## Changelog
+
+### 1.0.76
+- Share a background-job trait between the Enrich and Image Text bulk workers (#77).
 
 ### 1.0.75
 - Share the recursive core/image block walker (ID fixer + propagation) (#76).
