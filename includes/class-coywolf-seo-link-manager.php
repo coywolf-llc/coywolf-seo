@@ -3476,14 +3476,47 @@ final class Coywolf_SEO_Link_Manager {
 				$content = $this->replace_link_url( $post->post_content, $url, $arg, $count, $base );
 			}
 			if ( $count > 0 ) {
-				wp_update_post(
-					array(
-						'ID'           => $pid,
-						'post_content' => $content,
-					),
-					true
-				);
+				$this->lm_save_post_content( $pid, $content );
 			}
+		}
+	}
+
+	/**
+	 * Save edited post content from a Link Manager mutation, preserving markup
+	 * the edit never touched.
+	 *
+	 * Two reasons this can't be a bare wp_update_post():
+	 *
+	 * 1. kses. wp_update_post() runs the whole post through kses on save when
+	 *    the acting user lacks the `unfiltered_html` capability — any
+	 *    Editor/Author on single-site, any non-super-admin on multisite. kses
+	 *    would delete tags off the post allow-list (e.g. an <iframe> in a
+	 *    Custom HTML block, taking its wp:html wrapper with it) and normalize
+	 *    inline styles, corrupting content the link edit didn't change. A link
+	 *    edit only rewrites anchors the plugin builds over the post's already-
+	 *    trusted stored markup, so suspend kses for the save and restore it.
+	 *
+	 * 2. Slashing. wp_insert_post() wp_unslash()es its input, so content must
+	 *    be passed slashed; otherwise a literal backslash in the post (a path,
+	 *    a regex in a code block) loses a slash on every save.
+	 *
+	 * @param int    $pid     Post ID.
+	 * @param string $content New post content (unslashed).
+	 */
+	private function lm_save_post_content( $pid, $content ) {
+		$kses_active = false !== has_filter( 'content_save_pre', 'wp_filter_post_kses' );
+		if ( $kses_active ) {
+			kses_remove_filters();
+		}
+		wp_update_post(
+			array(
+				'ID'           => (int) $pid,
+				'post_content' => wp_slash( $content ),
+			),
+			true
+		);
+		if ( $kses_active ) {
+			kses_init_filters();
 		}
 	}
 
@@ -3729,13 +3762,7 @@ final class Coywolf_SEO_Link_Manager {
 
 			list( $content, $stats ) = $this->lm_apply_link_edit( $post->post_content, $old_url, $spec, $this->lm_post_base( $pid ) );
 			if ( $stats['changed'] > 0 || $stats['removed'] > 0 ) {
-				wp_update_post(
-					array(
-						'ID'           => $pid,
-						'post_content' => $content,
-					),
-					true
-				);
+				$this->lm_save_post_content( $pid, $content );
 			}
 		}
 
