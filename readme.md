@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.86
+- **Version:** 1.0.87
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -223,6 +223,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 ![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
 
 ## Changelog
+
+### 1.0.87
+- Document the Google REP matcher as a Robots.txt Manager feature (#88).
 
 ### 1.0.86
 - Harden the Robots.txt rule checker with Google's REP matcher (ported to PHP) (#87).
