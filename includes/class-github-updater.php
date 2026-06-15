@@ -26,6 +26,20 @@ final class Coywolf_SEO_GitHub_Updater {
 	const CACHE_HOURS   = 6;
 
 	/**
+	 * WP-Cron hook that refreshes the cached release off the request path.
+	 * Per-plugin unique so each Coywolf plugin schedules its own refresh.
+	 */
+	const CRON_HOOK = 'coywolf_seo_refresh_release';
+
+	/**
+	 * Timeout (seconds) for the GitHub HTTP calls. Kept short: the refresh
+	 * now runs in a background WP-Cron tick, but a tight cap also bounds the
+	 * user-initiated "View details" fetch and protects hosts that happen to
+	 * run cron inline with the page request.
+	 */
+	const HTTP_TIMEOUT = 3;
+
+	/**
 	 * Plugin file relative to wp-content/plugins, e.g.
 	 * "coywolf-broken-link-checker/coywolf-broken-link-checker.php".
 	 *
@@ -71,6 +85,7 @@ final class Coywolf_SEO_GitHub_Updater {
 		add_filter( 'upgrader_pre_download', array( $this, 'guard_pre_download' ), 10, 4 );
 		add_action( 'upgrader_process_complete', array( $this, 'flush_after_update' ), 10, 2 );
 		add_action( 'admin_notices', array( $this, 'maybe_show_update_error' ) );
+		add_action( self::CRON_HOOK, array( $this, 'refresh_release_cache' ) );
 	}
 
 	/**
@@ -302,8 +317,17 @@ final class Coywolf_SEO_GitHub_Updater {
 			$transient = new stdClass();
 		}
 
-		$release = $this->get_latest_release();
-		if ( ! $release ) {
+		// Keep the GitHub request OFF the page-render path. This filter runs
+		// during wp_update_plugins() — including the synchronous force-check
+		// that the "Reset Updates" button triggers — so a blocking fetch here
+		// makes WordPress hang on api.github.com while the user waits (and,
+		// with several self-updating plugins active, hang once per plugin).
+		// Instead: serve the cached release if warm; otherwise schedule a
+		// one-off background refresh and inject nothing this round. The newer
+		// version surfaces on a later load, once the cache is populated.
+		$release = $this->get_cached_release();
+		if ( ! is_array( $release ) ) {
+			$this->maybe_schedule_refresh();
 			return $transient;
 		}
 
@@ -376,9 +400,28 @@ final class Coywolf_SEO_GitHub_Updater {
 			return $result;
 		}
 
-		$release = $this->get_latest_release();
-		if ( ! $release ) {
+		// Prefer the warm cache. "View details" is a deliberate, user-initiated
+		// click, so a bounded synchronous fetch here is fine — this is the one
+		// place we'll touch the network on a real request (never on an ordinary
+		// page render).
+		$release = $this->get_cached_release();
+		if ( ! is_array( $release ) ) {
+			$release = $this->fetch_release_now();
+		}
+		if ( ! is_array( $release ) ) {
 			return $result;
+		}
+
+		// The Atom feed carries no release body, so when the cached release
+		// came from it the changelog is empty. Fetch the body from the REST API
+		// just for this modal (still bounded, still user-initiated).
+		$body = isset( $release['body'] ) ? (string) $release['body'] : '';
+		if ( '' === $body ) {
+			$reason = '';
+			$rest   = $this->fetch_via_api( $reason );
+			if ( is_array( $rest ) && ! empty( $rest['body'] ) ) {
+				$body = (string) $rest['body'];
+			}
 		}
 
 		$info                = new stdClass();
@@ -391,7 +434,7 @@ final class Coywolf_SEO_GitHub_Updater {
 		$info->last_updated  = isset( $release['published_at'] ) ? $release['published_at'] : '';
 		$info->sections      = array(
 			'description' => 'An SEO plugin that has exactly what you need, and nothing more.',
-			'changelog'   => $this->render_changelog( isset( $release['body'] ) ? $release['body'] : '' ),
+			'changelog'   => $this->render_changelog( $body ),
 		);
 		$info->icons         = $this->icon_urls();
 		return $info;
@@ -510,40 +553,83 @@ final class Coywolf_SEO_GitHub_Updater {
 	}
 
 	/**
-	 * Read the cached latest-release data, or fetch it from the GitHub API
-	 * if the cache is empty.
+	 * Return the cached release WITHOUT ever touching the network. This is the
+	 * only release accessor used on the normal request path — see
+	 * {@see inject_update()} for why the GitHub fetch is kept off it.
 	 *
-	 * @return array|null Decoded release object, or null on failure.
+	 * @return array|null Shaped release array, or null when the cache is cold.
 	 */
-	private function get_latest_release() {
+	private function get_cached_release() {
 		$cached = get_site_transient( self::TRANSIENT_KEY );
+		return is_array( $cached ) ? $cached : null;
+	}
+
+	/**
+	 * Schedule a one-off background refresh of the release cache so the actual
+	 * GitHub request runs in a WP-Cron tick instead of blocking the page the
+	 * visitor is waiting on. No-op when a refresh is already queued or a recent
+	 * fetch failed (the negative cache is still warm), so a cold cache can't
+	 * stack up duplicate jobs or hammer a rate-limited API.
+	 */
+	private function maybe_schedule_refresh() {
+		if ( false !== get_site_transient( self::TRANSIENT_KEY . '_neg' ) ) {
+			return;
+		}
+		if ( wp_next_scheduled( self::CRON_HOOK ) ) {
+			return;
+		}
+		wp_schedule_single_event( time() + 1, self::CRON_HOOK );
+	}
+
+	/**
+	 * WP-Cron callback: fetch the latest release off the request path and, on
+	 * success, drop the `update_plugins` transient so the next admin page load
+	 * re-runs the update check with a warm cache and {@see inject_update()} can
+	 * actually inject the release. (While the cache was cold, inject_update
+	 * stored update_plugins without our entry; deleting it forces the re-check.)
+	 */
+	public function refresh_release_cache() {
+		if ( is_array( $this->get_cached_release() ) ) {
+			return;
+		}
+		if ( is_array( $this->fetch_release_now() ) ) {
+			delete_site_transient( 'update_plugins' );
+		}
+	}
+
+	/**
+	 * Fetch the latest release synchronously, honouring the cache and negative
+	 * cache. Tries the fast, rate-limit-free GitHub releases Atom feed FIRST
+	 * (it's all that's needed to detect a newer version), and only falls back
+	 * to the REST API — capped at 60 unauthenticated requests/hour per IP
+	 * (shared on managed hosts) and prone to multi-second responses — when the
+	 * feed is unavailable.
+	 *
+	 * Called only off the request path (WP-Cron) or on a deliberate user action
+	 * ("View details"), never on an ordinary page render.
+	 *
+	 * @return array|null Shaped release array, or null on failure.
+	 */
+	private function fetch_release_now() {
+		$cached = $this->get_cached_release();
 		if ( is_array( $cached ) ) {
 			return $cached;
 		}
-
-		// Honour the negative cache: if a recent fetch failed, don't re-hit
-		// GitHub on every admin pageload for the next 15 minutes.
 		if ( false !== get_site_transient( self::TRANSIENT_KEY . '_neg' ) ) {
 			return null;
 		}
 
-		// Prefer the REST API — it carries the real asset URLs and the release
-		// body (used for the changelog). If it fails, the most common cause is
-		// api.github.com rate-limiting the host's shared IP (60 requests/hour,
-		// unauthenticated), so fall back to the releases Atom feed on
-		// github.com, which is not subject to that limit and is enough to
-		// detect the latest version and build the download URL.
-		$reason_api  = '';
 		$reason_atom = '';
-		$release     = $this->fetch_via_api( $reason_api );
+		$reason_api  = '';
+		$release     = $this->fetch_via_atom( $reason_atom );
 		if ( ! is_array( $release ) ) {
-			$release = $this->fetch_via_atom( $reason_atom );
+			$release = $this->fetch_via_api( $reason_api );
 		}
 
 		if ( ! is_array( $release ) ) {
-			$reason = $reason_api;
-			if ( '' !== $reason_atom ) {
-				$reason = ( '' !== $reason ) ? $reason . '; ' . $reason_atom : $reason_atom;
+			$reason = $reason_atom;
+			if ( '' !== $reason_api ) {
+				$reason = ( '' !== $reason ) ? $reason . '; ' . $reason_api : $reason_api;
 			}
 			if ( '' === $reason ) {
 				$reason = 'unknown error';
@@ -574,7 +660,7 @@ final class Coywolf_SEO_GitHub_Updater {
 		$res    = wp_remote_get(
 			$url,
 			array(
-				'timeout' => 10,
+				'timeout' => self::HTTP_TIMEOUT,
 				'headers' => array(
 					'Accept'     => 'application/vnd.github+json',
 					'User-Agent' => 'WordPress/' . get_bloginfo( 'version' ) . '; ' . home_url(),
@@ -611,9 +697,13 @@ final class Coywolf_SEO_GitHub_Updater {
 	/**
 	 * Fetch the latest release from the GitHub releases Atom feed
 	 * (github.com/<repo>/releases.atom), which is not subject to the REST API
-	 * rate limit. The feed has no asset URLs, so the package URL is built from
-	 * the release workflow's known "<slug>.zip" asset naming, with the
-	 * codeload zipball as a fallback (handled by fix_source_dirname()).
+	 * rate limit and is now the primary source for the version check. The feed
+	 * has no asset URLs, so the package URL is reconstructed from the release
+	 * workflow's "<build-slug>.zip" naming — where the build slug is the main
+	 * plugin file's basename (e.g. coywolf-reset-plugin-update), NOT the
+	 * installed folder slug, which can differ. The codeload zipball is kept on
+	 * the release as a fallback (resolved by pick_package_url() /
+	 * fix_source_dirname()).
 	 *
 	 * @param string $reason Out-param: failure reason ('' on success).
 	 * @return array|null Shaped release array, or null on failure.
@@ -624,7 +714,7 @@ final class Coywolf_SEO_GitHub_Updater {
 		$res    = wp_remote_get(
 			$url,
 			array(
-				'timeout' => 10,
+				'timeout' => self::HTTP_TIMEOUT,
 				'headers' => array(
 					'Accept'     => 'application/atom+xml',
 					'User-Agent' => 'WordPress/' . get_bloginfo( 'version' ) . '; ' . home_url(),
@@ -668,10 +758,14 @@ final class Coywolf_SEO_GitHub_Updater {
 		}
 		$updated = preg_match( '#<updated>(.*?)</updated>#s', $entry, $up ) ? $up[1] : '';
 
-		$asset = array(
+		// The release zip is named after the build slug (the main plugin file's
+		// basename), which the workflow uses and which may differ from the
+		// installed folder slug.
+		$build_slug = basename( $this->plugin_basename, '.php' );
+		$asset      = array(
 			array(
-				'name'                 => $this->plugin_slug . '.zip',
-				'browser_download_url' => 'https://github.com/' . self::REPO . '/releases/download/' . $tag . '/' . $this->plugin_slug . '.zip',
+				'name'                 => $build_slug . '.zip',
+				'browser_download_url' => 'https://github.com/' . self::REPO . '/releases/download/' . $tag . '/' . $build_slug . '.zip',
 				'content_type'         => 'application/zip',
 			),
 		);
