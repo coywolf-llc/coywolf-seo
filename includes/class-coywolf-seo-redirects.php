@@ -98,7 +98,7 @@ final class Coywolf_SEO_Redirects {
 			// v2 removed the 404 log: drop its table and stop its cron.
 			global $wpdb;
 			$log_table = $wpdb->prefix . 'coywolf_seo_404s';
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix; feature removal.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name built from $wpdb->prefix; feature removal.
 			$wpdb->query( "DROP TABLE IF EXISTS `{$log_table}`" );
 			wp_unschedule_hook( 'coywolf_seo_redirects_prune' );
 		}
@@ -160,8 +160,8 @@ final class Coywolf_SEO_Redirects {
 		}
 		global $wpdb;
 		$deleted_table = self::table( 'deleted' );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- tiny count for the admin menu.
-		return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$deleted_table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix, no user input.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- tiny count for the admin menu.
+		return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$deleted_table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name built from $wpdb->prefix, no user input.
 	}
 
 	/**
@@ -274,7 +274,7 @@ final class Coywolf_SEO_Redirects {
 		global $wpdb;
 		$rules_table = self::table( 'rules' );
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- purpose-built lookup table with its own index.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- purpose-built lookup table with its own index.
 		$candidates = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$rules_table} WHERE enabled = 1 AND is_regex = 0 AND match_path = %s ORDER BY (query_mode = 'exact') DESC, id ASC", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix.
@@ -292,9 +292,9 @@ final class Coywolf_SEO_Redirects {
 			return $rule; // ignore / pass match on path alone.
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- regex rules must be evaluated in PHP.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- regex rules must be evaluated in PHP.
 		$regex_rules = $wpdb->get_results(
-			"SELECT * FROM {$rules_table} WHERE enabled = 1 AND is_regex = 1 ORDER BY id ASC" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix, no user input.
+			"SELECT * FROM {$rules_table} WHERE enabled = 1 AND is_regex = 1 ORDER BY id ASC" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name built from $wpdb->prefix, no user input.
 		);
 		$subject     = $path . ( '' !== $query ? '?' . $query : '' );
 		foreach ( (array) $regex_rules as $rule ) {
@@ -385,7 +385,7 @@ final class Coywolf_SEO_Redirects {
 	private function record_hit( $rule_id ) {
 		global $wpdb;
 		$rules_table = self::table( 'rules' );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- atomic counter update.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- atomic counter update.
 		$wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$rules_table} SET hits = hits + 1, last_hit = %s WHERE id = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix.
@@ -419,7 +419,7 @@ final class Coywolf_SEO_Redirects {
 
 		global $wpdb;
 		$deleted_table = self::table( 'deleted' );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- purpose-built table, deduped by path.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- purpose-built table, deduped by path.
 		$wpdb->query(
 			$wpdb->prepare(
 				"INSERT INTO {$deleted_table} (post_id, post_title, path, deleted) VALUES (%d, %s, %s, %s) ON DUPLICATE KEY UPDATE post_id = %d, post_title = %s, deleted = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix.
@@ -559,7 +559,7 @@ final class Coywolf_SEO_Redirects {
 
 		$where_sql = implode( ' AND ', $where );
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- purpose-built table; clauses are placeholder-built, table name from $wpdb->prefix.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- purpose-built table; clauses are placeholder-built, table name from $wpdb->prefix.
 		if ( ! empty( $values ) ) {
 			$total = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$rules_table} WHERE {$where_sql}", $values ) );
 			$items = (array) $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$rules_table} WHERE {$where_sql} ORDER BY id DESC LIMIT %d OFFSET %d", array_merge( $values, array( $per_page, $offset ) ) ) );
@@ -567,7 +567,7 @@ final class Coywolf_SEO_Redirects {
 			$total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$rules_table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 			$items = (array) $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$rules_table} ORDER BY id DESC LIMIT %d OFFSET %d", $per_page, $offset ) );
 		}
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
 		return array(
 			'items' => $items,
@@ -583,8 +583,8 @@ final class Coywolf_SEO_Redirects {
 	public function all_rules() {
 		global $wpdb;
 		$rules_table = self::table( 'rules' );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- purpose-built table; admin screen.
-		return (array) $wpdb->get_results( "SELECT * FROM {$rules_table} ORDER BY id DESC" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix, no user input.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- purpose-built table; admin screen.
+		return (array) $wpdb->get_results( "SELECT * FROM {$rules_table} ORDER BY id DESC" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name built from $wpdb->prefix, no user input.
 	}
 
 	/**
@@ -601,7 +601,7 @@ final class Coywolf_SEO_Redirects {
 		global $wpdb;
 		$deleted_table = self::table( 'deleted' );
 		$placeholders  = implode( ',', array_fill( 0, count( $post_ids ), '%d' ) );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix; placeholders built to count.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- table name from $wpdb->prefix; placeholders built to count.
 		return (array) $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$deleted_table} WHERE post_id IN ({$placeholders}) ORDER BY deleted DESC", $post_ids ) );
 	}
 
@@ -613,8 +613,8 @@ final class Coywolf_SEO_Redirects {
 	public function pending_deletions() {
 		global $wpdb;
 		$deleted_table = self::table( 'deleted' );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- purpose-built table; admin screen.
-		return (array) $wpdb->get_results( "SELECT * FROM {$deleted_table} ORDER BY deleted DESC" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix, no user input.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- purpose-built table; admin screen.
+		return (array) $wpdb->get_results( "SELECT * FROM {$deleted_table} ORDER BY deleted DESC" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name built from $wpdb->prefix, no user input.
 	}
 
 

@@ -53,14 +53,14 @@ wp_unschedule_hook( 'coywolf_seo_image_text_bulk' );
 delete_option( 'coywolf_seo_image_id_fix' );
 foreach ( array( 'coywolf_seo_redirects', 'coywolf_seo_404s', 'coywolf_seo_deleted' ) as $coywolf_seo_redirect_table ) {
 	$coywolf_seo_table_name = $wpdb->prefix . $coywolf_seo_redirect_table;
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix and a literal; %i needs WP 6.2+.
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name built from $wpdb->prefix and a literal; %i needs WP 6.2+.
 	$wpdb->query( "DROP TABLE IF EXISTS `{$coywolf_seo_table_name}`" );
 }
 
 // Link Manager tables, options, and the background re-check cron.
 foreach ( array( 'coywolf_seo_lm_links', 'coywolf_seo_lm_occurrences' ) as $coywolf_seo_lm_table ) {
 	$coywolf_seo_table_name = $wpdb->prefix . $coywolf_seo_lm_table;
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix and a literal; %i needs WP 6.2+.
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name built from $wpdb->prefix and a literal; %i needs WP 6.2+.
 	$wpdb->query( "DROP TABLE IF EXISTS `{$coywolf_seo_table_name}`" );
 }
 delete_option( 'coywolf_seo_lm_state' );

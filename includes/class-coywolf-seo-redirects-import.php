@@ -81,7 +81,7 @@ final class Coywolf_SEO_Redirects_Import {
 		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
 			return 0;
 		}
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix and a literal.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix and a literal.
 		return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE match_type = 'url' AND ( action_type = 'url' OR ( action_type = 'error' AND action_code = 410 ) )" );
 	}
 
@@ -166,7 +166,7 @@ final class Coywolf_SEO_Redirects_Import {
 			);
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix and a literal.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix and a literal.
 		$rows = (array) $wpdb->get_results( "SELECT url, regex, action_type, action_code, action_data, status, title, match_data FROM {$table} WHERE match_type = 'url' ORDER BY id ASC" );
 
 		$imported = 0;

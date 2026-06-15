@@ -460,7 +460,7 @@ final class Coywolf_SEO {
 		if ( function_exists( 'wp_cache_clear_cache' ) ) {
 			wp_cache_clear_cache(); // WP Super Cache.
 		}
-		do_action( 'litespeed_purge_all' ); // LiteSpeed Cache (no-op without it).
+		do_action( 'litespeed_purge_all' ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- firing LiteSpeed Cache's own purge hook (no-op without it).
 		if ( function_exists( 'sg_cachepress_purge_cache' ) ) {
 			sg_cachepress_purge_cache(); // SiteGround Optimizer.
 		}
