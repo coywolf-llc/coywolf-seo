@@ -58,7 +58,7 @@ Updates are delivered straight from the project's GitHub releases via the bundle
 
 ## Privacy
 
-Privacy-first: this plugin includes no analytics, no tracking, and no data gathering — nothing about you, your site, or your visitors is ever collected. Outbound connections happen only for features you turn on, and each is detailed under **External services** below: with IndexNow enabled, the changed URL is sent to Microsoft Bing's IndexNow endpoint on publish, update, and delete; with AI enrichment or Image Text enabled, the post title and content — and, for Image Text, the image itself — are sent to the AI service you choose (Anthropic, OpenAI, or Google Gemini) using your own API key, and extracted entity names are looked up on Wikidata's public API. Nothing else, nowhere else.
+Privacy-first: this plugin includes no analytics, no tracking, and no data gathering — nothing about you, your site, or your visitors is ever collected. Outbound connections happen only for features you turn on, and each is detailed under **External services** below: with IndexNow enabled, the changed URL is sent to Microsoft Bing's IndexNow endpoint on publish, update, and delete; with AI enrichment or Image Text enabled, the post title and content — and, for Image Text, the image itself — are sent to the AI service you choose (Anthropic, OpenAI, or Google Gemini) using your own API key, and extracted entity names are looked up on Wikidata's public API; and with the Link Manager enabled, the plugin requests the URLs you have linked to in your own content to check whether they still work. Nothing else, nowhere else.
 
 ## External services
 
@@ -85,6 +85,10 @@ Used by **AI Schema enrichment** to ground entities to real identifiers. The ent
 ### IndexNow (Microsoft Bing)
 
 Used by the **IndexNow** feature. When enabled, the URL of a post or page you publish, update, or delete — together with the auto-generated site key — is submitted to Bing's IndexNow endpoint (`https://www.bing.com/indexnow`) so search engines can recrawl it promptly. No personal data is sent. [About IndexNow](https://www.indexnow.org/) · [Microsoft Privacy Statement](https://privacy.microsoft.com/privacystatement)
+
+### Link checking (the sites you link to)
+
+Not a third-party service, noted here for transparency: when the Link Manager is enabled, it sends HTTP HEAD (and, if needed, GET) requests to the URLs you have linked to in your posts and pages to record each link's HTTP status. Those requests go to the sites you chose to link to — never to Coywolf or any other service — and carry only an ordinary request with a plugin User-Agent; no information about your site or your visitors is transmitted.
 
 ## Frequently Asked Questions
 
