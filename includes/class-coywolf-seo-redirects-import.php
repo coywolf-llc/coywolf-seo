@@ -57,6 +57,7 @@ final class Coywolf_SEO_Redirects_Import {
 		add_action( 'admin_post_coywolf_seo_import_redirects', array( $this, 'handle_import' ) );
 		add_action( 'admin_post_coywolf_seo_dismiss_import', array( $this, 'handle_dismiss' ) );
 		add_action( 'admin_notices', array( $this, 'maybe_show_banner' ) );
+		add_action( 'admin_notices', array( $this, 'maybe_show_takeover_notice' ) );
 	}
 
 	/**
@@ -319,6 +320,32 @@ final class Coywolf_SEO_Redirects_Import {
 		}
 		$normalized = Coywolf_SEO_Redirects::normalize( $source );
 		return 'p:' . $normalized['path'] . ( '' !== $normalized['query'] ? '?' . $normalized['query'] : '' );
+	}
+
+	/**
+	 * On this plugin's own screens, tell the user that Coywolf SEO has taken
+	 * over redirect handling from the Redirection plugin — the redirect-side
+	 * counterpart to Coywolf_SEO_Compat's SEO-output takeover notice. Shown
+	 * only while Coywolf SEO is actually handling redirects (its Redirects
+	 * feature is on) and the Redirection plugin is active, and only on this
+	 * plugin's screens — no site-wide nagging. The matching suppression filter
+	 * lives in Coywolf_SEO_Redirects::init().
+	 */
+	public function maybe_show_takeover_notice() {
+		if ( ! current_user_can( Coywolf_SEO_Admin::CAPABILITY ) ) {
+			return;
+		}
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen || false === strpos( (string) $screen->id, 'coywolf-seo' ) ) {
+			return;
+		}
+		if ( ! Coywolf_SEO_Options::feature_enabled( 'redirects' ) || ! $this->redirection_active() ) {
+			return;
+		}
+
+		echo '<div class="notice notice-info"><p>';
+		esc_html_e( "Coywolf SEO is now handling your redirects. While its Redirects feature is on, the Redirection plugin's URL redirects are switched off so they don't conflict with yours. Import your Redirection rules, then deactivate Redirection for a full hand-over; its 404/410, random, and site-wide (HTTPS/www) redirects keep running until you do.", 'coywolf-seo' );
+		echo '</p></div>';
 	}
 
 	/**

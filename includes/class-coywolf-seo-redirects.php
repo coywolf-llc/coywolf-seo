@@ -69,6 +69,27 @@ final class Coywolf_SEO_Redirects {
 		add_action( 'before_delete_post', array( $this, 'capture_removed_post' ) );
 		add_action( 'untrashed_post', array( $this, 'forget_removed_post' ) );
 
+		// While Coywolf SEO owns redirects (this init() runs only when the
+		// Redirects feature is on), switch off the Redirection plugin's URL
+		// redirects so the two never fight over the same URL. Redirection
+		// matches and redirects on the `init` action (priority 10); our own
+		// matcher runs later on template_redirect, so without this Redirection
+		// would win every overlapping rule. We use its own documented
+		// `redirection_url_target` filter: returning false makes
+		// Red_Item::get_match() hit its `if ( ! $target_url ) return false;`
+		// guard and treat every target-based (URL / pass-through) rule as a
+		// non-match, so it performs no redirect and the request falls through to
+		// our handler. We register at max priority so our false is the final
+		// value even though Redirection adds its own callback (transform_url) on
+		// the same filter, so neither callback order nor plugin-load order can
+		// matter. Scope note: only URL / pass-through rules consult this filter;
+		// Redirection's 404/410, random, and site-wide (HTTPS/www) redirects do
+		// not, so they keep running until Redirection is deactivated (the admin
+		// notice nudges the user to import and deactivate for a full hand-over).
+		// Its separate 404-logging path (the redirection_log_404 filter) is left
+		// untouched — Coywolf SEO doesn't replace 404 monitoring — and the
+		// filter is a harmless no-op when Redirection isn't installed.
+		add_filter( 'redirection_url_target', '__return_false', PHP_INT_MAX );
 	}
 
 	/**
