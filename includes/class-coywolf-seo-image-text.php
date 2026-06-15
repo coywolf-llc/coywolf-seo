@@ -974,6 +974,19 @@ final class Coywolf_SEO_Image_Text {
 			// an editorial change, so don't let it re-queue AI entity/description
 			// analysis for the post.
 			Coywolf_SEO_AI::suspend_queueing();
+			// The only change in $new_content is esc_attr()'d alt / esc_html()'d
+			// caption on the matched Image blocks; everything else is the post's
+			// stored markup verbatim (parse_blocks()/serialize_blocks() round-trips
+			// losslessly). The bulk worker runs on WP-Cron, where no user holds the
+			// `unfiltered_html` capability, so wp_update_post() would otherwise run
+			// the whole post through kses and delete author markup it never touched
+			// here — e.g. an <iframe> in a Custom HTML block, whose tag isn't on the
+			// post allow-list, taking the surrounding wp:html block with it. Suspend
+			// kses for this trusted, surgical update, then restore its prior state.
+			$kses_active = false !== has_filter( 'content_save_pre', 'wp_filter_post_kses' );
+			if ( $kses_active ) {
+				kses_remove_filters();
+			}
 			$res = wp_update_post(
 				array(
 					'ID'           => (int) $row->ID,
@@ -981,6 +994,9 @@ final class Coywolf_SEO_Image_Text {
 				),
 				true
 			);
+			if ( $kses_active ) {
+				kses_init_filters();
+			}
 			Coywolf_SEO_AI::resume_queueing();
 			if ( ! is_wp_error( $res ) ) {
 				++$updated;
