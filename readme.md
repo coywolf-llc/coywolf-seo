@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.79
+- **Version:** 1.0.80
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -188,6 +188,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 ![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
 
 ## Changelog
+
+### 1.0.80
+- Detect and take over the Redirection plugin's URL redirects (#81).
 
 ### 1.0.79
 - Updater: run GitHub release checks in the background so the Updates screen never hangs (#80).
