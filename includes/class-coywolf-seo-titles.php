@@ -118,10 +118,11 @@ final class Coywolf_SEO_Titles {
 	/**
 	 * Register the force-rewrite title filter when enabled.
 	 *
-	 * Uses WordPress 7.0's template enhancement output buffer rather than a raw
-	 * ob_start(): core owns the buffer's lifecycle (it only opens one because we
-	 * add the filter, and it always closes it), so there's no open buffer left
-	 * for other components to misalign with.
+	 * Uses WordPress 7.0's template enhancement output buffer (the
+	 * wp_template_enhancement_output_buffer filter) instead of opening our own
+	 * output buffer: core owns the buffer's lifecycle — it only starts one
+	 * because we add the filter, and it always closes it — so no open buffer is
+	 * ever left for other components to misalign with.
 	 */
 	public function maybe_buffer() {
 		if ( ! Coywolf_SEO_Options::get( 'force_rewrite_titles' ) ) {
