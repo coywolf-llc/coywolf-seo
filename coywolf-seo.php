@@ -47,6 +47,7 @@ define( 'COYWOLF_SEO_GITHUB_BUILD', true );
 require_once __DIR__ . '/includes/class-coywolf-seo-options.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-markdown.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-block-walker.php';
+require_once __DIR__ . '/includes/trait-coywolf-seo-bulk-job.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-admin.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-authors.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-terms.php';

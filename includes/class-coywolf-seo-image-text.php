@@ -25,6 +25,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class Coywolf_SEO_Image_Text {
 
+	use Coywolf_SEO_Bulk_Job;
+
 	const SLUG = 'coywolf-seo-image-text';
 
 	const BATCH_OPTION = 'coywolf_seo_image_text_batch';
@@ -151,39 +153,34 @@ final class Coywolf_SEO_Image_Text {
 	}
 
 	/**
-	 * Re-read run state bypassing the options cache, so a write decision sees a
-	 * Stop/Cancel (or a fresh restart) made by a concurrent request rather than
-	 * this process's stale in-memory copy.
+	 * Run-state lifecycle + scheduling come from Coywolf_SEO_Bulk_Job; supply
+	 * this worker's option, cron hook, and advisory-lock names, and opt into the
+	 * per-run-token (run_id) write guard so a fresh Start can't be clobbered.
 	 *
-	 * @return array
+	 * @return string
 	 */
-	private function bulk_state_fresh() {
-		wp_cache_delete( self::BATCH_OPTION, 'options' );
-		return $this->get_batch();
+	protected function bulk_job_option() {
+		return self::BATCH_OPTION;
 	}
 
 	/**
-	 * Persist progress ONLY while the run we are advancing is still the live
-	 * running run. If a concurrent request cancelled it (Stop) or replaced it
-	 * (a fresh Start), drop the write so the worker can't clobber that change
-	 * back to 'running' and resurrect a stopped run (which would keep spending
-	 * on the AI service). Mirrors the Enrich worker's bulk_persist().
-	 *
-	 * @param array $state Working state to write.
-	 * @return bool True if written; false if the run was cancelled/replaced.
+	 * @return string
 	 */
-	private function bulk_persist( array $state ) {
-		$fresh = $this->bulk_state_fresh();
-		if ( empty( $fresh['status'] ) || 'running' !== $fresh['status'] ) {
-			return false;
-		}
-		// A fresh Start seeds a new run_id. If it changed under us, this advancer
-		// belongs to a run that has since been replaced — drop its now-stale write
-		// so it can't corrupt the new run's cursor, counters, or field list.
-		if ( (string) ( $fresh['run_id'] ?? '' ) !== (string) ( $state['run_id'] ?? '' ) ) {
-			return false;
-		}
-		update_option( self::BATCH_OPTION, $state, false );
+	protected function bulk_job_hook() {
+		return self::BULK_HOOK;
+	}
+
+	/**
+	 * @return string
+	 */
+	protected function bulk_job_lock() {
+		return 'coywolf_seo_image_text_' . get_current_blog_id();
+	}
+
+	/**
+	 * @return bool
+	 */
+	protected function bulk_job_match_run_id() {
 		return true;
 	}
 
@@ -301,10 +298,7 @@ final class Coywolf_SEO_Image_Text {
 	 * started or resumed run begins without waiting for a natural cron tick.
 	 */
 	private function kick_worker() {
-		if ( ! wp_next_scheduled( self::BULK_HOOK ) ) {
-			wp_schedule_single_event( time(), self::BULK_HOOK );
-		}
-		spawn_cron();
+		$this->bulk_kick();
 	}
 
 	/**
@@ -348,33 +342,23 @@ final class Coywolf_SEO_Image_Text {
 	 */
 	public function bulk_worker() {
 		$this->advance_bulk();
-		$state = $this->get_batch();
-		if ( ! empty( $state['status'] ) && 'running' === $state['status'] && ! wp_next_scheduled( self::BULK_HOOK ) ) {
-			wp_schedule_single_event( time() + $this->worker_delay( $state ), self::BULK_HOOK );
-		}
+		$this->bulk_keep_alive( $this->worker_delay( $this->get_batch() ) );
 	}
 
 	/**
-	 * Advance the run by one {@see step_batch()} step under a non-blocking named
+	 * Advance the run by one {@see step_batch()} step under the job's advisory
 	 * lock, so a cron tick and a status-poll self-heal can't process the same
-	 * chunk twice. On MySQL an explicit 0 means another process holds the lock;
-	 * other backends return non-0 and proceed (matching the Enrich worker).
+	 * chunk twice.
 	 */
 	private function advance_bulk() {
-		global $wpdb;
-		$lock = 'coywolf_seo_image_text_' . get_current_blog_id();
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- non-blocking named lock; one advancer at a time.
-		if ( '0' === (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 0)', $lock ) ) ) {
-			return;
-		}
-
-		$state = $this->get_batch();
-		if ( ! empty( $state['status'] ) && 'running' === $state['status'] ) {
-			$this->step_batch();
-		}
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- releases the named lock above.
-		$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
+		$this->bulk_with_lock(
+			function () {
+				$state = $this->get_batch();
+				if ( ! empty( $state['status'] ) && 'running' === $state['status'] ) {
+					$this->step_batch();
+				}
+			}
+		);
 	}
 
 	/**
@@ -1185,7 +1169,7 @@ final class Coywolf_SEO_Image_Text {
 			$state['status'] = 'cancelled';
 			update_option( self::BATCH_OPTION, $state, false );
 		}
-		wp_unschedule_hook( self::BULK_HOOK );
+		$this->bulk_unschedule();
 		return $state;
 	}
 
@@ -1675,7 +1659,7 @@ final class Coywolf_SEO_Image_Text {
 				$acked = $this->get_batch();
 				if ( isset( $acked['status'] ) && in_array( $acked['status'], array( 'done', 'cancelled' ), true ) ) {
 					delete_option( self::BATCH_OPTION );
-					wp_unschedule_hook( self::BULK_HOOK );
+					$this->bulk_unschedule();
 				}
 				$state = $this->get_batch();
 				break;
