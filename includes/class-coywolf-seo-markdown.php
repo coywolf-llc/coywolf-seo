@@ -157,7 +157,11 @@ final class Coywolf_SEO_Markdown {
 		$text = preg_replace_callback(
 			'/!\[([^\]]*)\]\(([^)\s]+)\)/',
 			static function ( $m ) {
-				return '<img class="coywolf-seo-doc-image" src="' . esc_url( self::image_src( $m[2] ) ) . '" alt="' . $m[1] . '" />';
+				$src = self::image_src( $m[2] );
+				if ( '' === $src ) {
+					return ''; // Image isn't bundled in this build — omit it rather than emit a broken <img>.
+				}
+				return '<img class="coywolf-seo-doc-image" src="' . esc_url( $src ) . '" alt="' . $m[1] . '" />';
 			},
 			$text
 		);
@@ -179,14 +183,14 @@ final class Coywolf_SEO_Markdown {
 	 *
 	 * Absolute URLs pass through. Repo-relative paths (the readme's
 	 * `.wordpress-org/screenshot-*.png` references) resolve to the
-	 * installed plugin copy when the file shipped in the zip; otherwise
-	 * they fall back to the file on GitHub so the Documentation page
-	 * still shows its screenshots on builds that exclude the asset
-	 * directory (e.g. the WordPress.org variant, whose screenshots live
-	 * in SVN's separate assets tree rather than the plugin folder).
+	 * installed plugin copy when the file shipped in the zip. When the file
+	 * isn't bundled in this build — e.g. the WordPress.org variant, whose
+	 * screenshots live in SVN's separate assets tree rather than the plugin
+	 * folder — this returns an empty string and the image is omitted; the
+	 * file is never fetched from a remote host.
 	 *
 	 * @param string $path Image path as written in the Markdown.
-	 * @return string URL.
+	 * @return string URL, or '' when the image isn't available locally.
 	 */
 	private static function image_src( $path ) {
 		if ( preg_match( '#^https?://#i', $path ) ) {
@@ -197,6 +201,6 @@ final class Coywolf_SEO_Markdown {
 		if ( file_exists( $root . '/' . $path ) ) {
 			return plugins_url( $path, $root . '/coywolf-seo.php' );
 		}
-		return 'https://raw.githubusercontent.com/coywolf-llc/coywolf-seo/main/' . $path;
+		return '';
 	}
 }
