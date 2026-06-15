@@ -153,6 +153,40 @@ Turning a feature off keeps all of its data and just hides it (turning AI off al
 
 No. Settings, author properties, and redirect rules export as JSON; API keys are never exported.
 
+## Screenshots
+
+**Site Details** — The Site Details screen, where the site name, tagline, default Open Graph image, and Organization-or-Person setting (used as the publisher in schema markup) are configured.
+
+![Coywolf SEO — Site Details screen](.wordpress-org/screenshot-1.png)
+
+**Authors** — The Authors screen, showing the Schema.org Person properties (@id, name, url, description, image) used for the author in Article schema markup, with controls to add, edit, or remove each property.
+
+![Coywolf SEO — Authors screen](.wordpress-org/screenshot-2.png)
+
+**Image Text** — The Image Text screen, with a Library status panel reporting the total image count and the number missing alt text, titles, captions, and descriptions, plus bulk options for AI-written, WCAG-aligned image text.
+
+![Coywolf SEO — Image Text screen](.wordpress-org/screenshot-3.png)
+
+**Link Manager** — The Link Manager's All Links view, listing every internal and external link with its response code, type, and the number of posts and pages where it appears.
+
+![Coywolf SEO — Link Manager, All Links view](.wordpress-org/screenshot-4.png)
+
+**Redirects** — The Redirects screen, with the Add a redirect form, a URL tester, and a table of existing redirect rules showing source, target, type, hits, and last-hit date.
+
+![Coywolf SEO — Redirects screen](.wordpress-org/screenshot-5.png)
+
+**Robots.txt Rules** — The Robots.txt Rules screen in Virtual mode, listing each rule with its description, the robots it applies to, and the resulting allow or disallow directive.
+
+![Coywolf SEO — Robots.txt Rules screen](.wordpress-org/screenshot-6.png)
+
+**Settings** — The Settings screen, with an in-page table of contents and the General settings section covering access rights, force-rewrite-titles, meta description, and robots indexing options.
+
+![Coywolf SEO — Settings screen](.wordpress-org/screenshot-7.png)
+
+**Import/Export** — The Import/Export screen, with controls to export and import plugin settings and author properties as JSON, and a separate section for exporting and importing Robots.txt rules.
+
+![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
+
 ## Changelog
 
 ### 1.0.77
