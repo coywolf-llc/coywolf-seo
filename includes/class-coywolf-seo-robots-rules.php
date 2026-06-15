@@ -321,13 +321,16 @@ final class Coywolf_SEO_Robots_Rules {
 	 * Detect when a (new or edited) rule is already covered by a broader
 	 * existing rule for the same user-agent, so saving it would change nothing.
 	 *
-	 * Robots.txt Disallow matching is prefix-based — "Disallow: /" blocks
-	 * "/blahr/", so a narrower "Disallow: /blahr/" for the same agent is
-	 * redundant and is refused. To stay free of false positives this only
-	 * compares plain literal paths (no "*" or "$" wildcards), skips a rule that
-	 * also emits an Allow (an exception rule is meaningful on its own), and
-	 * ignores a covering block when a more-specific Allow carves the path back
-	 * out. Exact duplicates and Allow/Disallow contradictions are handled by
+	 * Robots.txt Disallow matching is prefix/wildcard-based — "Disallow: /"
+	 * blocks "/blahr/", so a narrower "Disallow: /blahr/" for the same agent is
+	 * redundant and is refused. The new rule's path is required to be a plain
+	 * literal (no "*"/"$"), but the EXISTING covering Disallow may use wildcards
+	 * — the Google REP matcher ({@see Coywolf_SEO_Robots_Matcher}) confirms it
+	 * blocks the whole subtree, so "Disallow: /a/*" correctly covers a later
+	 * "Disallow: /a/b/". To stay free of false positives it skips a rule that
+	 * also emits an Allow (an exception rule is meaningful on its own), and never
+	 * flags a block when a shared-agent Allow would out-rank it on some path it
+	 * covers. Exact duplicates and Allow/Disallow contradictions are handled by
 	 * {@see self::conflicts()}.
 	 *
 	 * @param array $rule     The rule being saved.
@@ -357,13 +360,17 @@ final class Coywolf_SEO_Robots_Rules {
 			if ( '' === $q || ! self::is_literal_path( $q ) ) {
 				continue;
 			}
+			$q_len = strlen( Coywolf_SEO_Robots_Matcher::escape_pattern( $q ) );
 
 			// Among rules that share an agent, find the most-specific existing
-			// Disallow that already covers $q, plus any Allow prefixes of $q.
-			$cover_value    = '';
-			$cover_name     = '';
-			$cover_who      = array();
-			$allow_prefixes = array();
+			// Disallow whose pattern (literal OR wildcard) blocks $q's entire
+			// subtree, and gather the shared Allow directives so we can tell
+			// whether any of them would survive the new block.
+			$cover_value = '';
+			$cover_len   = -1;
+			$cover_name  = '';
+			$cover_who   = array();
+			$allows      = array();
 
 			foreach ( $existing as $ex ) {
 				if ( ! is_array( $ex ) ) {
@@ -378,15 +385,23 @@ final class Coywolf_SEO_Robots_Rules {
 				}
 				foreach ( self::directives( $ex ) as $ed ) {
 					$v = $ed['value'];
-					if ( '' === $v || ! self::is_literal_path( $v ) || ! self::covers( $v, $q ) ) {
+					if ( '' === $v ) {
 						continue;
 					}
-					if ( 'Disallow' === $ed['directive'] && $v !== $q && strlen( $v ) > strlen( $cover_value ) ) {
-						$cover_value = $v;
-						$cover_name  = ( isset( $ex['name'] ) && '' !== $ex['name'] ) ? $ex['name'] : __( 'an existing rule', 'coywolf-seo' );
-						$cover_who   = $shared;
-					} elseif ( 'Allow' === $ed['directive'] ) {
-						$allow_prefixes[] = $v;
+					if ( 'Allow' === $ed['directive'] ) {
+						$allows[] = $v;
+						continue;
+					}
+					// A Disallow that subsumes $q's whole subtree (Google matcher,
+					// so "/a/*" correctly covers a later "/a/b/").
+					if ( $v !== $q && Coywolf_SEO_Robots_Matcher::covers_subtree( $v, $q ) ) {
+						$vlen = strlen( Coywolf_SEO_Robots_Matcher::escape_pattern( $v ) );
+						if ( $vlen > $cover_len ) {
+							$cover_value = $v;
+							$cover_len   = $vlen;
+							$cover_name  = ( isset( $ex['name'] ) && '' !== $ex['name'] ) ? $ex['name'] : __( 'an existing rule', 'coywolf-seo' );
+							$cover_who   = $shared;
+						}
 					}
 				}
 			}
@@ -394,12 +409,26 @@ final class Coywolf_SEO_Robots_Rules {
 			if ( '' === $cover_value ) {
 				continue;
 			}
-			// A more-specific Allow (a longer matching prefix) un-blocks the
-			// path, so the new block still does something — not redundant.
-			foreach ( $allow_prefixes as $a ) {
-				if ( strlen( $a ) > strlen( $cover_value ) ) {
-					continue 2;
+
+			// The new block is redundant only if no shared Allow could win where
+			// it applies. By REP longest-match, an Allow changes the outcome
+			// inside $q's subtree only when it out-ranks the covering Disallow
+			// (longer) yet the new $q out-ranks the Allow (shorter than $q), and
+			// it can actually reach into the subtree (its literal head is
+			// prefix-compatible with $q — a precondition for matching any path
+			// under $q). Any such Allow means the new rule re-blocks a path, so
+			// it is NOT redundant. (Equal-length ties go to Allow either way, so
+			// they change nothing.)
+			$still_acts = false;
+			foreach ( $allows as $a ) {
+				$a_len = strlen( Coywolf_SEO_Robots_Matcher::escape_pattern( $a ) );
+				if ( $a_len > $cover_len && $a_len < $q_len && self::heads_overlap( $a, $q ) ) {
+					$still_acts = true;
+					break;
 				}
+			}
+			if ( $still_acts ) {
+				continue;
 			}
 
 			$msgs[] = sprintf(
@@ -416,15 +445,23 @@ final class Coywolf_SEO_Robots_Rules {
 	}
 
 	/**
-	 * Whether literal robots.txt path $prefix covers $path by prefix match
-	 * (robots.txt Disallow/Allow paths match any URL that starts with them).
+	 * Whether a directive pattern could match somewhere inside literal path
+	 * $q's subtree. A pattern can only match a path P that lies under $q when
+	 * both $q and the pattern's literal head (everything before its first "*"
+	 * or "$") are prefixes of P — i.e. one is a prefix of the other. A pattern
+	 * that begins with a wildcard could match anywhere, so it always overlaps.
 	 *
-	 * @param string $prefix Covering path (literal).
-	 * @param string $path   Candidate path (literal).
+	 * @param string $pattern Directive value (may contain wildcards).
+	 * @param string $q       Literal path.
 	 * @return bool
 	 */
-	private static function covers( $prefix, $path ) {
-		return '' !== $prefix && 0 === strpos( $path, $prefix );
+	private static function heads_overlap( $pattern, $q ) {
+		$head = (string) $pattern;
+		$head = substr( $head, 0, strcspn( $head, '*$' ) );
+		if ( '' === $head ) {
+			return true;
+		}
+		return 0 === strpos( $q, $head ) || 0 === strpos( $head, $q );
 	}
 
 	/**
@@ -1121,8 +1158,11 @@ final class Coywolf_SEO_Robots_Rules {
 				continue;
 			}
 
-			if ( self::path_matches( $value, $path ) ) {
-				$len = strlen( str_replace( array( '*', '$' ), '', $value ) );
+			if ( Coywolf_SEO_Robots_Matcher::matches( $value, $path ) ) {
+				// Longest-match priority is the normalized pattern length, exactly
+				// as Google ranks Allow vs Disallow (full value, wildcards
+				// included); a tie goes to Allow.
+				$len = strlen( Coywolf_SEO_Robots_Matcher::escape_pattern( $value ) );
 				if ( $len > $best['len'] || ( $len === $best['len'] && 'allow' === $effect ) ) {
 					$best = array(
 						'effect'  => $effect,
@@ -1140,30 +1180,21 @@ final class Coywolf_SEO_Robots_Rules {
 	}
 
 	/**
-	 * robots.txt path matching with `*` and `$`.
+	 * robots.txt path matching with `*` and `$`. Delegates to the REP matcher
+	 * ({@see Coywolf_SEO_Robots_Matcher::matches()}) — Google's reference
+	 * algorithm: linear, backtracking-free (ReDoS-safe), with percent-encoding
+	 * normalization. An empty pattern is treated as "matches nothing" here (the
+	 * "empty Disallow = allow all" case is handled by the caller).
 	 *
 	 * @param string $pattern Directive value.
 	 * @param string $path    URL path.
 	 * @return bool
 	 */
 	public static function path_matches( $pattern, $path ) {
-		$pattern = (string) $pattern;
-		if ( '' === $pattern ) {
+		if ( '' === (string) $pattern ) {
 			return false;
 		}
-		$anchored = false;
-		if ( '$' === substr( $pattern, -1 ) ) {
-			$anchored = true;
-			$pattern  = substr( $pattern, 0, -1 );
-		}
-		$regex = '';
-		$len   = strlen( $pattern );
-		for ( $i = 0; $i < $len; $i++ ) {
-			$ch     = $pattern[ $i ];
-			$regex .= ( '*' === $ch ) ? '.*' : preg_quote( $ch, '#' );
-		}
-		$regex = '#^' . $regex . ( $anchored ? '$' : '' ) . '#';
-		return (bool) preg_match( $regex, $path );
+		return Coywolf_SEO_Robots_Matcher::matches( $pattern, $path );
 	}
 
 	/* ----------------------------------------------------------------- *
