@@ -233,8 +233,9 @@ final class Coywolf_SEO_Redirects {
 	 * @return array { path, query, raw }
 	 */
 	private function current_request() {
-		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- raw URI is parsed and normalized, never output.
-		$uri        = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '/';
+		// esc_url_raw keeps percent-encoding intact (normalize() decodes it
+		// below) while stripping anything that isn't URL-shaped.
+		$uri        = isset( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '/';
 		$normalized = self::normalize( $uri );
 
 		$normalized['raw'] = $uri;
@@ -477,10 +478,18 @@ final class Coywolf_SEO_Redirects {
 	public function save_rule( array $data, $id = 0 ) {
 		global $wpdb;
 
-		$source = trim( (string) ( $data['source'] ?? '' ) );
-		$target = trim( (string) ( $data['target'] ?? '' ) );
+		$regex = ! empty( $data['is_regex'] );
+		// Sanitize the admin-entered source/target. A non-regex source and the
+		// target are URLs/paths, so esc_url_raw() (which preserves percent-
+		// encoding that normalize() later decodes). A regex source must keep its
+		// metacharacters, so sanitize_text_field() — the request subject it runs
+		// against is already decoded and lowercased, so dropping percent-octets
+		// and tags can't change what it matches.
+		$source = $regex
+			? sanitize_text_field( (string) ( $data['source'] ?? '' ) )
+			: esc_url_raw( trim( (string) ( $data['source'] ?? '' ) ) );
+		$target = esc_url_raw( trim( (string) ( $data['target'] ?? '' ) ) );
 		$type   = (int) ( $data['type'] ?? 301 );
-		$regex  = ! empty( $data['is_regex'] );
 		$mode   = (string) ( $data['query_mode'] ?? 'pass' );
 		if ( ! in_array( $mode, array( 'ignore', 'exact', 'pass' ), true ) ) {
 			$mode = 'pass';

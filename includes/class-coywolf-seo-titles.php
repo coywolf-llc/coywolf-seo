@@ -116,7 +116,12 @@ final class Coywolf_SEO_Titles {
 	}
 
 	/**
-	 * Start the force-rewrite output buffer when enabled.
+	 * Register the force-rewrite title filter when enabled.
+	 *
+	 * Uses WordPress 7.0's template enhancement output buffer rather than a raw
+	 * ob_start(): core owns the buffer's lifecycle (it only opens one because we
+	 * add the filter, and it always closes it), so there's no open buffer left
+	 * for other components to misalign with.
 	 */
 	public function maybe_buffer() {
 		if ( ! Coywolf_SEO_Options::get( 'force_rewrite_titles' ) ) {
@@ -129,16 +134,16 @@ final class Coywolf_SEO_Titles {
 			return;
 		}
 		// The query is fully resolved at this point; compute the title now
-		// so no filters run inside the buffer's display handler.
+		// so no filters run inside the buffer's filter handler.
 		$this->forced_title = wp_get_document_title();
-		ob_start( array( $this, 'rewrite_title_tag' ) );
+		add_filter( 'wp_template_enhancement_output_buffer', array( $this, 'rewrite_title_tag' ) );
 	}
 
 	/**
-	 * Output-buffer callback: replace the first <title> tag with the
+	 * Replace the first <title> tag in the buffered template output with the
 	 * document title WordPress (and our filters) computed.
 	 *
-	 * @param string $html Page output.
+	 * @param string $html Buffered page output.
 	 * @return string
 	 */
 	public function rewrite_title_tag( $html ) {
