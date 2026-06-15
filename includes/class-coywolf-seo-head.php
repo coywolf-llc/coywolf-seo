@@ -51,7 +51,7 @@ final class Coywolf_SEO_Head {
 	 */
 	public function output_robots() {
 		/** This filter is documented in wp-includes/robots-template.php */
-		$robots = apply_filters( 'wp_robots', array() );
+		$robots = apply_filters( 'wp_robots', array() ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- re-applying core's documented wp_robots filter.
 
 		$parts = array();
 		foreach ( $robots as $directive => $value ) {

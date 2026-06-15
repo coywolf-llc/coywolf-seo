@@ -981,7 +981,7 @@ final class Coywolf_SEO_AI {
 			wp_send_json_error( array(), 403 );
 		}
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce checked above.
-		$model    = isset( $_POST['model'] ) ? preg_replace( '/[^a-z0-9.\-]/', '', strtolower( (string) wp_unslash( $_POST['model'] ) ) ) : '';
+		$model    = isset( $_POST['model'] ) ? preg_replace( '/[^a-z0-9.\-]/', '', strtolower( sanitize_text_field( wp_unslash( $_POST['model'] ) ) ) ) : '';
 		$force    = ! empty( $_POST['force'] );
 		$realtime = ! empty( $_POST['realtime'] );
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
@@ -1484,7 +1484,7 @@ final class Coywolf_SEO_AI {
 		if ( function_exists( 'wp_cache_post_change' ) ) {
 			wp_cache_post_change( $post_id ); // WP Super Cache.
 		}
-		do_action( 'litespeed_purge_post', $post_id ); // LiteSpeed (no-op without it).
+		do_action( 'litespeed_purge_post', $post_id ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- firing LiteSpeed Cache's own purge hook (no-op without it).
 
 		/**
 		 * Fires after AI-detected entities changed a post's schema, so any

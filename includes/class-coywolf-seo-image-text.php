@@ -777,7 +777,7 @@ final class Coywolf_SEO_Image_Text {
 			$where .= ' OR post_content LIKE %s';
 			$args[] = '%' . $wpdb->esc_like( $token ) . '%';
 		}
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- IN() placeholders built from array_fill; args passed as one array; one-off lookup.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, PluginCheck.Security.DirectDB.UnescapedDBParameter -- IN() placeholders built from array_fill; args passed as one array; one-off lookup.
 		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type IN ({$type_ph}) AND post_status = 'publish' AND ({$where}) ORDER BY ID ASC LIMIT 1", $args ) );
 	}
 
