@@ -4,7 +4,7 @@ Tags: seo
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.81
+Stable tag: 1.0.82
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -166,6 +166,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 8. The Import/Export screen, with controls to export and import plugin settings and author properties as JSON, and a separate section for exporting and importing Robots.txt rules.
 
 == Changelog ==
+
+= 1.0.82 =
+* Fix Link Manager corrupting post content on save (iframes, backslashes) (#83).
 
 = 1.0.81 =
 * Fix Bulk write image text stripping iframes from Custom HTML blocks (#82).
