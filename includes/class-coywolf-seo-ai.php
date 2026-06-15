@@ -45,6 +45,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class Coywolf_SEO_AI {
 
+	use Coywolf_SEO_Bulk_Job;
+
 	/**
 	 * Post meta holding the grounded entities.
 	 */
@@ -211,10 +213,7 @@ final class Coywolf_SEO_AI {
 				// Submit the first batch right away, then let cron and the
 				// status polling advance the run.
 				$this->bulk_advance( 15 );
-				if ( ! wp_next_scheduled( self::BULK_HOOK ) ) {
-					wp_schedule_single_event( time() + 30, self::BULK_HOOK );
-				}
-				spawn_cron();
+				$this->bulk_kick( 30 );
 			}
 		}
 	}
@@ -268,7 +267,7 @@ final class Coywolf_SEO_AI {
 			$state['status'] = 'paused';
 			update_option( self::BULK_OPTION, $state, false );
 		}
-		wp_unschedule_hook( self::BULK_HOOK );
+		$this->bulk_unschedule();
 	}
 
 	/**
@@ -284,10 +283,7 @@ final class Coywolf_SEO_AI {
 		update_option( self::BULK_OPTION, $state, false );
 
 		$this->bulk_advance( 10 );
-		if ( ! wp_next_scheduled( self::BULK_HOOK ) ) {
-			wp_schedule_single_event( time() + 30, self::BULK_HOOK );
-		}
-		spawn_cron();
+		$this->bulk_kick( 30 );
 	}
 
 	/**
@@ -308,7 +304,7 @@ final class Coywolf_SEO_AI {
 		}
 		delete_metadata( 'post', 0, self::BULK_META, '', true );
 		delete_option( self::BULK_OPTION );
-		wp_unschedule_hook( self::BULK_HOOK );
+		$this->bulk_unschedule();
 	}
 
 	/**
@@ -318,10 +314,7 @@ final class Coywolf_SEO_AI {
 	 */
 	public function bulk_worker() {
 		$this->bulk_advance( 25 );
-		$state = $this->bulk_state_fresh();
-		if ( isset( $state['status'] ) && 'running' === $state['status'] && ! wp_next_scheduled( self::BULK_HOOK ) ) {
-			wp_schedule_single_event( time() + 30, self::BULK_HOOK );
-		}
+		$this->bulk_keep_alive( 30 );
 	}
 
 
@@ -350,35 +343,27 @@ final class Coywolf_SEO_AI {
 	 * @param int $budget Seconds to work.
 	 */
 	public function bulk_advance( $budget ) {
-		global $wpdb;
-		$lock = 'coywolf_seo_bulk_' . get_current_blog_id();
-		// Advisory: on MySQL an explicit 0 means another process is
-		// advancing; non-MySQL backends return other values and proceed.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- non-blocking named lock; one advancer at a time.
-		if ( '0' === (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 0)', $lock ) ) ) {
-			return;
-		}
-
-		$deadline = time() + max( 3, (int) $budget );
-		while ( time() < $deadline ) {
-			$state = $this->bulk_state_fresh();
-			if ( ! isset( $state['status'] ) || 'running' !== $state['status'] ) {
-				break;
+		$this->bulk_with_lock(
+			function () use ( $budget ) {
+				$deadline = time() + max( 3, (int) $budget );
+				while ( time() < $deadline ) {
+					$state = $this->bulk_state_fresh();
+					if ( ! isset( $state['status'] ) || 'running' !== $state['status'] ) {
+						break;
+					}
+					if ( ! isset( $state['stage'] ) ) {
+						// A run left over from a pre-batch plugin version: its state
+						// shape is unknown to this machine. Clear it.
+						delete_option( self::BULK_OPTION );
+						$this->bulk_unschedule();
+						break;
+					}
+					if ( ! $this->bulk_step( $state, $deadline ) ) {
+						break; // Waiting on the provider, paused, or finished.
+					}
+				}
 			}
-			if ( ! isset( $state['stage'] ) ) {
-				// A run left over from a pre-batch plugin version: its
-				// state shape is unknown to this machine. Clear it.
-				delete_option( self::BULK_OPTION );
-				wp_unschedule_hook( self::BULK_HOOK );
-				break;
-			}
-			if ( ! $this->bulk_step( $state, $deadline ) ) {
-				break; // Waiting on Anthropic, paused, or finished.
-			}
-		}
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- releases the named lock above.
-		$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
+		);
 	}
 
 	/**
@@ -850,7 +835,7 @@ final class Coywolf_SEO_AI {
 		$state['paused_reason'] = $reason;
 		$state['last_error']    = $reason;
 		update_option( self::BULK_OPTION, $state, false );
-		wp_unschedule_hook( self::BULK_HOOK );
+		$this->bulk_unschedule();
 	}
 
 	/**
@@ -1052,31 +1037,27 @@ final class Coywolf_SEO_AI {
 	}
 
 	/**
-	 * Persist worker progress ONLY while the run is still running: a
-	 * Stop/Cancel that landed since our last read always wins, instead of
-	 * being clobbered by a stale in-memory state.
+	 * Run-state lifecycle + scheduling come from Coywolf_SEO_Bulk_Job; supply
+	 * this worker's option, cron hook, and advisory-lock names.
 	 *
-	 * @param array $state Worker state to persist.
-	 * @return bool False when the run was paused/cancelled meanwhile.
+	 * @return string
 	 */
-	private function bulk_persist( array $state ) {
-		$fresh = $this->bulk_state_fresh();
-		if ( ! isset( $fresh['status'] ) || 'running' !== $fresh['status'] ) {
-			return false; // Paused or cancelled: drop our stale write.
-		}
-		update_option( self::BULK_OPTION, $state, false );
-		return true;
+	protected function bulk_job_option() {
+		return self::BULK_OPTION;
 	}
 
 	/**
-	 * The bulk state, bypassing the options cache — parallel runners
-	 * mutate it between this process's reads.
-	 *
-	 * @return array
+	 * @return string
 	 */
-	private function bulk_state_fresh() {
-		wp_cache_delete( self::BULK_OPTION, 'options' );
-		return (array) get_option( self::BULK_OPTION, array() );
+	protected function bulk_job_hook() {
+		return self::BULK_HOOK;
+	}
+
+	/**
+	 * @return string
+	 */
+	protected function bulk_job_lock() {
+		return 'coywolf_seo_bulk_' . get_current_blog_id();
 	}
 
 
