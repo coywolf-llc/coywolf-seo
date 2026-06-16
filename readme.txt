@@ -4,7 +4,7 @@ Tags: seo
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.88
+Stable tag: 1.0.89
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -201,6 +201,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 8. The Import/Export screen, with controls to export and import plugin settings and author properties as JSON, and a separate section for exporting and importing Robots.txt rules.
 
 == Changelog ==
+
+= 1.0.89 =
+* Port the full Google RobotsMatcher (whole-file, agent-aware REP evaluation) (#90).
 
 = 1.0.88 =
 * Fix redundancy false-positive at the longest-match Allow tie (> -> >=) (#89).
