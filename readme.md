@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.91
+- **Version:** 1.0.92
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -223,6 +223,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 ![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
 
 ## Changelog
+
+### 1.0.92
+- Redirects: offer a 301 when a published post's URL changes (slug or category) (#93).
 
 ### 1.0.91
 - Link Manager: classify anti-bot blocks (999, gated 403/429) as Blocked instead of broken (#92).
