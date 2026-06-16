@@ -187,11 +187,18 @@ jobs:
           mkdir -p "$STAGE"
 
           # Copy plugin files, excluding repo / CI artefacts.
+          #
+          # .wordpress-org/ is intentionally KEPT here: the in-plugin
+          # Documentation page renders readme.md and streams its
+          # `.wordpress-org/screenshot-*.png` references (and the header icon)
+          # through an admin-ajax endpoint, so the screenshots only appear on a
+          # GitHub-distributed install if the directory ships in the zip. The
+          # WordPress.org variant strips it back out (build-wporg.sh) since
+          # .org serves listing screenshots from the separate SVN assets tree.
           rsync -a --delete \
             --exclude '.git' \
             --exclude '.github' \
             --exclude '.gitignore' \
-            --exclude '.wordpress-org' \
             --exclude 'build' \
             --exclude '*.zip' \
             --exclude 'tests' \
