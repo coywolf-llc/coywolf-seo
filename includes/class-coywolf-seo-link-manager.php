@@ -241,6 +241,7 @@ final class Coywolf_SEO_Link_Manager {
 					/* translators: %1$s: links shown; %2$s: total broken links. */
 					'filtered'              => __( 'Showing %1$s of %2$s broken links.', 'coywolf-seo' ),
 					'allCodes'              => __( 'All response codes', 'coywolf-seo' ),
+					'blocked'               => __( 'Blocked', 'coywolf-seo' ),
 					'editLink'              => __( 'Edit', 'coywolf-seo' ),
 					'modalTitle'            => __( 'Edit link URL', 'coywolf-seo' ),
 					'modalHelp'             => __( 'Update the link in the post. This changes the post content immediately.', 'coywolf-seo' ),
@@ -1780,11 +1781,11 @@ final class Coywolf_SEO_Link_Manager {
 			);
 		}
 
-		// Anti-bot block (e.g. LinkedIn 999, social 403/429 from a server IP):
-		// the link is almost certainly fine, it just cannot be verified from
-		// here. Classified on its own so it is never reported or counted as
-		// broken. Checked before the >= 400 test so real 4xx still fall through.
-		if ( $this->is_blocked( $code, $original_url ) ) {
+		// Anti-bot block (429 rate-limit or 999 from LinkedIn/Yandex): the link
+		// is almost certainly fine, it just cannot be verified from a server.
+		// Classified on its own so it is never reported or counted as broken.
+		// Checked before the >= 400 test so real 4xx still fall through.
+		if ( $this->is_blocked( $code ) ) {
 			return array(
 				'broken'        => false,
 				'blocked'       => true,
@@ -2185,79 +2186,20 @@ final class Coywolf_SEO_Link_Manager {
 	 * Whether an HTTP status should be treated as an anti-bot "blocked" result
 	 * rather than a broken link.
 	 *
-	 * Some hosts refuse non-browser / datacenter traffic instead of returning a
-	 * truthful status: LinkedIn (and Yandex) answer the non-standard 999, and
-	 * many social platforms answer 403/429 to anything that is not a logged-in
-	 * browser. From a server IP these are unavoidable and do not mean the link
-	 * is dead, so they are classified separately and never counted as broken.
+	 * 429 (Too Many Requests / rate-limited) and 999 (the non-standard code
+	 * LinkedIn and Yandex answer) are, in practice, almost always an anti-bot
+	 * block rather than a dead link: the destination is refusing automated or
+	 * datacenter requests, which is unavoidable from a server IP and does not
+	 * mean the link is broken. They are classified as "Blocked" so they are
+	 * never reported or counted as broken. Every other code, including 403,
+	 * 404, and 410, returns false and keeps its normal handling.
 	 *
-	 * Rules: 999 is always a block. 403 and 429 are a block only when the host
-	 * is one known to gate bots this way (filterable). Every other code,
-	 * including 404 and 410, returns false and keeps its normal handling.
-	 *
-	 * @param int    $code HTTP status code.
-	 * @param string $url  The URL the code came from (its host is matched).
+	 * @param int $code HTTP status code.
 	 * @return bool
 	 */
-	private function is_blocked( $code, $url ) {
+	private function is_blocked( $code ) {
 		$code = (int) $code;
-
-		// 999 is not a real HTTP status — only ever an anti-bot block.
-		if ( 999 === $code ) {
-			return true;
-		}
-
-		// 403/429 are ambiguous: a block only from hosts known to gate bots.
-		if ( 403 !== $code && 429 !== $code ) {
-			return false;
-		}
-
-		$host = $this->normalize_domain( (string) $url );
-		if ( '' === $host ) {
-			return false;
-		}
-
-		foreach ( $this->blocking_hosts() as $blocked_host ) {
-			$suffix = '.' . $blocked_host;
-			if ( $host === $blocked_host
-				|| ( strlen( $host ) > strlen( $suffix )
-					&& substr( $host, -strlen( $suffix ) ) === $suffix ) ) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	/**
-	 * Registrable domains known to answer 403/429 to non-browser traffic.
-	 * Subdomains match too (e.g. "www.linkedin.com", "de.linkedin.com").
-	 * Filterable via 'coywolf_seo_lm_blocking_hosts'.
-	 *
-	 * @return string[] Lower-case, www-stripped registrable domains.
-	 */
-	private function blocking_hosts() {
-		$hosts = array(
-			'linkedin.com',
-			'instagram.com',
-			'facebook.com',
-			'threads.net',
-			'x.com',
-			'twitter.com',
-			'tiktok.com',
-			'pinterest.com',
-			'quora.com',
-			'crunchbase.com',
-			'glassdoor.com',
-			'yelp.com',
-			'reddit.com',
-		);
-
-		$hosts = (array) apply_filters( 'coywolf_seo_lm_blocking_hosts', $hosts );
-
-		return array_values(
-			array_filter( array_map( array( $this, 'normalize_domain' ), $hosts ) )
-		);
+		return ( 429 === $code || 999 === $code );
 	}
 
 	/**
@@ -3375,7 +3317,7 @@ final class Coywolf_SEO_Link_Manager {
 				'short'        => '' !== $r['response_short'] ? $r['response_short'] : (string) (int) $r['response_code'],
 				'label'        => $r['response_label'],
 				'redirect'     => (bool) (int) $r['is_redirect'],
-				'blocked'      => $this->is_blocked( (int) $r['response_code'], $r['url'] ),
+				'blocked'      => $this->is_blocked( (int) $r['response_code'] ),
 				'redirectCode' => (int) $r['redirect_code'],
 				'finalUrl'     => (string) $r['final_url'],
 				'checked'      => ! empty( $r['last_checked'] ),
