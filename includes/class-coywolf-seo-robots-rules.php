@@ -411,18 +411,20 @@ final class Coywolf_SEO_Robots_Rules {
 			}
 
 			// The new block is redundant only if no shared Allow could win where
-			// it applies. By REP longest-match, an Allow changes the outcome
-			// inside $q's subtree only when it out-ranks the covering Disallow
-			// (longer) yet the new $q out-ranks the Allow (shorter than $q), and
-			// it can actually reach into the subtree (its literal head is
+			// it applies. By REP longest-match an Allow whose escaped length is
+			// >= the covering Disallow already out-ranks that cover on the paths
+			// it reaches — ties go to Allow — so without the candidate $q those
+			// paths are *allowed*, and $q (longer than both) is the only thing
+			// that re-blocks them. Such an Allow therefore makes $q meaningful, so
+			// $q is NOT redundant when an Allow is (a) at least as long as the
+			// cover [>=, the tie included], (b) shorter than $q (so $q overrides
+			// it), and (c) able to reach into the subtree (its literal head is
 			// prefix-compatible with $q — a precondition for matching any path
-			// under $q). Any such Allow means the new rule re-blocks a path, so
-			// it is NOT redundant. (Equal-length ties go to Allow either way, so
-			// they change nothing.)
+			// under $q).
 			$still_acts = false;
 			foreach ( $allows as $a ) {
 				$a_len = strlen( Coywolf_SEO_Robots_Matcher::escape_pattern( $a ) );
-				if ( $a_len > $cover_len && $a_len < $q_len && self::heads_overlap( $a, $q ) ) {
+				if ( $a_len >= $cover_len && $a_len < $q_len && self::heads_overlap( $a, $q ) ) {
 					$still_acts = true;
 					break;
 				}
