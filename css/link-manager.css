@@ -191,6 +191,13 @@
 	border: 1px solid #c3dafb;
 }
 
+/* Blocked badge: anti-bot block (999 / gated 403-429), not a broken link. */
+.coywolf-seo-lm-code--blocked {
+	background: #eef1f6;
+	color: #4b5563;
+	border: 1px solid #d6dce5;
+}
+
 /* "Redirects to" secondary line under the original URL. */
 .coywolf-seo-lm-redirect-to {
 	margin-top: 3px;
