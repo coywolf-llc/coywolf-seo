@@ -4,7 +4,7 @@ Tags: seo
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.95
+Stable tag: 1.0.96
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -201,6 +201,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 8. The Import/Export screen, with controls to export and import plugin settings and author properties as JSON, and a separate section for exporting and importing Robots.txt rules.
 
 == Changelog ==
+
+= 1.0.96 =
+* Preview chosen images for the image/logo schema fields, and highlight the parent menu item on hidden admin subpages (#97).
 
 = 1.0.95 =
 * Move action buttons below the white panel on the Edit Link, Add/Edit Rule, and Authors pages (#96).

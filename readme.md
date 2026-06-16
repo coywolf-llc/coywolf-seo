@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.95
+- **Version:** 1.0.96
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -223,6 +223,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 ![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
 
 ## Changelog
+
+### 1.0.96
+- Preview chosen images for the image/logo schema fields, and highlight the parent menu item on hidden admin subpages (#97).
 
 ### 1.0.95
 - Move action buttons below the white panel on the Edit Link, Add/Edit Rule, and Authors pages (#96).
