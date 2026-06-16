@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.97
+- **Version:** 1.0.98
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -227,6 +227,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 ![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
 
 ## Changelog
+
+### 1.0.98
+- Link Manager: unify 429/999 as Blocked; serve Documentation screenshots reliably (#99).
 
 ### 1.0.97
 - Fix Documentation Markdown rendering: comments, italics, FAQ, screenshots (#98).
