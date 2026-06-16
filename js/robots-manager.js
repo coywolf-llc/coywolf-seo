@@ -27,6 +27,7 @@
 		initSitemapSettings();
 		initRulesTable();
 		initRobotsCopy();
+		initFileTester();
 	} );
 
 	/* --------------------------------------------------------------- *
@@ -578,5 +579,85 @@
 				out.appendChild( small );
 			}
 		}
+	}
+
+	/* --------------------------------------------------------------- *
+	 * Robots.txt page: whole-file, agent-aware URL tester (full REP)
+	 * --------------------------------------------------------------- */
+
+	function initFileTester() {
+		var btn = document.getElementById( 'coywolf-seo-robots-file-test-btn' );
+		var urlInput = document.getElementById( 'coywolf-seo-robots-file-url' );
+		var agentInput = document.getElementById( 'coywolf-seo-robots-file-agent' );
+		var out = document.getElementById( 'coywolf-seo-robots-file-result' );
+		if ( ! btn || ! urlInput || ! out ) {
+			return;
+		}
+
+		function show( kind, msg, detail ) {
+			out.style.display = '';
+			out.className = 'coywolf-seo-robots-test-result coywolf-seo-robots-test-' + kind;
+			out.textContent = msg;
+			if ( detail ) {
+				var small = document.createElement( 'span' );
+				small.className = 'coywolf-seo-robots-test-detail';
+				small.textContent = detail;
+				out.appendChild( document.createElement( 'br' ) );
+				out.appendChild( small );
+			}
+		}
+
+		btn.addEventListener( 'click', function () {
+			var url = ( urlInput.value || '' ).trim();
+			if ( ! url ) {
+				show( 'none', i18n.enterUrl || 'Enter a URL or path to test.', '' );
+				return;
+			}
+			out.style.display = '';
+			out.className = 'coywolf-seo-robots-test-result coywolf-seo-robots-test-pending';
+			out.textContent = i18n.testing || 'Testing…';
+
+			var body = new URLSearchParams();
+			body.append( 'action', 'coywolf_seo_robots_test_file' );
+			body.append( 'nonce', cfg.nonce || '' );
+			body.append( 'url', url );
+			body.append( 'agent', agentInput && agentInput.value ? agentInput.value : '' );
+
+			fetch( cfg.ajaxUrl, {
+				method: 'POST',
+				credentials: 'same-origin',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: body.toString(),
+			} )
+				.then( function ( r ) {
+					return r.json();
+				} )
+				.then( function ( res ) {
+					if ( ! res || ! res.success ) {
+						var msg = res && res.data && res.data.message ? res.data.message : ( i18n.error || 'Error.' );
+						show( 'none', msg, '' );
+						return;
+					}
+					var d = res.data;
+					var agentLabel = ( '*' === d.agentToken ) ? ( i18n.allRobots || 'all robots' ) : d.agentToken;
+					var detail = ( i18n.evaluatedAs || 'Evaluated as user-agent' ) + ': ' + agentLabel;
+					if ( ! d.conforming && '*' !== d.agentToken && d.agentRaw && d.agentRaw !== d.agentToken ) {
+						detail += ' (' + ( i18n.agentTruncated || 'only the leading product token is used for matching' ) + ')';
+					}
+					if ( 'allow' === d.directive || 'disallow' === d.directive ) {
+						detail += '  ·  ' + ( i18n.matchedLabel || 'matched' ) + ' ' + d.directive + ': ' + d.pattern + ' (' + ( i18n.onLine || 'line' ) + ' ' + d.line + ')';
+					} else {
+						detail += '  ·  ' + ( i18n.noRuleMatched || 'no rule matched — allowed by default' );
+					}
+					if ( d.allowed ) {
+						show( 'allowed', i18n.fileAllowed || 'Allowed.', detail );
+					} else {
+						show( 'blocked', i18n.fileBlocked || 'Blocked.', detail );
+					}
+				} )
+				.catch( function () {
+					show( 'none', i18n.error || 'Error.', '' );
+				} );
+		} );
 	}
 } )();

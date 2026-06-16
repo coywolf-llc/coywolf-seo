@@ -127,6 +127,7 @@ final class Coywolf_SEO_Robots {
 		add_filter( 'robots_txt', array( $this, 'filter_robots_txt' ), PHP_INT_MAX, 2 );
 
 		add_action( 'wp_ajax_coywolf_seo_robots_test', array( $this, 'ajax_test_rule' ) );
+		add_action( 'wp_ajax_coywolf_seo_robots_test_file', array( $this, 'ajax_test_file' ) );
 	}
 
 	/* ================================================================== *
@@ -362,6 +363,14 @@ final class Coywolf_SEO_Robots {
 				'copy'            => __( 'Copy robots.txt to clipboard', 'coywolf-seo' ),
 				'copied'          => __( 'Copied', 'coywolf-seo' ),
 				'copyFailed'      => __( 'Copy failed', 'coywolf-seo' ),
+				'fileAllowed'     => __( 'Allowed — this crawler may fetch the URL.', 'coywolf-seo' ),
+				'fileBlocked'     => __( 'Blocked — this crawler is disallowed from the URL.', 'coywolf-seo' ),
+				'evaluatedAs'     => __( 'Evaluated as user-agent', 'coywolf-seo' ),
+				'allRobots'       => __( 'all robots', 'coywolf-seo' ),
+				'matchedLabel'    => __( 'matched', 'coywolf-seo' ),
+				'onLine'          => __( 'line', 'coywolf-seo' ),
+				'noRuleMatched'   => __( 'no rule matched — allowed by default', 'coywolf-seo' ),
+				'agentTruncated'  => __( 'only the leading product token is used for matching', 'coywolf-seo' ),
 			),
 			'types'   => Coywolf_SEO_Robots_Rules::types(),
 		);
@@ -576,8 +585,57 @@ final class Coywolf_SEO_Robots {
 					<button type="submit" class="button button-primary"><?php echo esc_html__( 'Save robots.txt', 'coywolf-seo' ); ?></button>
 				</p>
 			</form>
+
+			<hr class="coywolf-seo-robots-test-sep" />
+
+			<h2><?php echo esc_html__( 'Test a URL against this robots.txt', 'coywolf-seo' ); ?></h2>
+			<p class="description">
+				<?php echo esc_html__( 'Check whether a crawler would be allowed or blocked, evaluated against the whole file above with a PHP port of Google\'s open-source robots.txt matcher — all groups and rules considered together, exactly as Googlebot would interpret them.', 'coywolf-seo' ); ?>
+			</p>
+			<div class="coywolf-seo-robots-file-test">
+				<p>
+					<label for="coywolf-seo-robots-file-url"><strong><?php echo esc_html__( 'URL or path', 'coywolf-seo' ); ?></strong></label><br />
+					<input type="text" id="coywolf-seo-robots-file-url" class="regular-text code" placeholder="/example-page/?ref=1" />
+				</p>
+				<p>
+					<label for="coywolf-seo-robots-file-agent"><strong><?php echo esc_html__( 'User-agent', 'coywolf-seo' ); ?></strong></label><br />
+					<input type="text" id="coywolf-seo-robots-file-agent" class="regular-text" list="coywolf-seo-robots-bot-tokens" value="Googlebot" placeholder="Googlebot" autocomplete="off" />
+					<datalist id="coywolf-seo-robots-bot-tokens">
+						<option value="*"></option>
+						<?php foreach ( $this->bot_token_list() as $token ) : ?>
+							<option value="<?php echo esc_attr( $token ); ?>"></option>
+						<?php endforeach; ?>
+					</datalist>
+					<br /><span class="description"><?php echo esc_html__( 'Type a crawler token (autocomplete from the bot catalog), or "*" for all robots.', 'coywolf-seo' ); ?></span>
+				</p>
+				<p>
+					<button type="button" class="button" id="coywolf-seo-robots-file-test-btn"><?php echo esc_html__( 'Test URL', 'coywolf-seo' ); ?></button>
+				</p>
+				<div id="coywolf-seo-robots-file-result" class="coywolf-seo-robots-test-result" style="display:none;"></div>
+			</div>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Sorted, de-duplicated list of every crawler token in the bundled catalog,
+	 * for the URL tester's user-agent autocomplete.
+	 *
+	 * @return array<int,string>
+	 */
+	private function bot_token_list() {
+		$tokens = array();
+		foreach ( Coywolf_SEO_Robots_Bots::by_category() as $bots ) {
+			foreach ( $bots as $bot ) {
+				$token = isset( $bot['token'] ) ? (string) $bot['token'] : '';
+				if ( '' !== $token ) {
+					$tokens[ $token ] = true;
+				}
+			}
+		}
+		$tokens = array_keys( $tokens );
+		sort( $tokens, SORT_NATURAL | SORT_FLAG_CASE );
+		return $tokens;
 	}
 
 	/* ================================================================== *
@@ -1927,6 +1985,62 @@ final class Coywolf_SEO_Robots {
 				'pattern'    => $result['pattern'],
 				'path'       => $path,
 				'directives' => $directives,
+			)
+		);
+	}
+
+	/**
+	 * AJAX: test a URL against the WHOLE served robots.txt for one user-agent,
+	 * using the full Google REP evaluator. Unlike ajax_test_rule() (one rule in
+	 * isolation), this resolves Allow/Disallow across every group the agent
+	 * matches — exactly how Googlebot decides.
+	 */
+	public function ajax_test_file() {
+		check_ajax_referer( 'coywolf_seo_robots_ajax', 'nonce' );
+		if ( ! current_user_can( Coywolf_SEO_Admin::CAPABILITY ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'coywolf-seo' ) ), 403 );
+		}
+
+		// esc_url_raw keeps percent-encoding intact; GetPathParamsQuery (inside
+		// the evaluator) extracts the path/query the way Googlebot does.
+		$url = isset( $_POST['url'] ) ? esc_url_raw( wp_unslash( $_POST['url'] ) ) : '';
+		if ( '' === trim( $url ) ) {
+			wp_send_json_error( array( 'message' => __( 'Enter a URL or path to test.', 'coywolf-seo' ) ), 400 );
+		}
+		$agent_raw = isset( $_POST['agent'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['agent'] ) ) ) : '';
+
+		$robots = $this->effective_robots();
+
+		if ( '' === $agent_raw || '*' === $agent_raw ) {
+			// Generic crawler: only the global "*" group applies.
+			$query      = '*';
+			$normalized = '*';
+			$conforming = true;
+		} else {
+			// Normalize the queried token exactly as the matcher normalizes each
+			// group's User-agent line (Google's ExtractUserAgent), so catalog
+			// tokens carrying digits/dots/spaces (Ai2Bot, MJ12bot, Site24x7,
+			// Pingdom.com_bot, archive.org_bot) match their own rules instead of
+			// silently never matching.
+			$normalized = Coywolf_SEO_Robots_Rep::extract_user_agent( $agent_raw );
+			$conforming = Coywolf_SEO_Robots_Rep::is_valid_user_agent_to_obey( $agent_raw );
+			$query      = ( '' === $normalized ) ? '*' : $normalized;
+		}
+
+		$res = Coywolf_SEO_Robots_Rep::evaluate( $robots, array( $query ), $url );
+
+		wp_send_json_success(
+			array(
+				'allowed'    => $res['allowed'],
+				'effect'     => $res['decision'],          // allow or disallow.
+				'path'       => $res['path'],
+				'directive'  => $res['matched_directive'], // allow, disallow, or none.
+				'pattern'    => $res['matched_value'],
+				'line'       => $res['matched_line'],
+				'scope'      => $res['matched_scope'],     // specific or global.
+				'agentRaw'   => $agent_raw,
+				'agentToken' => $query,
+				'conforming' => $conforming,
 			)
 		);
 	}
