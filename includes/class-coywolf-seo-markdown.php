@@ -66,7 +66,9 @@ final class Coywolf_SEO_Markdown {
 					if ( $details_open ) {
 						$out .= "</details>\n";
 					}
-					$out         .= '<details class="coywolf-seo-faq">' . "\n<summary>" . self::inline( $htext ) . "</summary>\n";
+					// The shared name makes the questions an exclusive accordion:
+					// opening one closes any other that is open.
+					$out         .= '<details class="coywolf-seo-faq" name="coywolf-seo-faq">' . "\n<summary>" . self::inline( $htext ) . "</summary>\n";
 					$details_open = true;
 				} else {
 					$out .= '<h' . $level . '>' . self::inline( $htext ) . '</h' . $level . ">\n";
@@ -230,11 +232,13 @@ final class Coywolf_SEO_Markdown {
 	 * Resolve a Markdown image path to a browser-loadable URL.
 	 *
 	 * Absolute URLs pass through. Repo-relative paths (the readme's
-	 * `.wordpress-org/screenshot-*.png` references) resolve to the
-	 * installed plugin copy when the file shipped in the zip. When the file
-	 * isn't bundled in this build — e.g. the WordPress.org variant, whose
-	 * screenshots live in SVN's separate assets tree rather than the plugin
-	 * folder — this returns an empty string and the image is omitted; the
+	 * `.wordpress-org/screenshot-*.png` references) are streamed through the
+	 * admin-only {@see self::serve_doc_image()} endpoint when the file is
+	 * bundled in this build. They live in the hidden `.wordpress-org/`
+	 * directory, which many web servers refuse to serve, so reading them in PHP
+	 * is the only reliable way to display them. When the file isn't bundled —
+	 * e.g. the WordPress.org variant, whose screenshots live in SVN's separate
+	 * assets tree — this returns an empty string and the image is omitted; the
 	 * file is never fetched from a remote host.
 	 *
 	 * @param string $path Image path as written in the Markdown.
@@ -246,9 +250,63 @@ final class Coywolf_SEO_Markdown {
 		}
 		$path = preg_replace( '#^\./#', '', $path ); // "./x" → "x"; keeps dot-prefixed names like ".wordpress-org".
 		$root = dirname( __DIR__ );
-		if ( file_exists( $root . '/' . $path ) ) {
-			return plugins_url( $path, $root . '/coywolf-seo.php' );
+		if ( ! file_exists( $root . '/' . $path ) ) {
+			return '';
 		}
-		return '';
+		// Images in the hidden .wordpress-org/ directory (the readme's
+		// screenshots) are streamed through the admin-only endpoint, since many
+		// web servers refuse to serve dot-directories. Anything else loads as a
+		// normal plugin asset.
+		if ( 0 === strpos( $path, '.wordpress-org/' ) ) {
+			return admin_url(
+				'admin-ajax.php?action=coywolf_seo_doc_image&file=' . rawurlencode( basename( $path ) )
+			);
+		}
+		return plugins_url( $path, $root . '/coywolf-seo.php' );
+	}
+
+	/**
+	 * Streams a bundled documentation image (a screenshot from the hidden
+	 * `.wordpress-org/` directory) to logged-in administrators over admin-ajax,
+	 * so they display even on hosts that refuse to serve dot-directories.
+	 * Read-only and capability-gated; the requested name is
+	 * reduced to a whitelisted basename, so it can only ever read an image out
+	 * of `.wordpress-org/`. Registered on `wp_ajax_coywolf_seo_doc_image`.
+	 *
+	 * @return void
+	 */
+	public static function serve_doc_image() {
+		if ( ! current_user_can( Coywolf_SEO_Admin::CAPABILITY ) ) {
+			status_header( 403 );
+			exit;
+		}
+		// Read-only, capability-gated asset serve keyed by a whitelisted
+		// basename; no nonce (the URL is an <img src> that must not expire).
+		$file = isset( $_GET['file'] ) ? basename( sanitize_file_name( wp_unslash( $_GET['file'] ) ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( ! preg_match( '/^[A-Za-z0-9_-]+\.(png|jpe?g|gif|webp|svg)$/i', $file ) ) {
+			status_header( 404 );
+			exit;
+		}
+		$full = dirname( __DIR__ ) . '/.wordpress-org/' . $file;
+		if ( ! is_file( $full ) ) {
+			status_header( 404 );
+			exit;
+		}
+		$ext   = strtolower( pathinfo( $full, PATHINFO_EXTENSION ) );
+		$types = array(
+			'png'  => 'image/png',
+			'jpg'  => 'image/jpeg',
+			'jpeg' => 'image/jpeg',
+			'gif'  => 'image/gif',
+			'webp' => 'image/webp',
+			'svg'  => 'image/svg+xml',
+		);
+		header( 'Content-Type: ' . ( isset( $types[ $ext ] ) ? $types[ $ext ] : 'application/octet-stream' ) );
+		header( 'Content-Length: ' . (string) filesize( $full ) );
+		header( 'X-Content-Type-Options: nosniff' );
+		header( 'Cache-Control: private, max-age=3600' );
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile -- Streaming a bundled, validated, read-only plugin asset.
+		readfile( $full );
+		exit;
 	}
 }

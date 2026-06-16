@@ -127,8 +127,8 @@
 		if ( r.blocked ) {
 			return {
 				cls: 'coywolf-seo-lm-code--blocked',
-				text: r.short || 'Blocked',
-				title: r.label || r.short || 'Blocked'
+				text: i18n.blocked || 'Blocked',
+				title: r.label || r.short || ( i18n.blocked || 'Blocked' )
 			};
 		}
 		if ( r.redirect && code < 400 && r.redirectCode ) {
@@ -238,7 +238,10 @@
 
 		if ( '' !== codeFilter ) {
 			out = out.filter( function ( r ) {
-				return String( displayCode( r ) ) === codeFilter;
+				if ( 'blocked' === codeFilter ) {
+					return !! r.blocked;
+				}
+				return ! r.blocked && String( displayCode( r ) ) === codeFilter;
 			} );
 		}
 
@@ -459,19 +462,33 @@
 	function populateCodeFilter( rows ) {
 		if ( ! els.codeFilter ) { return; }
 		var seen = {};
+		var hasBlocked = false;
 		rows.forEach( function ( r ) {
-			if ( r.checked ) { seen[ String( displayCode( r ) ) ] = true; }
+			if ( ! r.checked ) { return; }
+			// 429 and 999 are folded into a single "Blocked" entry rather than
+			// listed as numeric codes.
+			if ( r.blocked ) { hasBlocked = true; return; }
+			seen[ String( displayCode( r ) ) ] = true;
 		} );
 		var codes = Object.keys( seen ).sort( function ( a, b ) {
 			return parseInt( a, 10 ) - parseInt( b, 10 );
 		} );
-		if ( '' !== codeFilter && ! seen[ codeFilter ] ) { codeFilter = ''; }
+		// Drop a stale selection that no longer matches anything shown.
+		if ( '' !== codeFilter
+			&& ! seen[ codeFilter ]
+			&& ! ( 'blocked' === codeFilter && hasBlocked ) ) {
+			codeFilter = '';
+		}
 		var html = '<option value="">' + escapeHtml( i18n.allCodes ) + '</option>';
 		codes.forEach( function ( c ) {
 			var label = '0' === c ? i18n.noResponse : c;
 			var sel = c === codeFilter ? ' selected' : '';
 			html += '<option value="' + escapeHtml( c ) + '"' + sel + '>' + escapeHtml( label ) + '</option>';
 		} );
+		if ( hasBlocked ) {
+			var bsel = 'blocked' === codeFilter ? ' selected' : '';
+			html += '<option value="blocked"' + bsel + '>' + escapeHtml( i18n.blocked || 'Blocked' ) + '</option>';
+		}
 		els.codeFilter.innerHTML = html;
 	}
 

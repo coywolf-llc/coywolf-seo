@@ -39,6 +39,7 @@ final class Coywolf_SEO_Admin {
 		add_action( 'admin_post_coywolf_seo_save_settings', array( $this, 'save_settings' ) );
 		add_action( 'admin_post_coywolf_seo_remove_ai_key', array( $this, 'remove_ai_key' ) );
 		add_action( 'wp_ajax_coywolf_seo_bulk_action', array( $this, 'ajax_bulk_action' ) );
+		add_action( 'wp_ajax_coywolf_seo_doc_image', array( 'Coywolf_SEO_Markdown', 'serve_doc_image' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_notices', array( $this, 'maybe_show_saved_notice' ) );
 		add_action( 'admin_notices', array( $this, 'maybe_show_activation_notice' ) );
