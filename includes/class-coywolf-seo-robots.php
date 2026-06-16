@@ -720,13 +720,6 @@ final class Coywolf_SEO_Robots {
 					</tr>
 				</table>
 
-				<?php // Until a Rule Path is chosen the editor below stays hidden, so offer a way back to the Rules list. JS hides this once a path is selected (the editor has its own Cancel). ?>
-				<p class="submit" id="coywolf-seo-robots-precancel"<?php echo $rule['type'] ? ' style="display:none;"' : ''; ?>>
-					<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::PAGE_LIST ) ); ?>" class="button button-secondary">
-						<?php echo esc_html__( 'Cancel', 'coywolf-seo' ); ?>
-					</a>
-				</p>
-
 				<div id="coywolf-seo-robots-fields" class="coywolf-seo-robots-fields" style="display:none;">
 					<table class="form-table" role="presentation">
 						<tr>
@@ -779,30 +772,38 @@ final class Coywolf_SEO_Robots {
 							</td>
 						</tr>
 					</table>
+				</div>
+				</div>
 
-					<p class="submit">
-						<button type="submit" class="button button-primary">
-							<?php echo esc_html( $is_edit ? __( 'Update Rule', 'coywolf-seo' ) : __( 'Add Rule', 'coywolf-seo' ) ); ?>
-						</button>
-						<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::PAGE_LIST ) ); ?>" class="button button-secondary">
-							<?php echo esc_html__( 'Cancel', 'coywolf-seo' ); ?>
+				<?php // Until a Rule Path is chosen the editor below stays hidden, so offer a way back to the Rules list. JS hides this once a path is selected (the editor has its own Cancel). ?>
+				<p class="submit" id="coywolf-seo-robots-precancel"<?php echo $rule['type'] ? ' style="display:none;"' : ''; ?>>
+					<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::PAGE_LIST ) ); ?>" class="button button-secondary">
+						<?php echo esc_html__( 'Cancel', 'coywolf-seo' ); ?>
+					</a>
+				</p>
+
+				<?php // Editor actions sit below the panel. JS reveals this row alongside the fields once a Rule Path is chosen. ?>
+				<p class="submit" id="coywolf-seo-robots-actions"<?php echo $rule['type'] ? '' : ' style="display:none;"'; ?>>
+					<button type="submit" class="button button-primary">
+						<?php echo esc_html( $is_edit ? __( 'Update Rule', 'coywolf-seo' ) : __( 'Add Rule', 'coywolf-seo' ) ); ?>
+					</button>
+					<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::PAGE_LIST ) ); ?>" class="button button-secondary">
+						<?php echo esc_html__( 'Cancel', 'coywolf-seo' ); ?>
+					</a>
+					<?php
+					// When editing a saved rule, offer a Delete that reuses the
+					// same nonce-protected delete route as the Rules table.
+					if ( $is_edit ) :
+						$del_url = wp_nonce_url(
+							admin_url( 'admin.php?page=' . self::PAGE_LIST . '&coywolf_seo_robots_action=delete&rule=' . rawurlencode( $rule['id'] ) ),
+							'coywolf_seo_robots_delete_' . $rule['id']
+						);
+						?>
+						<a href="<?php echo esc_url( $del_url ); ?>" class="button coywolf-seo-robots-edit-delete" onclick="return confirm('<?php echo esc_js( __( 'Delete this rule?', 'coywolf-seo' ) ); ?>');">
+							<?php echo esc_html__( 'Delete Rule', 'coywolf-seo' ); ?>
 						</a>
-						<?php
-						// When editing a saved rule, offer a Delete that reuses the
-						// same nonce-protected delete route as the Rules table.
-						if ( $is_edit ) :
-							$del_url = wp_nonce_url(
-								admin_url( 'admin.php?page=' . self::PAGE_LIST . '&coywolf_seo_robots_action=delete&rule=' . rawurlencode( $rule['id'] ) ),
-								'coywolf_seo_robots_delete_' . $rule['id']
-							);
-							?>
-							<a href="<?php echo esc_url( $del_url ); ?>" class="button coywolf-seo-robots-edit-delete" onclick="return confirm('<?php echo esc_js( __( 'Delete this rule?', 'coywolf-seo' ) ); ?>');">
-								<?php echo esc_html__( 'Delete Rule', 'coywolf-seo' ); ?>
-							</a>
-						<?php endif; ?>
-					</p>
-				</div>
-				</div>
+					<?php endif; ?>
+				</p>
 			</form>
 		</div>
 		<?php

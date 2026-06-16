@@ -188,12 +188,12 @@ final class Coywolf_SEO_Authors {
 					}
 				}
 				?>
-				<div class="coywolf-seo-panel">
-				<h2><?php echo esc_html( $user->display_name ); ?></h2>
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 					<input type="hidden" name="action" value="coywolf_seo_save_author" />
 					<input type="hidden" name="coywolf_seo_author_id" value="<?php echo esc_attr( (string) $user->ID ); ?>" />
 					<?php wp_nonce_field( 'coywolf_seo_author' ); ?>
+					<div class="coywolf-seo-panel">
+					<h2><?php echo esc_html( $user->display_name ); ?></h2>
 
 					<table class="coywolf-seo-props" id="coywolf-seo-author-props" data-field="author_rows" data-next-index="<?php echo esc_attr( (string) count( $rows ) ); ?>">
 						<tbody>
@@ -208,9 +208,9 @@ final class Coywolf_SEO_Authors {
 					</select>
 					<p class="description"><?php esc_html_e( 'Schema.org Person properties — selecting a property adds it, and each value input matches the property type. Add a property more than once (sameAs, for example) to output multiple values. Empty rows are not saved; removing @id falls back to the default.', 'coywolf-seo' ); ?></p>
 
+					</div>
 					<?php submit_button( __( 'Save Author', 'coywolf-seo' ) ); ?>
 				</form>
-				</div>
 			<?php endif; ?>
 		</div>
 		<?php
