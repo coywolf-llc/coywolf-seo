@@ -576,6 +576,7 @@ final class Coywolf_SEO_Robots {
 				<?php echo esc_html__( 'Edit the robots.txt below and save. The plugin parses and optimizes what you enter into managed rules, replacing the current ones — so the result may be tidied (duplicates merged, deprecated lines removed, conflicts resolved).', 'coywolf-seo' ); ?>
 			</p>
 
+			<div class="coywolf-seo-panel">
 			<form method="post">
 				<?php wp_nonce_field( 'coywolf_seo_robots_robots' ); ?>
 				<input type="hidden" name="coywolf_seo_robots_action" value="save_robots" />
@@ -585,9 +586,9 @@ final class Coywolf_SEO_Robots {
 					<button type="submit" class="button button-primary"><?php echo esc_html__( 'Save robots.txt', 'coywolf-seo' ); ?></button>
 				</p>
 			</form>
+			</div>
 
-			<hr class="coywolf-seo-robots-test-sep" />
-
+			<div class="coywolf-seo-panel">
 			<h2><?php echo esc_html__( 'Test a URL against this robots.txt', 'coywolf-seo' ); ?></h2>
 			<p class="description">
 				<?php echo esc_html__( 'Check whether a crawler would be allowed or blocked, evaluated against the whole file above with a PHP port of Google\'s open-source robots.txt matcher — all groups and rules considered together, exactly as Googlebot would interpret them.', 'coywolf-seo' ); ?>
@@ -612,6 +613,7 @@ final class Coywolf_SEO_Robots {
 					<button type="button" class="button" id="coywolf-seo-robots-file-test-btn"><?php echo esc_html__( 'Test URL', 'coywolf-seo' ); ?></button>
 				</p>
 				<div id="coywolf-seo-robots-file-result" class="coywolf-seo-robots-test-result" style="display:none;"></div>
+			</div>
 			</div>
 		</div>
 		<?php
@@ -687,6 +689,7 @@ final class Coywolf_SEO_Robots {
 				<input type="hidden" name="coywolf_seo_robots_action" value="save" />
 				<input type="hidden" name="rule_id" value="<?php echo esc_attr( $is_edit ? $rule['id'] : '' ); ?>" />
 
+				<div class="coywolf-seo-panel">
 				<table class="form-table" role="presentation">
 					<tr>
 						<th scope="row">
@@ -798,6 +801,7 @@ final class Coywolf_SEO_Robots {
 							</a>
 						<?php endif; ?>
 					</p>
+				</div>
 				</div>
 			</form>
 		</div>
@@ -1073,6 +1077,7 @@ final class Coywolf_SEO_Robots {
 			'coywolf_seo_robots_export'
 		);
 		?>
+		<div class="coywolf-seo-panel">
 		<h2><?php esc_html_e( 'Robots.txt rules', 'coywolf-seo' ); ?></h2>
 
 		<?php $this->render_notices(); ?>
@@ -1108,6 +1113,7 @@ final class Coywolf_SEO_Robots {
 					</td>
 				</tr>
 			</table>
+		</div>
 		<?php
 	}
 

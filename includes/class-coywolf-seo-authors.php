@@ -140,6 +140,7 @@ final class Coywolf_SEO_Authors {
 			<h1><?php esc_html_e( 'Authors', 'coywolf-seo' ); ?></h1>
 			<p><?php esc_html_e( 'Author details are used for the author in Article schema markup. Selecting a user imports their account details; add, edit, or remove any Person property, then save.', 'coywolf-seo' ); ?></p>
 
+			<div class="coywolf-seo-panel">
 			<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>">
 				<input type="hidden" name="page" value="<?php echo esc_attr( self::SLUG ); ?>" />
 				<label for="coywolf-seo-author-select"><strong><?php esc_html_e( 'Select user', 'coywolf-seo' ); ?></strong></label>
@@ -159,6 +160,7 @@ final class Coywolf_SEO_Authors {
 				</select>
 				<noscript><?php submit_button( __( 'Load', 'coywolf-seo' ), 'secondary', '', false ); ?></noscript>
 			</form>
+			</div>
 
 			<?php if ( $user ) : ?>
 				<?php
@@ -186,6 +188,7 @@ final class Coywolf_SEO_Authors {
 					}
 				}
 				?>
+				<div class="coywolf-seo-panel">
 				<h2><?php echo esc_html( $user->display_name ); ?></h2>
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 					<input type="hidden" name="action" value="coywolf_seo_save_author" />
@@ -207,6 +210,7 @@ final class Coywolf_SEO_Authors {
 
 					<?php submit_button( __( 'Save Author', 'coywolf-seo' ) ); ?>
 				</form>
+				</div>
 			<?php endif; ?>
 		</div>
 		<?php

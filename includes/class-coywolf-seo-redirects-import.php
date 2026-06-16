@@ -420,6 +420,7 @@ final class Coywolf_SEO_Redirects_Import {
 			return;
 		}
 		?>
+		<div class="coywolf-seo-panel">
 		<h2><?php esc_html_e( 'Import redirects', 'coywolf-seo' ); ?></h2>
 		<p class="description"><?php esc_html_e( 'Bring redirect rules over from another plugin. Records whose source URL already has a rule are skipped, so re-running an import is safe.', 'coywolf-seo' ); ?></p>
 		<?php foreach ( $sources as $source => $label ) : ?>
@@ -430,6 +431,7 @@ final class Coywolf_SEO_Redirects_Import {
 				<button type="submit" class="button"><?php esc_html_e( 'Import from', 'coywolf-seo' ); ?> <?php echo esc_html( $label ); ?></button>
 			</form>
 		<?php endforeach; ?>
+		</div>
 		<?php
 	}
 
