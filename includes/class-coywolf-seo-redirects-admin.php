@@ -45,6 +45,94 @@ final class Coywolf_SEO_Redirects_Admin {
 		add_action( 'admin_post_coywolf_seo_redirect_test', array( $this, 'handle_test' ) );
 		add_action( 'admin_post_coywolf_seo_redirect_bulk', array( $this, 'handle_bulk' ) );
 		add_action( 'admin_notices', array( $this, 'maybe_show_deletion_notice' ) );
+		add_action( 'admin_notices', array( $this, 'maybe_show_move_notice' ) );
+	}
+
+	/**
+	 * Prompt to create a redirect when a published post/page's URL has changed.
+	 * On the post editor it offers the decision for the post being edited; on the
+	 * Posts/Pages list it surfaces any recent moves still awaiting a redirect.
+	 */
+	public function maybe_show_move_notice() {
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen || ! current_user_can( Coywolf_SEO_Admin::CAPABILITY ) ) {
+			return;
+		}
+
+		$rows      = array();
+		$return_to = isset( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+		if ( 'post' === $screen->base ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only screen detection on the post editor.
+			$post_id = isset( $_GET['post'] ) ? absint( $_GET['post'] ) : (int) get_the_ID();
+			$move    = $post_id ? $this->redirects->pending_move_for_post( $post_id ) : null;
+			if ( $move ) {
+				$rows[] = $move;
+			}
+		} elseif ( in_array( $screen->id, array( 'edit-post', 'edit-page' ), true ) ) {
+			$rows = array_slice( $this->redirects->pending_moves(), 0, 5 );
+		}
+
+		if ( empty( $rows ) ) {
+			return;
+		}
+		?>
+		<div class="notice coywolf-seo-pending coywolf-seo-move-notice">
+			<h2><?php esc_html_e( 'A URL changed — create a redirect?', 'coywolf-seo' ); ?></h2>
+			<p class="description"><?php esc_html_e( 'The old address would now 404. Add a 301 redirect so existing links and search rankings carry over to the new URL.', 'coywolf-seo' ); ?></p>
+			<table class="coywolf-seo-decision-table">
+				<tbody>
+					<?php foreach ( $rows as $row ) : ?>
+						<tr>
+							<td class="coywolf-seo-cell-grow">
+								<strong><?php echo esc_html( $row->post_title ); ?></strong>
+								<code><?php echo esc_html( $row->old_path ); ?></code>
+								<span class="coywolf-seo-arrow" aria-hidden="true">&rarr;</span>
+								<code><?php echo esc_html( $row->new_path ); ?></code>
+							</td>
+							<td class="coywolf-seo-cell-actions">
+								<?php $this->render_move_actions( $row, $return_to ); ?>
+							</td>
+						</tr>
+					<?php endforeach; ?>
+				</tbody>
+			</table>
+		</div>
+		<?php
+	}
+
+	/**
+	 * The two decision forms for a moved-page row: create the 301 old→new
+	 * redirect, or dismiss. Used in the editor/list notice and on the Redirects
+	 * page.
+	 *
+	 * @param object $row       Moved-page row (old_path, new_path, id).
+	 * @param string $return_to Admin URL to return to ('' = Redirects page).
+	 */
+	public function render_move_actions( $row, $return_to = '' ) {
+		?>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form">
+			<input type="hidden" name="action" value="coywolf_seo_redirect_save" />
+			<?php wp_nonce_field( 'coywolf_seo_redirect_save' ); ?>
+			<input type="hidden" name="resolve_move" value="<?php echo esc_attr( (string) $row->id ); ?>" />
+			<input type="hidden" name="redirect[source]" value="<?php echo esc_attr( $row->old_path ); ?>" />
+			<input type="hidden" name="redirect[target]" value="<?php echo esc_attr( $row->new_path ); ?>" />
+			<input type="hidden" name="redirect[type]" value="301" />
+			<?php if ( '' !== $return_to ) : ?>
+				<input type="hidden" name="return_to" value="<?php echo esc_attr( $return_to ); ?>" />
+			<?php endif; ?>
+			<button type="submit" class="button button-primary"><?php esc_html_e( 'Create 301 redirect', 'coywolf-seo' ); ?></button>
+		</form>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form">
+			<input type="hidden" name="action" value="coywolf_seo_redirect_row" />
+			<?php wp_nonce_field( 'coywolf_seo_redirect_row' ); ?>
+			<input type="hidden" name="row_action" value="dismiss_move" />
+			<input type="hidden" name="row_id" value="<?php echo esc_attr( (string) $row->id ); ?>" />
+			<?php if ( '' !== $return_to ) : ?>
+				<input type="hidden" name="return_to" value="<?php echo esc_attr( $return_to ); ?>" />
+			<?php endif; ?>
+			<button type="submit" class="button-link"><?php esc_html_e( 'Dismiss', 'coywolf-seo' ); ?></button>
+		</form>
+		<?php
 	}
 
 	/**
@@ -165,6 +253,10 @@ final class Coywolf_SEO_Redirects_Admin {
 		if ( isset( $_POST['resolve_deleted'] ) ) {
 			$this->resolve_deleted( absint( $_POST['resolve_deleted'] ) );
 		}
+		// A "moved page" decision is resolved once its redirect is created.
+		if ( isset( $_POST['resolve_move'] ) ) {
+			$this->redirects->delete_move( absint( $_POST['resolve_move'] ) );
+		}
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 		$this->back( array( 'redirect-saved' => $id > 0 ? 'updated' : (int) $result ) );
 	}
@@ -193,6 +285,9 @@ final class Coywolf_SEO_Redirects_Admin {
 					break;
 				case 'dismiss_deleted':
 					$this->resolve_deleted( $id );
+					break;
+				case 'dismiss_move':
+					$this->redirects->delete_move( $id );
 					break;
 			}
 		}
@@ -327,8 +422,9 @@ final class Coywolf_SEO_Redirects_Admin {
 	 * Render the page.
 	 */
 	public function render() {
-		$pending = $this->redirects->pending_deletions();
-		$types   = Coywolf_SEO_Redirects::types();
+		$pending       = $this->redirects->pending_deletions();
+		$pending_moves = $this->redirects->pending_moves();
+		$types         = Coywolf_SEO_Redirects::types();
 
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only list filters.
 		$search   = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
@@ -431,6 +527,39 @@ final class Coywolf_SEO_Redirects_Admin {
 									<td class="coywolf-seo-cell-actions">
 										<?php $this->render_decision_actions( $row ); ?>
 										</td>
+								</tr>
+							<?php endforeach; ?>
+						</tbody>
+					</table>
+				</div>
+			<?php endif; ?>
+
+			<?php if ( ! empty( $pending_moves ) ) : ?>
+				<div class="coywolf-seo-panel coywolf-seo-pending">
+					<h2>
+						<?php
+						printf(
+							/* translators: %d: number of moved posts/pages whose redirect hasn't been created. */
+							esc_html( _n( '%d moved page can keep its old URL working', '%d moved pages can keep their old URLs working', count( $pending_moves ), 'coywolf-seo' ) ),
+							(int) count( $pending_moves )
+						);
+						?>
+					</h2>
+					<p class="description"><?php esc_html_e( 'These published posts and pages changed URL. Create a 301 redirect so the old address still reaches the new one.', 'coywolf-seo' ); ?></p>
+					<table class="widefat striped">
+						<tbody>
+							<?php foreach ( $pending_moves as $row ) : ?>
+								<tr>
+									<td class="coywolf-seo-cell-grow">
+										<strong><?php echo esc_html( $row->post_title ); ?></strong><br />
+										<code><?php echo esc_html( $row->old_path ); ?></code>
+										<span class="coywolf-seo-arrow" aria-hidden="true">&rarr;</span>
+										<code><?php echo esc_html( $row->new_path ); ?></code>
+										<span class="description"><?php echo esc_html( gmdate( 'M j, Y', strtotime( $row->moved ) ) ); ?></span>
+									</td>
+									<td class="coywolf-seo-cell-actions">
+										<?php $this->render_move_actions( $row ); ?>
+									</td>
 								</tr>
 							<?php endforeach; ?>
 						</tbody>

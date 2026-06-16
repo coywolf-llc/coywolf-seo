@@ -53,7 +53,15 @@ final class Coywolf_SEO_Redirects {
 	/**
 	 * Current database schema version.
 	 */
-	const DB_VERSION = 2;
+	const DB_VERSION = 3;
+
+	/**
+	 * Old normalized permalinks captured before an update, keyed by post ID, so
+	 * a URL change can be detected on shutdown. Request-scoped.
+	 *
+	 * @var array<int,array{path:string,query:string}>
+	 */
+	private $moved_before = array();
 
 	/**
 	 * Hook everything up.
@@ -68,6 +76,14 @@ final class Coywolf_SEO_Redirects {
 		add_action( 'wp_trash_post', array( $this, 'capture_removed_post' ) );
 		add_action( 'before_delete_post', array( $this, 'capture_removed_post' ) );
 		add_action( 'untrashed_post', array( $this, 'forget_removed_post' ) );
+
+		// Offer a redirect when a published post/page's URL changes (slug,
+		// parent, or — when the permalink structure uses %category% — its
+		// category). The old permalink is captured before the update; the new
+		// one is read on shutdown, after the editor (including the block
+		// editor's separate term writes) has fully saved, then compared.
+		add_action( 'pre_post_update', array( $this, 'capture_moved_before' ), 10, 1 );
+		add_action( 'shutdown', array( $this, 'record_moved_posts' ) );
 
 		// While Coywolf SEO owns redirects (this init() runs only when the
 		// Redirects feature is on), switch off the Redirection plugin's URL
@@ -95,7 +111,7 @@ final class Coywolf_SEO_Redirects {
 	/**
 	 * Table names.
 	 *
-	 * @param string $which rules | deleted.
+	 * @param string $which rules | deleted | moves.
 	 * @return string
 	 */
 	public static function table( $which ) {
@@ -103,6 +119,7 @@ final class Coywolf_SEO_Redirects {
 		$map = array(
 			'rules'   => $wpdb->prefix . 'coywolf_seo_redirects',
 			'deleted' => $wpdb->prefix . 'coywolf_seo_deleted',
+			'moves'   => $wpdb->prefix . 'coywolf_seo_moves',
 		);
 		return $map[ $which ];
 	}
@@ -167,11 +184,25 @@ final class Coywolf_SEO_Redirects {
 			) $charset;"
 		);
 
+		dbDelta(
+			'CREATE TABLE ' . self::table( 'moves' ) . " (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				post_id bigint(20) unsigned NOT NULL DEFAULT 0,
+				post_title varchar(255) NOT NULL DEFAULT '',
+				old_path varchar(191) NOT NULL,
+				new_path varchar(191) NOT NULL DEFAULT '',
+				moved datetime NOT NULL,
+				PRIMARY KEY  (id),
+				UNIQUE KEY post_id (post_id)
+			) $charset;"
+		);
+
 		update_option( 'coywolf_seo_db_version', self::DB_VERSION );
 	}
 
 	/**
-	 * How many deleted pages await a decision (the menu bubble).
+	 * How many decisions await the user — deleted pages plus moved pages whose
+	 * redirect hasn't been created (the menu bubble).
 	 *
 	 * @return int
 	 */
@@ -181,8 +212,12 @@ final class Coywolf_SEO_Redirects {
 		}
 		global $wpdb;
 		$deleted_table = self::table( 'deleted' );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- tiny count for the admin menu.
-		return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$deleted_table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name built from $wpdb->prefix, no user input.
+		$moves_table   = self::table( 'moves' );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- tiny counts for the admin menu.
+		$deleted = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$deleted_table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name built from $wpdb->prefix, no user input.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- tiny counts for the admin menu.
+		$moved = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$moves_table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name built from $wpdb->prefix, no user input.
+		return $deleted + $moved;
 	}
 
 	/**
@@ -426,6 +461,11 @@ final class Coywolf_SEO_Redirects {
 	 * @param int $post_id Post ID.
 	 */
 	public function capture_removed_post( $post_id ) {
+		global $wpdb;
+		// A post being removed supersedes any pending "moved" decision for it.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- purpose-built table.
+		$wpdb->delete( self::table( 'moves' ), array( 'post_id' => (int) $post_id ), array( '%d' ) );
+
 		$post = get_post( $post_id );
 		if ( ! $post || ! in_array( $post->post_type, array( 'post', 'page' ), true ) || 'publish' !== $post->post_status ) {
 			return;
@@ -439,7 +479,6 @@ final class Coywolf_SEO_Redirects {
 			return; // Already handled by a rule.
 		}
 
-		global $wpdb;
 		$deleted_table = self::table( 'deleted' );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- purpose-built table, deduped by path.
 		$wpdb->query(
@@ -465,6 +504,128 @@ final class Coywolf_SEO_Redirects {
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- purpose-built table.
 		$wpdb->delete( self::table( 'deleted' ), array( 'post_id' => (int) $post_id ), array( '%d' ) );
+	}
+
+	/**
+	 * Remember a published post/page's current permalink before it is updated,
+	 * so {@see record_moved_posts()} can tell on shutdown whether the URL moved.
+	 *
+	 * @param int $post_id Post being updated.
+	 */
+	public function capture_moved_before( $post_id ) {
+		if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) {
+			return;
+		}
+		$post = get_post( $post_id );
+		if ( ! $post || 'publish' !== $post->post_status || ! $this->is_redirectable_type( $post->post_type ) ) {
+			return; // Only published, publicly-viewable posts have a URL worth preserving.
+		}
+		$this->moved_before[ (int) $post_id ] = self::normalize( get_permalink( $post ) );
+	}
+
+	/**
+	 * On shutdown — after the whole save (including the block editor's separate
+	 * term writes) has settled — compare each captured permalink to the post's
+	 * current one and record any URL change as a pending "moved" decision.
+	 */
+	public function record_moved_posts() {
+		if ( empty( $this->moved_before ) ) {
+			return;
+		}
+		$captured           = $this->moved_before;
+		$this->moved_before = array();
+
+		foreach ( $captured as $post_id => $before ) {
+			$post = get_post( $post_id );
+			if ( ! $post || 'publish' !== $post->post_status || ! $this->is_redirectable_type( $post->post_type ) ) {
+				continue; // Unpublished/trashed now — the old URL isn't being replaced by a live one.
+			}
+			$after = self::normalize( get_permalink( $post ) );
+			if ( '/' === $before['path'] || $before['path'] === $after['path'] ) {
+				continue; // Homepage, or the path didn't actually change.
+			}
+			// If a rule already covers the old path, nothing to offer.
+			if ( $this->match( $before['path'], $before['query'] ) ) {
+				continue;
+			}
+			$this->record_move( (int) $post_id, $post->post_title, $before['path'], $after['path'] );
+		}
+	}
+
+	/**
+	 * Insert or update a pending move (one per post). The original old path is
+	 * preserved across repeated edits; only the destination is refreshed, so a
+	 * post moved A→B→C still offers a single A→C redirect.
+	 *
+	 * @param int    $post_id    Post ID.
+	 * @param string $post_title Post title.
+	 * @param string $old_path   Original path (the redirect source).
+	 * @param string $new_path   Current path (the redirect target).
+	 */
+	private function record_move( $post_id, $post_title, $old_path, $new_path ) {
+		global $wpdb;
+		$moves = self::table( 'moves' );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- purpose-built table, deduped by post_id.
+		$wpdb->query(
+			$wpdb->prepare(
+				"INSERT INTO {$moves} (post_id, post_title, old_path, new_path, moved) VALUES (%d, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE post_title = %s, new_path = %s, moved = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix.
+				$post_id,
+				$post_title,
+				substr( $old_path, 0, 191 ),
+				substr( $new_path, 0, 191 ),
+				gmdate( 'Y-m-d H:i:s' ),
+				$post_title,
+				substr( $new_path, 0, 191 ),
+				gmdate( 'Y-m-d H:i:s' )
+			)
+		);
+	}
+
+	/**
+	 * Whether a post type has public, redirectable URLs (post + page only, to
+	 * match the deletion capture).
+	 *
+	 * @param string $type Post type.
+	 * @return bool
+	 */
+	private function is_redirectable_type( $type ) {
+		return in_array( $type, array( 'post', 'page' ), true );
+	}
+
+	/**
+	 * Pending "moved page" decisions (URL changed, redirect not yet created).
+	 *
+	 * @return array
+	 */
+	public function pending_moves() {
+		global $wpdb;
+		$moves = self::table( 'moves' );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- purpose-built table; admin screen.
+		return (array) $wpdb->get_results( "SELECT * FROM {$moves} ORDER BY moved DESC" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name built from $wpdb->prefix, no user input.
+	}
+
+	/**
+	 * The pending move for one post, if any (for the post-edit notice).
+	 *
+	 * @param int $post_id Post ID.
+	 * @return object|null
+	 */
+	public function pending_move_for_post( $post_id ) {
+		global $wpdb;
+		$moves = self::table( 'moves' );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix.
+		return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$moves} WHERE post_id = %d", (int) $post_id ) );
+	}
+
+	/**
+	 * Remove a pending move (decided or dismissed).
+	 *
+	 * @param int $id Move row ID.
+	 */
+	public function delete_move( $id ) {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- purpose-built table.
+		$wpdb->delete( self::table( 'moves' ), array( 'id' => (int) $id ), array( '%d' ) );
 	}
 
 
