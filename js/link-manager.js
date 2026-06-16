@@ -124,6 +124,13 @@
 			return { cls: 'coywolf-seo-lm-code--none', text: '—', title: i18n.pending || '' };
 		}
 		var code = r.code || 0;
+		if ( r.blocked ) {
+			return {
+				cls: 'coywolf-seo-lm-code--blocked',
+				text: r.short || 'Blocked',
+				title: r.label || r.short || 'Blocked'
+			};
+		}
 		if ( r.redirect && code < 400 && r.redirectCode ) {
 			return {
 				cls: 'coywolf-seo-lm-code--redirect',

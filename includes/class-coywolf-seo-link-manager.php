@@ -1471,6 +1471,7 @@ final class Coywolf_SEO_Link_Manager {
 			if ( 'unsafe' === $this->url_safety( $url ) ) {
 				$out[ $url ] = array(
 					'broken'        => true,
+					'blocked'       => false,
 					'code'          => 0,
 					'short'         => __( 'Skipped', 'coywolf-seo' ),
 					'label'         => __( 'Skipped — host resolves to a non-public address', 'coywolf-seo' ),
@@ -1769,9 +1770,31 @@ final class Coywolf_SEO_Link_Manager {
 		if ( 0 === $code ) {
 			return array(
 				'broken'        => true,
+				'blocked'       => false,
 				'code'          => 0,
 				'short'         => __( 'Error', 'coywolf-seo' ),
 				'label'         => null !== $error ? $this->shorten( $error ) : __( 'No response', 'coywolf-seo' ),
+				'redirect'      => false,
+				'redirect_code' => 0,
+				'final_url'     => '',
+			);
+		}
+
+		// Anti-bot block (e.g. LinkedIn 999, social 403/429 from a server IP):
+		// the link is almost certainly fine, it just cannot be verified from
+		// here. Classified on its own so it is never reported or counted as
+		// broken. Checked before the >= 400 test so real 4xx still fall through.
+		if ( $this->is_blocked( $code, $original_url ) ) {
+			return array(
+				'broken'        => false,
+				'blocked'       => true,
+				'code'          => $code,
+				'short'         => __( 'Blocked', 'coywolf-seo' ),
+				'label'         => sprintf(
+					/* translators: %d: HTTP status code returned by the blocking host. */
+					__( 'Blocked by the destination (HTTP %d) — the link is likely fine but cannot be verified from a server.', 'coywolf-seo' ),
+					$code
+				),
 				'redirect'      => false,
 				'redirect_code' => 0,
 				'final_url'     => '',
@@ -1789,6 +1812,7 @@ final class Coywolf_SEO_Link_Manager {
 			}
 			return array(
 				'broken'        => true,
+				'blocked'       => false,
 				'code'          => $code,
 				'short'         => (string) $code,
 				'label'         => $label,
@@ -1810,6 +1834,7 @@ final class Coywolf_SEO_Link_Manager {
 			);
 			return array(
 				'broken'        => false,
+				'blocked'       => false,
 				'code'          => $code,
 				'short'         => (string) $redirect_code,
 				'label'         => $label,
@@ -1822,6 +1847,7 @@ final class Coywolf_SEO_Link_Manager {
 		// Plain success.
 		return array(
 			'broken'        => false,
+			'blocked'       => false,
 			'code'          => $code,
 			'short'         => (string) $code,
 			'label'         => $this->status_label( $code ),
@@ -1859,6 +1885,7 @@ final class Coywolf_SEO_Link_Manager {
 		if ( 'unsafe' === $this->url_safety( $url ) ) {
 			return array(
 				'broken'        => true,
+				'blocked'       => false,
 				'code'          => 0,
 				'short'         => __( 'Skipped', 'coywolf-seo' ),
 				'label'         => __( 'Skipped — host resolves to a non-public address', 'coywolf-seo' ),
@@ -2155,6 +2182,85 @@ final class Coywolf_SEO_Link_Manager {
 	}
 
 	/**
+	 * Whether an HTTP status should be treated as an anti-bot "blocked" result
+	 * rather than a broken link.
+	 *
+	 * Some hosts refuse non-browser / datacenter traffic instead of returning a
+	 * truthful status: LinkedIn (and Yandex) answer the non-standard 999, and
+	 * many social platforms answer 403/429 to anything that is not a logged-in
+	 * browser. From a server IP these are unavoidable and do not mean the link
+	 * is dead, so they are classified separately and never counted as broken.
+	 *
+	 * Rules: 999 is always a block. 403 and 429 are a block only when the host
+	 * is one known to gate bots this way (filterable). Every other code,
+	 * including 404 and 410, returns false and keeps its normal handling.
+	 *
+	 * @param int    $code HTTP status code.
+	 * @param string $url  The URL the code came from (its host is matched).
+	 * @return bool
+	 */
+	private function is_blocked( $code, $url ) {
+		$code = (int) $code;
+
+		// 999 is not a real HTTP status — only ever an anti-bot block.
+		if ( 999 === $code ) {
+			return true;
+		}
+
+		// 403/429 are ambiguous: a block only from hosts known to gate bots.
+		if ( 403 !== $code && 429 !== $code ) {
+			return false;
+		}
+
+		$host = $this->normalize_domain( (string) $url );
+		if ( '' === $host ) {
+			return false;
+		}
+
+		foreach ( $this->blocking_hosts() as $blocked_host ) {
+			$suffix = '.' . $blocked_host;
+			if ( $host === $blocked_host
+				|| ( strlen( $host ) > strlen( $suffix )
+					&& substr( $host, -strlen( $suffix ) ) === $suffix ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Registrable domains known to answer 403/429 to non-browser traffic.
+	 * Subdomains match too (e.g. "www.linkedin.com", "de.linkedin.com").
+	 * Filterable via 'coywolf_seo_lm_blocking_hosts'.
+	 *
+	 * @return string[] Lower-case, www-stripped registrable domains.
+	 */
+	private function blocking_hosts() {
+		$hosts = array(
+			'linkedin.com',
+			'instagram.com',
+			'facebook.com',
+			'threads.net',
+			'x.com',
+			'twitter.com',
+			'tiktok.com',
+			'pinterest.com',
+			'quora.com',
+			'crunchbase.com',
+			'glassdoor.com',
+			'yelp.com',
+			'reddit.com',
+		);
+
+		$hosts = (array) apply_filters( 'coywolf_seo_lm_blocking_hosts', $hosts );
+
+		return array_values(
+			array_filter( array_map( array( $this, 'normalize_domain' ), $hosts ) )
+		);
+	}
+
+	/**
 	 * Whether a URL matches any ignore rule.
 	 *
 	 * @param string $url URL to test.
@@ -2423,6 +2529,9 @@ final class Coywolf_SEO_Link_Manager {
 		$broken_count = 0;
 		$redir_count  = 0;
 		foreach ( $state['results'] as $r ) {
+			if ( ! empty( $r['blocked'] ) ) {
+				continue; // Blocked != broken; excluded from both tallies.
+			}
 			if ( 0 === (int) $r['code'] || (int) $r['code'] >= 400 ) {
 				++$broken_count;
 			} elseif ( ! empty( $r['redirect'] ) ) {
@@ -2480,6 +2589,7 @@ final class Coywolf_SEO_Link_Manager {
 				'short'        => isset( $r['short'] ) ? $r['short'] : (string) $r['code'],
 				'label'        => $r['label'],
 				'redirect'     => $is_redirect,
+				'blocked'      => ! empty( $r['blocked'] ),
 				'redirectCode' => isset( $r['redirect_code'] ) ? (int) $r['redirect_code'] : 0,
 				'finalUrl'     => isset( $r['final_url'] ) ? (string) $r['final_url'] : '',
 				'postId'       => (int) $r['post_id'],
@@ -3265,6 +3375,7 @@ final class Coywolf_SEO_Link_Manager {
 				'short'        => '' !== $r['response_short'] ? $r['response_short'] : (string) (int) $r['response_code'],
 				'label'        => $r['response_label'],
 				'redirect'     => (bool) (int) $r['is_redirect'],
+				'blocked'      => $this->is_blocked( (int) $r['response_code'], $r['url'] ),
 				'redirectCode' => (int) $r['redirect_code'],
 				'finalUrl'     => (string) $r['final_url'],
 				'checked'      => ! empty( $r['last_checked'] ),
