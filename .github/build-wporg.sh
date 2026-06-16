@@ -47,6 +47,15 @@ rm -rf "$OUT"
 mkdir -p "$STAGE"
 cp -a "$SRC"/. "$STAGE"/
 
+# Drop the .wordpress-org/ directory. The GitHub build ships it so the in-plugin
+# Documentation page can render readme.md's screenshot/icon references, but the
+# .org variant must not: .org serves the listing-page screenshots and icons from
+# its own SVN assets tree (the deploy's ASSETS_DIR), and a hidden dot-directory
+# carrying multi-megabyte PNGs has no place in the distributed plugin. The
+# Markdown renderer already omits images whose files aren't bundled, so the
+# Documentation page degrades cleanly here.
+rm -rf "$STAGE/.wordpress-org"
+
 # ---------------------------------------------------------------------------
 # WordPress.org file-type compliance.
 #
