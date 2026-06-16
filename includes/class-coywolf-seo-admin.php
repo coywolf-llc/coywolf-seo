@@ -34,6 +34,7 @@ final class Coywolf_SEO_Admin {
 	public function init() {
 		add_action( 'admin_menu', array( $this, 'register_menu' ) );
 		add_action( 'admin_head', array( $this, 'hide_hidden_pages' ) );
+		add_filter( 'submenu_file', array( $this, 'highlight_parent_submenu' ) );
 		add_action( 'admin_post_coywolf_seo_save_site', array( $this, 'save_site_details' ) );
 		add_action( 'admin_post_coywolf_seo_save_settings', array( $this, 'save_settings' ) );
 		add_action( 'admin_post_coywolf_seo_remove_ai_key', array( $this, 'remove_ai_key' ) );
@@ -59,6 +60,32 @@ final class Coywolf_SEO_Admin {
 			remove_submenu_page( self::SLUG_SITE, Coywolf_SEO_Robots::PAGE_EDIT );
 			remove_submenu_page( self::SLUG_SITE, Coywolf_SEO_Robots::PAGE_ROBOTS );
 		}
+	}
+
+	/**
+	 * Keep the parent submenu item highlighted while a hidden child page is open.
+	 *
+	 * The Edit Link, Add/Edit Rule, and Robots.txt editor pages are registered
+	 * under the menu (so their URLs route) but removed from the menu UI by
+	 * hide_hidden_pages(). With no matching submenu entry, WordPress highlights
+	 * none — so the sidebar looks like nothing is selected. Point the highlight
+	 * at the visible page each one is reached from.
+	 *
+	 * @param string|null $submenu_file The submenu slug WordPress would highlight.
+	 * @return string|null
+	 */
+	public function highlight_parent_submenu( $submenu_file ) {
+		global $plugin_page;
+
+		if ( Coywolf_SEO_Options::feature_enabled( 'links' ) && Coywolf_SEO_Link_Manager::EDIT_SLUG === $plugin_page ) {
+			return Coywolf_SEO_Link_Manager::SLUG;
+		}
+
+		if ( Coywolf_SEO_Options::feature_enabled( 'robots' ) && in_array( $plugin_page, array( Coywolf_SEO_Robots::PAGE_EDIT, Coywolf_SEO_Robots::PAGE_ROBOTS ), true ) ) {
+			return Coywolf_SEO_Robots::PAGE_LIST;
+		}
+
+		return $submenu_file;
 	}
 
 	/**
@@ -560,6 +587,7 @@ final class Coywolf_SEO_Admin {
 				'idFixNonce'      => wp_create_nonce( 'coywolf_seo_idfix' ),
 				'i18n'            => array(
 					'selectImage'       => __( 'Select image', 'coywolf-seo' ),
+					'removeImage'       => __( 'Remove image', 'coywolf-seo' ),
 					'pasteOrSelect'     => __( 'Paste an image URL or select one', 'coywolf-seo' ),
 					'removeProperty'    => __( 'Remove property', 'coywolf-seo' ),
 					'remove'            => __( 'Remove', 'coywolf-seo' ),
@@ -862,13 +890,30 @@ final class Coywolf_SEO_Admin {
 		$type  = isset( $meta['input'] ) ? $meta['input'] : 'text';
 
 		if ( 'image' === $type ) {
-			printf(
-				'<input type="url" class="regular-text" name="%s" value="%s" placeholder="%s" /> <button type="button" class="button coywolf-seo-media-btn">%s</button>',
-				esc_attr( $name_base ),
-				esc_attr( $value ),
-				esc_attr__( 'Paste an image URL or select one', 'coywolf-seo' ),
-				esc_html__( 'Select image', 'coywolf-seo' )
-			);
+			// When the saved URL resolves to a Media Library attachment, show a
+			// preview (the same picker style as the Open Graph Image). A pasted
+			// external URL won't resolve, so it stays a plain text field.
+			$attachment_id = '' !== $value ? attachment_url_to_postid( $value ) : 0;
+			$preview_url   = '';
+			if ( $attachment_id ) {
+				$preview_url = wp_get_attachment_image_url( $attachment_id, 'medium' );
+				if ( ! $preview_url ) {
+					$preview_url = $value; // Attachment exists but has no medium size.
+				}
+			}
+			$mode = $preview_url ? 'preview' : 'url';
+			?>
+			<span class="coywolf-seo-image-field" data-mode="<?php echo esc_attr( $mode ); ?>">
+				<input type="url" class="regular-text coywolf-seo-image-url" name="<?php echo esc_attr( $name_base ); ?>" value="<?php echo esc_attr( $value ); ?>" placeholder="<?php esc_attr_e( 'Paste an image URL or select one', 'coywolf-seo' ); ?>" />
+				<button type="button" class="button coywolf-seo-media-btn"><?php esc_html_e( 'Select image', 'coywolf-seo' ); ?></button>
+				<span class="coywolf-seo-image-preview">
+					<?php if ( $preview_url ) : ?>
+						<img src="<?php echo esc_url( $preview_url ); ?>" alt="" />
+					<?php endif; ?>
+				</span>
+				<button type="button" class="button coywolf-seo-image-remove"><?php esc_html_e( 'Remove image', 'coywolf-seo' ); ?></button>
+			</span>
+			<?php
 			return;
 		}
 

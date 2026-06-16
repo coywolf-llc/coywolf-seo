@@ -38,22 +38,35 @@
 		}
 
 		if ( meta.input === 'image' ) {
-			$cell.append(
+			// New rows start empty, so always in URL mode. Picking an image
+			// from the Media Library swaps this to a preview (see the
+			// .coywolf-seo-media-btn handler), mirroring the PHP renderer.
+			var $field = $( '<span class="coywolf-seo-image-field" data-mode="url"></span>' );
+			$field.append(
 				$( '<input/>', {
 					type: 'url',
-					class: 'regular-text',
+					class: 'regular-text coywolf-seo-image-url',
 					name: nameBase,
 					placeholder: config.i18n.pasteOrSelect || ''
 				} )
 			);
-			$cell.append( ' ' );
-			$cell.append(
+			$field.append( ' ' );
+			$field.append(
 				$( '<button/>', {
 					type: 'button',
 					class: 'button coywolf-seo-media-btn',
 					text: config.i18n.selectImage || 'Select image'
 				} )
 			);
+			$field.append( $( '<span class="coywolf-seo-image-preview"></span>' ) );
+			$field.append(
+				$( '<button/>', {
+					type: 'button',
+					class: 'button coywolf-seo-image-remove',
+					text: config.i18n.removeImage || 'Remove image'
+				} )
+			);
+			$cell.append( $field );
 			return $cell;
 		}
 
@@ -159,12 +172,14 @@
 			} );
 		}
 
-		// Media picker inside repeaters: writes the chosen image URL into
-		// the sibling input (uploads land in the Media Library via wp.media).
+		// Media picker inside repeaters: writes the chosen image URL into the
+		// field's hidden-by-CSS URL input (uploads land in the Media Library
+		// via wp.media), then swaps the field to its image preview.
 		var repeaterFrame = null;
 		$( document ).on( 'click', '.coywolf-seo-media-btn', function ( e ) {
 			e.preventDefault();
-			var $input = $( this ).closest( 'td' ).find( 'input[type="url"]' ).first();
+			var $field = $( this ).closest( '.coywolf-seo-image-field' );
+			var $input = $field.find( '.coywolf-seo-image-url' ).first();
 			if ( ! repeaterFrame ) {
 				repeaterFrame = wp.media( {
 					title: config.i18n.selectImage || 'Select image',
@@ -175,9 +190,34 @@
 			repeaterFrame.off( 'select' );
 			repeaterFrame.on( 'select', function () {
 				var attachment = repeaterFrame.state().get( 'selection' ).first().toJSON();
+				var thumb =
+					attachment.sizes && attachment.sizes.medium
+						? attachment.sizes.medium.url
+						: attachment.url;
+				// Store the full-size URL (what the schema outputs); show a
+				// medium thumbnail as the preview.
 				$input.val( attachment.url ).trigger( 'change' );
+				$field
+					.find( '.coywolf-seo-image-preview' )
+					.html( $( '<img/>', { src: thumb, alt: '' } ) );
+				$field.attr( 'data-mode', 'preview' );
 			} );
+			// The frame is shared across image rows; clear any prior selection
+			// so it doesn't carry one field's pick into another as pre-highlighted.
+			if ( repeaterFrame.state() ) {
+				repeaterFrame.state().get( 'selection' ).reset();
+			}
 			repeaterFrame.open();
+		} );
+
+		// Removing a chosen image clears the URL and reverts to the text input
+		// + "Select image" button (a pasted URL is left for the user to edit).
+		$( document ).on( 'click', '.coywolf-seo-image-remove', function ( e ) {
+			e.preventDefault();
+			var $field = $( this ).closest( '.coywolf-seo-image-field' );
+			$field.find( '.coywolf-seo-image-url' ).val( '' );
+			$field.find( '.coywolf-seo-image-preview' ).empty();
+			$field.attr( 'data-mode', 'url' );
 		} );
 
 		// Authors: load the selected user's details.

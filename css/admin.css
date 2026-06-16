@@ -6,13 +6,26 @@
 	border-top: 1px solid #dcdcde;
 }
 
-.coywolf-seo-og-preview img {
+.coywolf-seo-og-preview img,
+.coywolf-seo-image-preview img {
 	max-width: 300px;
 	height: auto;
 	display: block;
 	margin-bottom: 8px;
 	border: 1px solid #dcdcde;
 	border-radius: 2px;
+}
+
+/* Image property field: a URL input + "Select image" until an image is chosen
+   from the Media Library, then a preview + "Remove image" replaces them. */
+.coywolf-seo-image-field[data-mode="url"] .coywolf-seo-image-preview,
+.coywolf-seo-image-field[data-mode="url"] .coywolf-seo-image-remove {
+	display: none;
+}
+
+.coywolf-seo-image-field[data-mode="preview"] .coywolf-seo-image-url,
+.coywolf-seo-image-field[data-mode="preview"] .coywolf-seo-media-btn {
+	display: none;
 }
 
 .coywolf-seo-props {
