@@ -45,8 +45,31 @@ final class Coywolf_SEO_Robots_Matcher {
 	 * @return bool
 	 */
 	public static function matches( $pattern, $path ) {
-		$pattern = self::escape_pattern( (string) $pattern );
-		$path    = self::escape_pattern( (string) $path );
+		// Normalize BOTH sides so equivalent encodings compare equal — the right
+		// behavior for the admin's per-rule tester and for covers_subtree(),
+		// where both inputs are author-entered. Google's full-file matcher instead
+		// escapes only the pattern at parse time and leaves the request path raw,
+		// comparing that raw path with match_raw() directly. See Coywolf_SEO_Robots_Rep.
+		return self::match_raw( self::escape_pattern( (string) $pattern ), self::escape_pattern( (string) $path ) );
+	}
+
+	/**
+	 * The raw REP wildcard match with NO normalization of either argument — a
+	 * direct port of `RobotsMatchStrategy::Matches()`. `*` matches any run of
+	 * bytes, a trailing `$` anchors the end of the path, every other byte
+	 * (including a non-terminal `$`) matches literally, and the pattern is
+	 * anchored at the start of the path. Linear and backtracking-free.
+	 *
+	 * Callers that need percent-encoding normalization should escape their
+	 * argument(s) first (see {@see self::matches()}).
+	 *
+	 * @param string $pattern Pattern (already in whatever encoding you intend to compare).
+	 * @param string $path    Path (compared byte-for-byte against the pattern).
+	 * @return bool
+	 */
+	public static function match_raw( $pattern, $path ) {
+		$pattern = (string) $pattern;
+		$path    = (string) $path;
 
 		$pathlen = strlen( $path );
 		$plen    = strlen( $pattern );

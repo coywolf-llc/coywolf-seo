@@ -73,6 +73,7 @@ require_once __DIR__ . '/includes/class-coywolf-seo-image-text.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-image-id-fixer.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-link-manager.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-robots-matcher.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-robots-rep.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-robots-bots.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-robots-rules.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-robots.php';
