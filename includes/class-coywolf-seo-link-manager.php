@@ -3696,6 +3696,7 @@ final class Coywolf_SEO_Link_Manager {
 			<input type="hidden" name="link_id" value="<?php echo esc_attr( $link_id ); ?>" />
 			<?php wp_nonce_field( 'coywolf_seo_lm_save_edit_' . $link_id ); ?>
 
+			<div class="coywolf-seo-panel">
 			<table class="form-table" role="presentation">
 				<tr>
 					<th scope="row"><label for="coywolf-seo-lm-edit-url"><?php esc_html_e( 'URL', 'coywolf-seo' ); ?></label></th>
@@ -3796,6 +3797,7 @@ final class Coywolf_SEO_Link_Manager {
 						<button type="submit" name="coywolf_seo_lm_remove" value="1" class="button coywolf-seo-lm-danger"><?php esc_html_e( 'Remove', 'coywolf-seo' ); ?></button>
 					</div>
 				</div>
+			</div>
 			</div>
 		</form>
 		</div>

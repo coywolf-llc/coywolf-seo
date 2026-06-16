@@ -151,6 +151,7 @@ final class Coywolf_SEO_Import_Export {
 		?>
 		<div class="wrap coywolf-seo-wrap">
 		<h1><?php esc_html_e( 'Import/Export', 'coywolf-seo' ); ?></h1>
+		<div class="coywolf-seo-panel">
 		<table class="form-table" role="presentation">
 			<tr>
 				<th scope="row"><?php esc_html_e( 'Export', 'coywolf-seo' ); ?></th>
@@ -176,6 +177,7 @@ final class Coywolf_SEO_Import_Export {
 				</td>
 			</tr>
 		</table>
+		</div>
 		<?php
 		$importers = Coywolf_SEO::instance()->redirects_import();
 		if ( $importers ) {

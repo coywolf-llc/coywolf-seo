@@ -944,6 +944,7 @@ final class Coywolf_SEO_Admin {
 				<?php wp_nonce_field( 'coywolf_seo_site' ); ?>
 
 				<?php $can_edit_identity = current_user_can( 'manage_options' ); ?>
+				<div class="coywolf-seo-panel">
 				<table class="form-table" role="presentation">
 					<tr>
 						<th scope="row"><label for="coywolf-seo-site-name"><?php esc_html_e( 'Site Name', 'coywolf-seo' ); ?></label></th>
@@ -1033,6 +1034,9 @@ final class Coywolf_SEO_Admin {
 					<?php endif; // End Organization / Person controls. ?>
 				</table>
 
+				</div>
+
+				<div class="coywolf-seo-panel">
 				<h2><?php esc_html_e( 'Homepage', 'coywolf-seo' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
@@ -1051,6 +1055,9 @@ final class Coywolf_SEO_Admin {
 					</tr>
 				</table>
 
+				</div>
+
+				<div class="coywolf-seo-panel">
 				<h2><?php esc_html_e( 'Posts', 'coywolf-seo' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
@@ -1078,6 +1085,9 @@ final class Coywolf_SEO_Admin {
 					</tr>
 				</table>
 
+				</div>
+
+				<div class="coywolf-seo-panel">
 				<h2><?php esc_html_e( 'Pages', 'coywolf-seo' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
@@ -1105,6 +1115,9 @@ final class Coywolf_SEO_Admin {
 					</tr>
 				</table>
 
+				</div>
+
+				<div class="coywolf-seo-panel">
 				<h2><?php esc_html_e( 'Categories', 'coywolf-seo' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
@@ -1118,6 +1131,8 @@ final class Coywolf_SEO_Admin {
 						</td>
 					</tr>
 				</table>
+
+				</div>
 
 				<?php submit_button( __( 'Save Site Details', 'coywolf-seo' ) ); ?>
 			</form>
@@ -1162,6 +1177,7 @@ final class Coywolf_SEO_Admin {
 				<input type="hidden" name="action" value="coywolf_seo_save_settings" />
 				<?php wp_nonce_field( 'coywolf_seo_settings' ); ?>
 
+				<div class="coywolf-seo-panel">
 				<h2 id="coywolf-seo-section-general"><?php esc_html_e( 'General settings', 'coywolf-seo' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
@@ -1222,6 +1238,9 @@ final class Coywolf_SEO_Admin {
 				</table>
 
 				<?php if ( Coywolf_SEO_Options::feature_enabled( 'ai' ) ) : ?>
+				</div>
+
+				<div class="coywolf-seo-panel">
 				<h2 id="coywolf-seo-section-ai"><?php esc_html_e( 'AI enrichment', 'coywolf-seo' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
@@ -1384,6 +1403,9 @@ final class Coywolf_SEO_Admin {
 						</tbody>
 				</table>
 
+				</div>
+
+				<div class="coywolf-seo-panel">
 				<h2 id="coywolf-seo-section-image-text"><?php esc_html_e( 'Image Text', 'coywolf-seo' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
@@ -1424,6 +1446,9 @@ final class Coywolf_SEO_Admin {
 				<?php endif; // End AI enrichment and Image Text defaults. ?>
 
 				<?php if ( Coywolf_SEO_Options::feature_enabled( 'links' ) ) : ?>
+				</div>
+
+				<div class="coywolf-seo-panel">
 				<h2 id="coywolf-seo-section-links"><?php esc_html_e( 'Link Manager', 'coywolf-seo' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
@@ -1448,6 +1473,9 @@ final class Coywolf_SEO_Admin {
 				</table>
 				<?php endif; // End Link Manager section. ?>
 
+				</div>
+
+				<div class="coywolf-seo-panel">
 				<h2 id="coywolf-seo-section-indexnow"><?php esc_html_e( 'IndexNow', 'coywolf-seo' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
@@ -1471,6 +1499,9 @@ final class Coywolf_SEO_Admin {
 				</table>
 
 				<?php if ( Coywolf_SEO_Options::feature_enabled( 'sitemaps' ) ) : ?>
+				</div>
+
+				<div class="coywolf-seo-panel">
 				<h2 id="coywolf-seo-section-sitemaps"><?php esc_html_e( 'Sitemaps', 'coywolf-seo' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
@@ -1546,6 +1577,9 @@ final class Coywolf_SEO_Admin {
 				}
 				?>
 
+				</div>
+
+				<div class="coywolf-seo-panel">
 				<h2 id="coywolf-seo-section-toggles"><?php esc_html_e( 'Turn off features', 'coywolf-seo' ); ?></h2>
 				<p class="description"><?php esc_html_e( 'Turn off any feature you do not use. Its settings, pages, and saved data are kept and can be turned back on at any time.', 'coywolf-seo' ); ?></p>
 				<table class="form-table" role="presentation">
@@ -1613,10 +1647,13 @@ final class Coywolf_SEO_Admin {
 					</tr>
 				</table>
 
+				</div>
+
 				<?php submit_button( __( 'Save Settings', 'coywolf-seo' ) ); ?>
 			</form>
 
 			<?php if ( Coywolf_SEO_Options::feature_enabled( 'ai' ) ) : ?>
+			<div class="coywolf-seo-panel">
 			<h2 id="coywolf-seo-section-enrich"><?php esc_html_e( 'Enrich all content', 'coywolf-seo' ); ?></h2>
 			<table class="form-table" role="presentation">
 					<tbody>
@@ -1666,6 +1703,9 @@ final class Coywolf_SEO_Admin {
 			</table>
 			<?php endif; // End Enrich all content. ?>
 
+			</div>
+
+			<div class="coywolf-seo-panel">
 			<h2 id="coywolf-seo-section-imageids"><?php esc_html_e( 'Fix missing image IDs', 'coywolf-seo' ); ?></h2>
 			<table class="form-table" role="presentation">
 				<tbody>
@@ -1688,6 +1728,7 @@ final class Coywolf_SEO_Admin {
 				</tr>
 				</tbody>
 			</table>
+			</div>
 		</div>
 		<?php
 	}

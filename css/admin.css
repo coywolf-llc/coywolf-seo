@@ -136,19 +136,25 @@
 
 /* Redirects screen. */
 
-.coywolf-seo-panel {
+/* The shared white "card" used for every section across the plugin's admin
+   pages, so Site Details, Authors, Settings, Redirects, Image Text, the
+   Robots.txt screens, etc. all look the same. */
+.coywolf-seo-panel,
+.coywolf-seo-it-panel {
 	box-sizing: border-box;
 	background: #fff;
-	border: 1px solid #dcdcde;
-	border-radius: 2px;
-	padding: 12px 16px 16px;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	box-shadow: 0 1px 1px rgba( 0, 0, 0, 0.04 );
+	padding: 16px 20px;
 	margin: 16px 0;
 	max-width: 1100px;
 }
 
 /* The global section-heading treatment (top border + 2em gap) doesn't
    belong inside panels. */
-.coywolf-seo-panel h2 {
+.coywolf-seo-panel h2,
+.coywolf-seo-it-panel h2 {
 	margin-top: 0;
 	padding-top: 0;
 	border-top: none;
@@ -383,6 +389,7 @@
 	background: #fff;
 	border: 1px solid #c3c4c7;
 	border-radius: 4px;
+	box-shadow: 0 1px 1px rgba( 0, 0, 0, 0.04 );
 	padding: 8px 24px 24px;
 	line-height: 1.6;
 }
@@ -489,19 +496,6 @@
 /* ------------------------------------------------------------------ *
  * Image Text screen
  * ------------------------------------------------------------------ */
-.coywolf-seo-it-panel {
-	background: #fff;
-	border: 1px solid #c3c4c7;
-	border-radius: 4px;
-	box-shadow: 0 1px 1px rgba( 0, 0, 0, 0.04 );
-	margin: 16px 0;
-	padding: 16px 20px;
-}
-
-.coywolf-seo-it-panel h2 {
-	margin-top: 0;
-}
-
 .coywolf-seo-it-progress {
 	background: #f0f0f1;
 	border-radius: 4px;
