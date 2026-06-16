@@ -453,6 +453,24 @@
 	border-radius: 4px;
 }
 
+/* FAQ questions render as collapsible <details> on the Documentation page. */
+.coywolf-seo-doc-body details.coywolf-seo-faq {
+	margin: 0.4em 0;
+	padding: 0.6em 0;
+	border-top: 1px solid #f0f0f1;
+}
+
+.coywolf-seo-doc-body details.coywolf-seo-faq > summary {
+	cursor: pointer;
+	font-size: 1.1em;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.coywolf-seo-doc-body details.coywolf-seo-faq[open] > summary {
+	margin-bottom: 0.5em;
+}
+
 /* API key: connection status indicator */
 .coywolf-seo-key-status {
 	display: flex;

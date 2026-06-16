@@ -23,11 +23,17 @@ final class Coywolf_SEO_Markdown {
 	 * @return string HTML.
 	 */
 	public static function to_html( $md ) {
-		$lines = explode( "\n", str_replace( "\r\n", "\n", (string) $md ) );
-		$count = count( $lines );
-		$out   = '';
-		$para  = array();
-		$i     = 0;
+		// Strip HTML comments (e.g. the wporg-strip build markers) so they never
+		// surface as visible text in the rendered documentation.
+		$md = preg_replace( '/<!--.*?-->/s', '', (string) $md );
+
+		$lines        = explode( "\n", str_replace( "\r\n", "\n", (string) $md ) );
+		$count        = count( $lines );
+		$out          = '';
+		$para         = array();
+		$i            = 0;
+		$in_faq       = false; // Inside the "Frequently Asked Questions" section.
+		$details_open = false; // A FAQ <details> block is currently open.
 
 		while ( $i < $count ) {
 			$raw  = $lines[ $i ];
@@ -44,7 +50,27 @@ final class Coywolf_SEO_Markdown {
 			if ( preg_match( '/^(#{1,6})\s+(.*)$/', $line, $m ) ) {
 				$out  .= self::flush_para( $para );
 				$level = strlen( $m[1] );
-				$out  .= '<h' . $level . '>' . self::inline( trim( $m[2] ) ) . '</h' . $level . ">\n";
+				$htext = trim( $m[2] );
+
+				if ( 2 === $level ) {
+					// A new top-level section closes any open FAQ item and decides
+					// whether the following content is inside the FAQ.
+					if ( $details_open ) {
+						$out         .= "</details>\n";
+						$details_open = false;
+					}
+					$in_faq = ( 'Frequently Asked Questions' === $htext );
+					$out   .= '<h2>' . self::inline( $htext ) . "</h2>\n";
+				} elseif ( 3 === $level && $in_faq ) {
+					// Inside the FAQ each question becomes a collapsible <details>.
+					if ( $details_open ) {
+						$out .= "</details>\n";
+					}
+					$out         .= '<details class="coywolf-seo-faq">' . "\n<summary>" . self::inline( $htext ) . "</summary>\n";
+					$details_open = true;
+				} else {
+					$out .= '<h' . $level . '>' . self::inline( $htext ) . '</h' . $level . ">\n";
+				}
 				$i++;
 				continue;
 			}
@@ -100,7 +126,11 @@ final class Coywolf_SEO_Markdown {
 			$i++;
 		}
 
-		return $out . self::flush_para( $para );
+		$out .= self::flush_para( $para );
+		if ( $details_open ) {
+			$out .= "</details>\n";
+		}
+		return $out;
 	}
 
 	/**
@@ -139,17 +169,24 @@ final class Coywolf_SEO_Markdown {
 	private static function inline( $text ) {
 		$text = esc_html( $text );
 
-		// `code`
-		$text = preg_replace_callback(
+		// Protect `code` spans from the emphasis/link passes below: the readme
+		// has `*` and `$` inside code, which they would otherwise mangle. Stash
+		// each span behind a NUL placeholder, transform the rest, then restore.
+		$codes = array();
+		$text  = preg_replace_callback(
 			'/`([^`]+)`/',
-			static function ( $m ) {
-				return '<code>' . $m[1] . '</code>';
+			static function ( $m ) use ( &$codes ) {
+				$codes[] = $m[1];
+				return "\x00C" . ( count( $codes ) - 1 ) . "\x00";
 			},
 			$text
 		);
 
-		// **bold**
+		// **bold** (before *italic* so the double-asterisk pairs match first).
 		$text = preg_replace( '/\*\*([^*]+)\*\*/', '<strong>$1</strong>', $text );
+
+		// *italic*
+		$text = preg_replace( '/\*([^*]+)\*/', '<em>$1</em>', $text );
 
 		// ![alt](path) — must run before the link rule, which would
 		// otherwise swallow the bracketed part. $m[1] is already escaped
@@ -174,6 +211,17 @@ final class Coywolf_SEO_Markdown {
 			},
 			$text
 		);
+
+		// Restore the protected code spans.
+		if ( $codes ) {
+			$text = preg_replace_callback(
+				'/\x00C(\d+)\x00/',
+				static function ( $m ) use ( $codes ) {
+					return '<code>' . $codes[ (int) $m[1] ] . '</code>';
+				},
+				$text
+			);
+		}
 
 		return $text;
 	}
