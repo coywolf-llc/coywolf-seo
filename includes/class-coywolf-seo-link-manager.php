@@ -3780,6 +3780,7 @@ final class Coywolf_SEO_Link_Manager {
 			</td>
 			</tr>
 			</table>
+			</div>
 
 			<p class="submit coywolf-seo-lm-edit-actions">
 				<button type="submit" class="button button-primary"><?php esc_html_e( 'Save link', 'coywolf-seo' ); ?></button>
@@ -3797,7 +3798,6 @@ final class Coywolf_SEO_Link_Manager {
 						<button type="submit" name="coywolf_seo_lm_remove" value="1" class="button coywolf-seo-lm-danger"><?php esc_html_e( 'Remove', 'coywolf-seo' ); ?></button>
 					</div>
 				</div>
-			</div>
 			</div>
 		</form>
 		</div>

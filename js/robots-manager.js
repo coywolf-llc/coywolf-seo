@@ -157,6 +157,7 @@
 		var descInput = document.getElementById( 'coywolf-seo-robots-description' );
 		var allCb = document.getElementById( 'coywolf-seo-robots-all' );
 		var preCancel = document.getElementById( 'coywolf-seo-robots-precancel' );
+		var actions = document.getElementById( 'coywolf-seo-robots-actions' );
 
 		var rule = {};
 		try {
@@ -178,16 +179,24 @@
 		function applyType( type, source ) {
 			if ( ! type || ! types[ type ] ) {
 				fields.style.display = 'none';
-				// No Rule Path yet: show the standalone Cancel back to the list.
+				// No Rule Path yet: show the standalone Cancel back to the list
+				// and hide the editor's save/delete actions.
 				if ( preCancel ) {
 					preCancel.style.display = '';
+				}
+				if ( actions ) {
+					actions.style.display = 'none';
 				}
 				return;
 			}
 			fields.style.display = '';
-			// The editor (with its own Cancel) is now visible.
+			// The editor is now visible: swap the standalone Cancel for the
+			// full save/cancel/delete action row below the panel.
 			if ( preCancel ) {
 				preCancel.style.display = 'none';
+			}
+			if ( actions ) {
+				actions.style.display = '';
 			}
 			var def = types[ type ];
 
