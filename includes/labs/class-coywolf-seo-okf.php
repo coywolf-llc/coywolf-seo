@@ -516,7 +516,7 @@ final class Coywolf_SEO_OKF {
 		$last       = $this->last_build();
 		$zip_ok     = class_exists( 'ZipArchive' );
 		?>
-		<div class="coywolf-seo-labs-feature card" style="max-width:48rem;padding:1rem 1.25rem;margin-top:1rem;">
+		<div class="coywolf-seo-labs-feature coywolf-seo-panel">
 			<h2><?php echo esc_html( $this->title() ); ?></h2>
 			<p class="description">
 				<?php esc_html_e( 'Generates an Open Knowledge Format (OKF v0.1) bundle of your public content — a navigable graph of Markdown concepts for articles, topics, authors, and the AI-enriched entities your pages are about or mention. Built entirely from data already on your site; no external calls.', 'coywolf-seo' ); ?>
