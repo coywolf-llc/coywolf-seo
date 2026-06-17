@@ -311,7 +311,7 @@ final class Coywolf_SEO_Markdown_Source {
 	private function frontmatter_data( WP_Post $post ) {
 		$url     = (string) get_permalink( $post );
 		$data    = array(
-			'title'   => get_the_title( $post ),
+			'title'   => self::decode_text( get_the_title( $post ) ),
 			'url'     => $url,
 			'updated' => (string) get_post_modified_time( 'c', true, $post ),
 			'sources' => array( $url ),
@@ -326,7 +326,7 @@ final class Coywolf_SEO_Markdown_Source {
 				$data['entities'] = array();
 				foreach ( $entities as $e ) {
 					$data['entities'][] = array(
-						'name'     => $e['name'],
+						'name'     => self::decode_text( $e['name'] ),
 						'relation' => $e['bucket'], // about | mentions.
 						'type'     => $e['type'],
 						'sameAs'   => $e['same_as'],
@@ -382,6 +382,22 @@ final class Coywolf_SEO_Markdown_Source {
 	// ---------------------------------------------------------------------
 	// Markdown helpers
 	// ---------------------------------------------------------------------
+
+	/**
+	 * Normalize source-derived text (titles, names, labels) for the plain-text
+	 * llms.txt and the .md frontmatter: fully decode HTML entities to real
+	 * UTF-8 (so `Here&#8217;s` becomes `Here's`), collapse internal whitespace
+	 * runs, and trim. Multibyte-safe; never written back to the post. The single
+	 * helper both outputs route titles through so they cannot drift.
+	 *
+	 * @param string $text Source text (may contain HTML entities).
+	 * @return string
+	 */
+	public static function decode_text( $text ) {
+		$text = html_entity_decode( (string) $text, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+		$text = preg_replace( '/\s+/u', ' ', $text );
+		return trim( (string) $text );
+	}
 
 	/**
 	 * Convert rendered HTML to Markdown via league/html-to-markdown, loading the
