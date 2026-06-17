@@ -28,6 +28,9 @@ delete_option( 'coywolf_seo_llms_cache' );
 wp_unschedule_hook( 'coywolf_seo_llms_rebuild' );
 delete_post_meta_by_key( '_coywolf_seo_md' );
 
+// Rewrite-rules self-heal marker.
+delete_option( 'coywolf_seo_rewrite_version' );
+
 // Per-term SEO fields.
 delete_metadata( 'term', 0, '_coywolf_seo_title', '', true );
 delete_metadata( 'term', 0, '_coywolf_seo_og_image_id', '', true );

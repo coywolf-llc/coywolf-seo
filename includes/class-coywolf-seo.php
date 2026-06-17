@@ -25,6 +25,19 @@ final class Coywolf_SEO {
 	const VERSION = '1.0.106';
 
 	/**
+	 * Rewrite-rules version. Bumped whenever this plugin's rewrite rules change
+	 * so installs that updated without re-activating (the self-updater path,
+	 * which never fires the activation flush) flush exactly once and pick up the
+	 * new routes — e.g. the /llms.txt + per-page .md endpoints.
+	 */
+	const REWRITE_VERSION = '2';
+
+	/**
+	 * Option storing the last-flushed REWRITE_VERSION.
+	 */
+	const REWRITE_VERSION_OPTION = 'coywolf_seo_rewrite_version';
+
+	/**
 	 * Singleton instance.
 	 *
 	 * @var Coywolf_SEO|null
@@ -351,6 +364,10 @@ final class Coywolf_SEO {
 		$this->llms_txt = new Coywolf_SEO_Llms_Txt();
 		$this->llms_txt->init();
 
+		// Self-heal the rewrite cache once after a rule-changing update (priority
+		// 99 so every module's add_rewrite_rule has run first).
+		add_action( 'init', array( $this, 'maybe_flush_rewrites' ), 99 );
+
 		if ( is_admin() ) {
 			$this->admin = new Coywolf_SEO_Admin();
 			$this->admin->init();
@@ -469,7 +486,7 @@ final class Coywolf_SEO {
 	}
 
 	/**
-	 * llms.txt owner accessor (the Settings page renders its section).
+	 * The llms.txt owner accessor (the Settings page renders its section).
 	 *
 	 * @return Coywolf_SEO_Llms_Txt
 	 */
@@ -497,6 +514,19 @@ final class Coywolf_SEO {
 	}
 
 	/**
+	 * Flush rewrite rules exactly once after the plugin's rule set changes, for
+	 * installs that updated without re-activating (the self-updater never fires
+	 * the activation flush). Runs on every request but only does work — and the
+	 * single option write — when REWRITE_VERSION has moved.
+	 */
+	public function maybe_flush_rewrites() {
+		if ( (string) get_option( self::REWRITE_VERSION_OPTION ) !== self::REWRITE_VERSION ) {
+			flush_rewrite_rules();
+			update_option( self::REWRITE_VERSION_OPTION, self::REWRITE_VERSION, false );
+		}
+	}
+
+	/**
 	 * Activation hook: grant the admin capability per the saved setting,
 	 * regenerate rewrite rules (category prefix removal adds its own), and
 	 * purge known page caches so the new head output is served immediately
@@ -510,6 +540,9 @@ final class Coywolf_SEO {
 		// and imports current rules (no-op data-wise if already set up).
 		Coywolf_SEO_Robots::on_activate();
 		flush_rewrite_rules();
+		// Mark the rewrite rules current so maybe_flush_rewrites() does not flush
+		// again on the next request.
+		update_option( self::REWRITE_VERSION_OPTION, self::REWRITE_VERSION, false );
 		self::purge_known_caches();
 		// One-time reminder for caches this plugin cannot purge itself.
 		set_transient( 'coywolf_seo_activation_notice', 1, 5 * MINUTE_IN_SECONDS );
