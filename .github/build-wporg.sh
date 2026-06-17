@@ -86,12 +86,14 @@ find "$STAGE" -type f \( \
 	-o -name 'mempalace.yaml' \
 	\) -delete
 
-# Delete a wporg-strip marked region from a file, portably (macOS + Linux).
-# The Perl flip-flop matches the start..end lines inclusive.
+# Delete a <marker>:start .. <marker>:end region from a file, portably
+# (macOS + Linux). The Perl flip-flop matches the start..end lines inclusive.
+# $2 is the marker base name and defaults to "wporg-strip".
 strip_marked() {
 	local f="$1"
+	local marker="${2:-wporg-strip}"
 	[ -f "$f" ] || return 0
-	perl -ni -e 'print unless /wporg-strip:start/ .. /wporg-strip:end/' "$f"
+	perl -ni -e "print unless /\\Q${marker}\\E:start/ .. /\\Q${marker}\\E:end/" "$f"
 }
 
 rm -f "$STAGE/includes/class-github-updater.php"
@@ -100,6 +102,36 @@ strip_marked "$STAGE/readme.txt"
 # Keep readme.md (the in-plugin Documentation page renders it), but strip any
 # marked regions from it just like readme.txt.
 strip_marked "$STAGE/readme.md"
+
+# ---------------------------------------------------------------------------
+# Experimental Labs features.
+#
+# The Labs subsystem (includes/labs/) ships only in the GitHub distribution;
+# the WordPress.org variant must not carry experimental features. Remove the
+# tree and strip the labs-strip-marked require of it from the main file (and
+# any labs-strip prose from the readmes). Callers reference the Labs classes
+# only behind class_exists() guards, so their absence is a clean no-op.
+#
+# Set INCLUDE_LABS=1 (or true) to keep Labs in the .org variant for a one-off.
+# ---------------------------------------------------------------------------
+if [ "${INCLUDE_LABS:-}" != "1" ] && [ "${INCLUDE_LABS:-}" != "true" ]; then
+	rm -rf "$STAGE/includes/labs"
+	strip_marked "$STAGE/$MAIN_BASE" 'labs-strip'
+	strip_marked "$STAGE/readme.txt" 'labs-strip'
+	strip_marked "$STAGE/readme.md" 'labs-strip'
+
+	# Guard: the Labs tree and any require of it must be gone from the variant.
+	# Only a real require/include of includes/labs/ would break the .org build;
+	# inert class_exists()-guarded references and docblock mentions are fine, so
+	# the grep matches require/include statements specifically.
+	leak_re='(require|include)(_once)?[^;]*includes/labs/'
+	if [ -d "$STAGE/includes/labs" ] || grep -rIlE "$leak_re" "$STAGE" --include='*.php' >/dev/null 2>&1; then
+		echo "build-wporg: ERROR — Labs code leaked into the .org variant:" >&2
+		[ -d "$STAGE/includes/labs" ] && echo "  includes/labs/ still present" >&2
+		grep -rIlE "$leak_re" "$STAGE" --include='*.php' >&2 || true
+		exit 1
+	fi
+fi
 
 # Strip the "Update URI" plugin header. WordPress.org forbids it (it signals a
 # non-.org update source, and Plugin Check reports it as a plugin updater). The

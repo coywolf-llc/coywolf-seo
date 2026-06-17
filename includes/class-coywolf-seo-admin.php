@@ -427,6 +427,19 @@ final class Coywolf_SEO_Admin {
 			Coywolf_SEO_Import_Export::SLUG,
 			array( Coywolf_SEO::instance()->import_export(), 'render_page' )
 		);
+		// Labs (experimental features) sits between Import/Export and
+		// Documentation. Guarded: the Labs class is stripped from the
+		// WordPress.org build, where this item simply does not appear.
+		if ( class_exists( 'Coywolf_SEO_Labs' ) && Coywolf_SEO::instance()->labs() ) {
+			add_submenu_page(
+				self::SLUG_SITE,
+				__( 'Labs', 'coywolf-seo' ),
+				__( 'Labs', 'coywolf-seo' ),
+				'manage_options',
+				Coywolf_SEO_Labs::SLUG,
+				array( Coywolf_SEO::instance()->labs(), 'render_page' )
+			);
+		}
 		add_submenu_page(
 			self::SLUG_SITE,
 			__( 'Documentation', 'coywolf-seo' ),

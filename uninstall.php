@@ -99,6 +99,27 @@ foreach (
 }
 wp_unschedule_hook( 'coywolf_seo_robots_update_bots_event' );
 
+// Labs — Open Knowledge Format (OKF) export: settings, the last-build summary,
+// the scheduled background rebuild, and the generated bundle directory under
+// uploads. Referenced by name only (the Labs classes are stripped from the
+// WordPress.org build, so this file must not depend on them).
+delete_option( 'coywolf_seo_okf' );
+delete_option( 'coywolf_seo_okf_build' );
+wp_unschedule_hook( 'coywolf_seo_okf_rebuild' );
+$coywolf_seo_uploads = wp_upload_dir();
+if ( empty( $coywolf_seo_uploads['error'] ) && ! empty( $coywolf_seo_uploads['basedir'] ) ) {
+	$coywolf_seo_okf_dir = trailingslashit( $coywolf_seo_uploads['basedir'] ) . 'coywolf-okf';
+	if ( is_dir( $coywolf_seo_okf_dir ) ) {
+		if ( ! function_exists( 'WP_Filesystem' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+		}
+		if ( WP_Filesystem() ) {
+			global $wp_filesystem;
+			$wp_filesystem->delete( $coywolf_seo_okf_dir, true );
+		}
+	}
+}
+
 // The admin capability, from every role that has it.
 foreach ( wp_roles()->role_objects as $coywolf_seo_role ) {
 	if ( $coywolf_seo_role->has_cap( 'coywolf_seo_manage' ) ) {
