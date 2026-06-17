@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.100
+- **Version:** 1.0.101
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -230,6 +230,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 ![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
 
 ## Changelog
+
+### 1.0.101
+- Advertise the OKF bundle (llms.txt, head link, robots allowance) (#102).
 
 ### 1.0.100
 - Add Open Knowledge Format (OKF) export as a Labs feature (#101).
