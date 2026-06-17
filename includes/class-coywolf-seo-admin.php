@@ -1280,7 +1280,19 @@ final class Coywolf_SEO_Admin {
 			<tr class="coywolf-seo-llms-row">
 				<th scope="row"><?php esc_html_e( 'Entities', 'coywolf-seo' ); ?></th>
 				<td>
-					<label><input type="checkbox" name="coywolf_seo[llms_entities]" value="1" <?php checked( $o['llms_entities'] ); ?> /> <?php esc_html_e( 'Include AI-enriched entities (with sameAs links) in llms.txt and the .md frontmatter', 'coywolf-seo' ); ?></label>
+					<label><input type="checkbox" name="coywolf_seo[llms_entities]" value="1" <?php checked( $o['llms_entities'] ); ?> /> <?php esc_html_e( 'Include a topic index in llms.txt (entities grouped to your own articles), and entity data in the .md frontmatter', 'coywolf-seo' ); ?></label>
+				</td>
+			</tr>
+			<tr class="coywolf-seo-llms-row">
+				<th scope="row"><label for="coywolf-seo-llms-entity-min"><?php esc_html_e( 'Entity topic index', 'coywolf-seo' ); ?></label></th>
+				<td>
+					<label for="coywolf-seo-llms-entity-min"><?php esc_html_e( 'Minimum articles before an entity is listed in llms.txt', 'coywolf-seo' ); ?></label>
+					<input type="number" min="1" step="1" class="small-text" id="coywolf-seo-llms-entity-min" name="coywolf_seo[llms_entity_min]" value="<?php echo esc_attr( (string) (int) $o['llms_entity_min'] ); ?>" />
+					<p class="description"><?php esc_html_e( 'An entity earns its own section only when it is the primary subject of at least this many published articles. Lower-coverage entities stay in the .md frontmatter only.', 'coywolf-seo' ); ?></p>
+					<fieldset style="margin-top:.5rem;">
+						<label><input type="radio" name="coywolf_seo[llms_entity_placement]" value="optional" <?php checked( 'main' !== $o['llms_entity_placement'] ); ?> /> <?php esc_html_e( 'Place the topic index under "Optional" (agents can skip it)', 'coywolf-seo' ); ?></label><br />
+						<label><input type="radio" name="coywolf_seo[llms_entity_placement]" value="main" <?php checked( 'main' === $o['llms_entity_placement'] ); ?> /> <?php esc_html_e( 'Place the topic index in the main body', 'coywolf-seo' ); ?></label>
+					</fieldset>
 				</td>
 			</tr>
 			<tr class="coywolf-seo-llms-row">
