@@ -235,6 +235,16 @@
 			syncNewsRows();
 		}
 
+		// LLMs.txt: the Markdown-endpoints, Entities, and Content-licence rows
+		// only apply when llms.txt itself is enabled.
+		function syncLlmsRows() {
+			$( '.coywolf-seo-llms-row' ).toggle( $( '#coywolf-seo-llms-enabled' ).prop( 'checked' ) );
+		}
+		$( '#coywolf-seo-llms-enabled' ).on( 'change', syncLlmsRows );
+		if ( $( '#coywolf-seo-llms-enabled' ).length ) {
+			syncLlmsRows();
+		}
+
 		// News sitemap: only show the category list when it applies.
 		$( '#coywolf-seo-news-cat-mode' ).on( 'change', function () {
 			$( '#coywolf-seo-news-cats' ).toggle( $( this ).val() !== 'all' );

@@ -1251,7 +1251,7 @@ final class Coywolf_SEO_Admin {
 			<tr>
 				<th scope="row"><?php esc_html_e( 'LLMs.txt', 'coywolf-seo' ); ?></th>
 				<td>
-					<label><input type="checkbox" name="coywolf_seo[llms_enabled]" value="1" <?php checked( $o['llms_enabled'] ); ?> /> <?php esc_html_e( 'Enable llms.txt and Markdown source endpoints', 'coywolf-seo' ); ?></label>
+					<label><input type="checkbox" id="coywolf-seo-llms-enabled" name="coywolf_seo[llms_enabled]" value="1" <?php checked( $o['llms_enabled'] ); ?> /> <?php esc_html_e( 'Enable llms.txt and Markdown source endpoints', 'coywolf-seo' ); ?></label>
 					<?php if ( ! empty( $o['llms_enabled'] ) && ! $conflict ) : ?>
 						<p class="description">
 							<?php esc_html_e( 'Served at:', 'coywolf-seo' ); ?>
@@ -1260,19 +1260,19 @@ final class Coywolf_SEO_Admin {
 					<?php endif; ?>
 				</td>
 			</tr>
-			<tr>
+			<tr class="coywolf-seo-llms-row">
 				<th scope="row"><?php esc_html_e( 'Markdown endpoints', 'coywolf-seo' ); ?></th>
 				<td>
 					<label><input type="checkbox" name="coywolf_seo[llms_md_endpoints]" value="1" <?php checked( $o['llms_md_endpoints'] ); ?> /> <?php esc_html_e( 'Serve a Markdown source for each page at …/index.html.md (adds a <head> link and Accept: text/markdown negotiation)', 'coywolf-seo' ); ?></label>
 				</td>
 			</tr>
-			<tr>
+			<tr class="coywolf-seo-llms-row">
 				<th scope="row"><?php esc_html_e( 'Entities', 'coywolf-seo' ); ?></th>
 				<td>
 					<label><input type="checkbox" name="coywolf_seo[llms_entities]" value="1" <?php checked( $o['llms_entities'] ); ?> /> <?php esc_html_e( 'Include AI-enriched entities (with sameAs links) in llms.txt and the .md frontmatter', 'coywolf-seo' ); ?></label>
 				</td>
 			</tr>
-			<tr>
+			<tr class="coywolf-seo-llms-row">
 				<th scope="row"><label for="coywolf-seo-llms-licence"><?php esc_html_e( 'Content licence', 'coywolf-seo' ); ?></label></th>
 				<td>
 					<input type="text" class="regular-text" id="coywolf-seo-llms-licence" name="coywolf_seo[llms_licence]" value="<?php echo esc_attr( (string) $o['llms_licence'] ); ?>" placeholder="<?php esc_attr_e( 'e.g. CC BY 4.0 (optional)', 'coywolf-seo' ); ?>" />
