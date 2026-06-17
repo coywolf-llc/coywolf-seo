@@ -834,14 +834,25 @@ final class Coywolf_SEO_Admin {
 		// LLMs.txt: flush when its route toggles change, and (re)build or drop the
 		// cached llms.txt to match the new state. The /llms.txt route also stays
 		// registered while the Labs OKF feature advertises, so flush either way.
-		$llms_now = array(
+		$llms_now         = array(
 			(bool) Coywolf_SEO_Options::get( 'llms_enabled' ),
 			(bool) Coywolf_SEO_Options::get( 'llms_md_endpoints' ),
 		);
+		$coywolf_seo_llms = Coywolf_SEO::instance()->llms_txt();
 		if ( $llms_now !== $llms_before ) {
+			// Register the routes for THIS request before flushing. The modules'
+			// init() ran at the start of the request against the PRE-save option
+			// value, so when enabling they did not hook add_rewrite_rules — a
+			// bare flush would persist a ruleset without /llms.txt and the .md
+			// endpoints, 404ing them until the next flush.
+			if ( $llms_now[0] ) {
+				$coywolf_seo_llms->add_rewrite_rules();
+				if ( $llms_now[1] ) {
+					Coywolf_SEO::instance()->markdown_source()->add_rewrite_rules();
+				}
+			}
 			flush_rewrite_rules();
 		}
-		$coywolf_seo_llms = Coywolf_SEO::instance()->llms_txt();
 		if ( $llms_now[0] ) {
 			$coywolf_seo_llms->rebuild_now();
 		} else {
