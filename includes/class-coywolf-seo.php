@@ -213,6 +213,15 @@ final class Coywolf_SEO {
 	private $robots;
 
 	/**
+	 * Labs container (experimental features). Null when the includes/labs/ tree
+	 * is absent — it is stripped from the WordPress.org build, so every access
+	 * is guarded by class_exists() and its absence is a clean no-op.
+	 *
+	 * @var Coywolf_SEO_Labs|null
+	 */
+	private $labs = null;
+
+	/**
 	 * Create (once) and return the plugin instance.
 	 *
 	 * @return Coywolf_SEO
@@ -308,6 +317,15 @@ final class Coywolf_SEO {
 		// end (virtual mode). init() no-ops every hook when the feature is off.
 		$this->robots = Coywolf_SEO_Robots::instance();
 		$this->robots->init();
+
+		// Labs (experimental). Not admin-gated: a Labs feature may register
+		// front-end/cron hooks (e.g. the OKF read endpoint and background
+		// rebuild). The class is absent in the WordPress.org build, so guard
+		// on it — its absence is a clean no-op. Each feature is off by default.
+		if ( class_exists( 'Coywolf_SEO_Labs' ) ) {
+			$this->labs = new Coywolf_SEO_Labs();
+			$this->labs->init();
+		}
 
 		if ( is_admin() ) {
 			$this->admin = new Coywolf_SEO_Admin();
@@ -405,6 +423,16 @@ final class Coywolf_SEO {
 	 */
 	public function redirects() {
 		return $this->redirects;
+	}
+
+	/**
+	 * Labs container accessor (the admin menu renders its page). Null in the
+	 * WordPress.org build, where Labs is stripped.
+	 *
+	 * @return Coywolf_SEO_Labs|null
+	 */
+	public function labs() {
+		return $this->labs;
 	}
 
 	/**

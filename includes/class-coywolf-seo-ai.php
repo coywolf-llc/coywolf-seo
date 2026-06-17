@@ -1588,6 +1588,55 @@ final class Coywolf_SEO_AI {
 	}
 
 	/**
+	 * Stored enriched entities for a post, normalized for non-schema consumers
+	 * (the Labs OKF generator).
+	 *
+	 * Unlike schema_nodes(), this is NOT gated on the Schema/AI master features:
+	 * it returns whatever entity data is persisted in post meta so a consumer
+	 * can surface it independently of whether the JSON-LD output is currently
+	 * enabled. This is the single accessor coupled to the entity storage shape —
+	 * callers must read entities through here, never the raw META_KEY meta.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return array[] Each entry: array(
+	 *     'name'        => string,
+	 *     'type'        => string   Schema.org @type (Person|Organization|Place|Thing),
+	 *     'description' => string,
+	 *     'qid'         => string   Wikidata QID,
+	 *     'wikipedia'   => string   Wikipedia URL ('' when none),
+	 *     'same_as'     => string[] Stable external identifiers (Wikidata first),
+	 *     'bucket'      => string   'about' (primary subject) | 'mentions',
+	 * ).
+	 */
+	public static function stored_entities( $post_id ) {
+		$out   = array();
+		$saved = get_post_meta( (int) $post_id, self::META_KEY, true );
+		if ( ! is_array( $saved ) || empty( $saved['entities'] ) || ! is_array( $saved['entities'] ) ) {
+			return $out;
+		}
+		foreach ( $saved['entities'] as $entity ) {
+			if ( ! is_array( $entity ) || empty( $entity['name'] ) || empty( $entity['qid'] ) ) {
+				continue;
+			}
+			$same_as = array( 'https://www.wikidata.org/wiki/' . $entity['qid'] );
+			if ( ! empty( $entity['wikipedia'] ) ) {
+				$same_as[] = (string) $entity['wikipedia'];
+			}
+			$type  = isset( $entity['type'] ) && in_array( $entity['type'], array( 'Person', 'Organization', 'Place' ), true ) ? $entity['type'] : 'Thing';
+			$out[] = array(
+				'name'        => (string) $entity['name'],
+				'type'        => $type,
+				'description' => isset( $entity['description'] ) ? (string) $entity['description'] : '',
+				'qid'         => (string) $entity['qid'],
+				'wikipedia'   => isset( $entity['wikipedia'] ) ? (string) $entity['wikipedia'] : '',
+				'same_as'     => $same_as,
+				'bucket'      => empty( $entity['primary'] ) ? 'mentions' : 'about',
+			);
+		}
+		return $out;
+	}
+
+	/**
 	 * The post's content as plain text, bounded for the prompt.
 	 *
 	 * @param WP_Post $post Post.
