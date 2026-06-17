@@ -86,6 +86,7 @@ require_once __DIR__ . '/includes/class-coywolf-seo-mobile-image.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-duplicate.php';
 /* labs-strip:start — experimental Labs features (removed from the WordPress.org build) */
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-okf-generator.php';
+require_once __DIR__ . '/includes/labs/class-coywolf-seo-okf-advertiser.php';
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-okf.php';
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-labs.php';
 /* labs-strip:end */
