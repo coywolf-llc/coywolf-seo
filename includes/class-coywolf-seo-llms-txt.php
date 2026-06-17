@@ -174,8 +174,8 @@ final class Coywolf_SEO_Llms_Txt {
 	 * @return string
 	 */
 	private function full_body() {
-		$name    = wp_strip_all_tags( (string) get_bloginfo( 'name' ) );
-		$tagline = wp_strip_all_tags( (string) get_bloginfo( 'description' ) );
+		$name    = Coywolf_SEO_Markdown_Source::decode_text( wp_strip_all_tags( (string) get_bloginfo( 'name' ) ) );
+		$tagline = Coywolf_SEO_Markdown_Source::decode_text( wp_strip_all_tags( (string) get_bloginfo( 'description' ) ) );
 
 		// Fetch the included posts once, keyed by type, and reuse them for both
 		// the canonical content-type listing and the entity topic index.
@@ -210,7 +210,7 @@ final class Coywolf_SEO_Llms_Txt {
 			$main = array_slice( $data['posts'], 0, self::MAIN_LIMIT );
 			$rest = array_slice( $data['posts'], self::MAIN_LIMIT );
 
-			$out .= "\n## " . $data['label'] . "\n\n";
+			$out .= "\n## " . Coywolf_SEO_Markdown_Source::decode_text( $data['label'] ) . "\n\n";
 			foreach ( $main as $post ) {
 				$out .= $this->link_line( $post );
 			}
@@ -254,8 +254,8 @@ final class Coywolf_SEO_Llms_Txt {
 	 * @return string
 	 */
 	private function minimal_okf_body() {
-		$name    = wp_strip_all_tags( (string) get_bloginfo( 'name' ) );
-		$tagline = wp_strip_all_tags( (string) get_bloginfo( 'description' ) );
+		$name    = Coywolf_SEO_Markdown_Source::decode_text( wp_strip_all_tags( (string) get_bloginfo( 'name' ) ) );
+		$tagline = Coywolf_SEO_Markdown_Source::decode_text( wp_strip_all_tags( (string) get_bloginfo( 'description' ) ) );
 
 		$out = '# ' . ( '' !== $name ? $name : home_url( '/' ) ) . "\n\n";
 		if ( '' !== $tagline ) {
@@ -618,14 +618,17 @@ final class Coywolf_SEO_Llms_Txt {
 	}
 
 	/**
-	 * Flatten text to a single line and escape Markdown link-breaking chars.
+	 * Decode source text to real UTF-8 and escape Markdown link-breaking chars.
+	 * Routes every title / entity name / note through the SAME decode helper the
+	 * .md frontmatter uses, so HTML entities (e.g. &#8217;) never reach the
+	 * plain-text llms.txt.
 	 *
 	 * @param string $text Text.
 	 * @return string
 	 */
 	private function text( $text ) {
-		$text = str_replace( array( "\r\n", "\r", "\n" ), ' ', (string) $text );
+		$text = Coywolf_SEO_Markdown_Source::decode_text( $text );
 		$text = str_replace( array( '[', ']' ), array( '\[', '\]' ), $text );
-		return trim( $text );
+		return $text;
 	}
 }
