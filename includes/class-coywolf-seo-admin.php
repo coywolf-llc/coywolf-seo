@@ -1300,31 +1300,23 @@ final class Coywolf_SEO_Admin {
 			<?php
 			// Jump links to each settings section. Only sections actually rendered
 			// (per the same feature gates) are listed, so no link is ever dead.
-			$coywolf_seo_disc = __( 'Discovery', 'coywolf-seo' );
-			$coywolf_seo_toc  = array(
-				array( 'coywolf-seo-section-general', __( 'General settings', 'coywolf-seo' ), true, '' ),
-				array( 'coywolf-seo-section-ai', __( 'AI enrichment', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'ai' ), '' ),
-				array( 'coywolf-seo-section-image-text', __( 'Image Text', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'ai' ), '' ),
-				array( 'coywolf-seo-section-links', __( 'Link Manager', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'links' ), '' ),
-				array( 'coywolf-seo-section-indexnow', __( 'IndexNow', 'coywolf-seo' ), true, $coywolf_seo_disc ),
-				array( 'coywolf-seo-section-sitemaps', __( 'Sitemaps', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'sitemaps' ), $coywolf_seo_disc ),
-				array( 'coywolf-seo-section-llms', __( 'LLMs.txt', 'coywolf-seo' ), true, $coywolf_seo_disc ),
-				array( 'coywolf-seo-section-robots', __( 'Robots.txt Manager', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'robots' ), __( 'Robots.txt', 'coywolf-seo' ) ),
-				array( 'coywolf-seo-section-toggles', __( 'Turn off features', 'coywolf-seo' ), true, '' ),
-				array( 'coywolf-seo-section-enrich', __( 'Enrich all content', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'ai' ), '' ),
-				array( 'coywolf-seo-section-imageids', __( 'Fix missing image IDs', 'coywolf-seo' ), true, '' ),
+			$coywolf_seo_toc = array(
+				array( 'coywolf-seo-section-general', __( 'General settings', 'coywolf-seo' ), true ),
+				array( 'coywolf-seo-section-ai', __( 'AI enrichment', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'ai' ) ),
+				array( 'coywolf-seo-section-image-text', __( 'Image Text', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'ai' ) ),
+				array( 'coywolf-seo-section-links', __( 'Link Manager', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'links' ) ),
+				array( 'coywolf-seo-section-indexnow', __( 'IndexNow', 'coywolf-seo' ), true ),
+				array( 'coywolf-seo-section-sitemaps', __( 'Sitemaps', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'sitemaps' ) ),
+				array( 'coywolf-seo-section-llms', __( 'LLMs.txt', 'coywolf-seo' ), true ),
+				array( 'coywolf-seo-section-robots', __( 'Robots.txt Manager', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'robots' ) ),
+				array( 'coywolf-seo-section-toggles', __( 'Turn off features', 'coywolf-seo' ), true ),
+				array( 'coywolf-seo-section-enrich', __( 'Enrich all content', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'ai' ) ),
+				array( 'coywolf-seo-section-imageids', __( 'Fix missing image IDs', 'coywolf-seo' ), true ),
 			);
 			?>
 			<ul class="coywolf-seo-settings-toc">
-				<?php $coywolf_seo_toc_group = ''; ?>
 				<?php foreach ( $coywolf_seo_toc as $coywolf_seo_toc_item ) : ?>
 					<?php if ( $coywolf_seo_toc_item[2] ) : ?>
-						<?php if ( $coywolf_seo_toc_item[3] !== $coywolf_seo_toc_group ) : ?>
-							<?php $coywolf_seo_toc_group = $coywolf_seo_toc_item[3]; ?>
-							<?php if ( '' !== $coywolf_seo_toc_group ) : ?>
-								<li class="coywolf-seo-toc-group"><?php echo esc_html( $coywolf_seo_toc_group ); ?></li>
-							<?php endif; ?>
-						<?php endif; ?>
 						<li><a href="#<?php echo esc_attr( $coywolf_seo_toc_item[0] ); ?>"><?php echo esc_html( $coywolf_seo_toc_item[1] ); ?></a></li>
 					<?php endif; ?>
 				<?php endforeach; ?>
