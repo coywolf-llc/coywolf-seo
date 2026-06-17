@@ -13,7 +13,9 @@
  *   - `index.md` (directory listing) and `log.md` (change history) are
  *     reserved; only the bundle-root index.md carries frontmatter, and it
  *     declares okf_version: "0.1".
- *   - Cross-links are bundle-relative Markdown links beginning with `/`.
+ *   - Cross-links are absolute URLs to the served bundle root (the site's
+ *     preference over the spec's suggested bundle-relative links), e.g.
+ *     https://example.com/okf/articles/foo.md.
  *
  * No outbound calls: the bundle is built entirely from data already stored on
  * the site (posts, terms, users, and the persisted entity meta).
@@ -39,6 +41,15 @@ final class Coywolf_SEO_OKF_Generator {
 	 * OKF specification version this generator targets.
 	 */
 	const OKF_VERSION = '0.1';
+
+	/**
+	 * Absolute URL of the served bundle root, without a trailing slash, used to
+	 * make every cross-link absolute (e.g. https://example.com/okf). Set per
+	 * rebuild() so the generator stays decoupled from the endpoint's route.
+	 *
+	 * @var string
+	 */
+	private $base_url = '';
 
 	/**
 	 * Absolute path to the bundle directory (no trailing slash).
@@ -82,9 +93,15 @@ final class Coywolf_SEO_OKF_Generator {
 	 * The directory is rebuilt from scratch (so deleted content disappears),
 	 * but the reserved log.md history is preserved and prepended to.
 	 *
+	 * @param string $base_url Absolute URL of the served bundle root (e.g.
+	 *                         https://example.com/okf/). Cross-links are made
+	 *                         absolute against it; falls back to /okf/.
 	 * @return array|WP_Error Summary array on success, WP_Error on failure.
 	 */
-	public function rebuild() {
+	public function rebuild( $base_url = '' ) {
+		$base_url       = '' !== (string) $base_url ? (string) $base_url : home_url( '/okf/' );
+		$this->base_url = untrailingslashit( $base_url );
+
 		$fs = $this->filesystem();
 		if ( null === $fs ) {
 			return new WP_Error( 'okf_fs', __( 'The filesystem is not writable, so the OKF bundle could not be generated.', 'coywolf-seo' ) );
@@ -727,9 +744,9 @@ final class Coywolf_SEO_OKF_Generator {
 		foreach ( $dirs as $dir ) {
 			$label = isset( $labels[ $dir ] ) ? $labels[ $dir ] : ucfirst( $dir );
 			$count = count( $listings[ $dir ] );
-			$body .= '- [' . $this->md_text( $label ) . '](/' . $dir . '/index.md) (' . (int) $count . ")\n";
+			$body .= '- [' . $this->md_text( $label ) . '](' . $this->abs( $dir . '/index.md' ) . ') (' . (int) $count . ")\n";
 		}
-		$body .= "\nSee [the change log](/log.md) for generation history.\n";
+		$body .= "\nSee [the change log](" . $this->abs( 'log.md' ) . ") for generation history.\n";
 
 		return $this->frontmatter( $front ) . "\n" . $body;
 	}
@@ -822,8 +839,8 @@ final class Coywolf_SEO_OKF_Generator {
 	}
 
 	/**
-	 * A single bundle-relative Markdown link bullet, optionally with a trailing
-	 * description.
+	 * A single Markdown link bullet to a concept, optionally with a trailing
+	 * description. The target is an absolute URL to the served bundle.
 	 *
 	 * @param string $path Bundle-relative concept path (e.g. articles/foo.md).
 	 * @param string $text Link text.
@@ -831,12 +848,23 @@ final class Coywolf_SEO_OKF_Generator {
 	 * @return string
 	 */
 	private function link_line( $path, $text, $desc = '' ) {
-		$line = '- [' . $this->md_text( $text ) . '](/' . ltrim( (string) $path, '/' ) . ')';
+		$line = '- [' . $this->md_text( $text ) . '](' . $this->abs( $path ) . ')';
 		$desc = $this->md_text( $desc );
 		if ( '' !== $desc ) {
 			$line .= ' — ' . $desc;
 		}
 		return $line . "\n";
+	}
+
+	/**
+	 * Absolute URL for a bundle-relative concept path (e.g. articles/foo.md ->
+	 * https://example.com/okf/articles/foo.md).
+	 *
+	 * @param string $path Bundle-relative path.
+	 * @return string
+	 */
+	private function abs( $path ) {
+		return $this->base_url . '/' . ltrim( (string) $path, '/' );
 	}
 
 	/**

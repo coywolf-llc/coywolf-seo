@@ -305,7 +305,8 @@ final class Coywolf_SEO_OKF {
 	 * @return array|WP_Error
 	 */
 	private function rebuild_and_record() {
-		$result = $this->generator->rebuild();
+		// Cross-links in the bundle are absolute against the served root URL.
+		$result = $this->generator->rebuild( $this->endpoint_base_url() );
 		if ( ! is_wp_error( $result ) ) {
 			update_option( self::BUILD_OPTION, $result, false );
 		}
@@ -372,6 +373,14 @@ final class Coywolf_SEO_OKF {
 				$this->advertiser->add_rewrite_rules();
 			}
 			flush_rewrite_rules();
+		}
+
+		// Reconcile the managed robots.txt Allow rule with the current state:
+		// present while advertising is configured, removed otherwise. Idempotent.
+		if ( $this->advertiser->is_configured() ) {
+			$this->advertiser->add_robots_rule();
+		} else {
+			$this->advertiser->remove_robots_rule();
 		}
 
 		$msg = 'okf-saved';
