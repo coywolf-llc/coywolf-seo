@@ -86,6 +86,11 @@ find "$STAGE" -type f \( \
 	-o -name 'mempalace.yaml' \
 	\) -delete
 
+# Drop vendored CLI binaries (extension-less, not needed at runtime) so the .org
+# file-type check passes — e.g. league/html-to-markdown ships a bin/ script and
+# Composer mirrors it into vendor/bin/.
+find "$STAGE/vendor" -type d -name bin -prune -exec rm -rf {} + 2>/dev/null || true
+
 # Delete a <marker>:start .. <marker>:end region from a file, portably
 # (macOS + Linux). The Perl flip-flop matches the start..end lines inclusive.
 # $2 is the marker base name and defaults to "wporg-strip".

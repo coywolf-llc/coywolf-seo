@@ -714,6 +714,14 @@
 	margin: 0.15em 0;
 }
 
+/* Group labels (e.g. "Discovery", "Robots.txt") in the section jump list. */
+.coywolf-seo-toc-group {
+	list-style: none;
+	margin-left: -1.5em;
+	margin-top: 0.6em;
+	font-weight: 600;
+}
+
 /* Offset jumped-to sections so the heading clears the admin bar. */
 .coywolf-seo-wrap h2[id] {
 	scroll-margin-top: 50px;

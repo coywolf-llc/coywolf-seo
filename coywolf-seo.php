@@ -61,6 +61,8 @@ require_once __DIR__ . '/includes/class-coywolf-seo-category-base.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-indexnow.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-news-sitemap.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-sitemaps.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-markdown-source.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-llms-txt.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-ai-provider.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-ai-anthropic.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-ai-openai.php';
