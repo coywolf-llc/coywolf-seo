@@ -39,6 +39,12 @@ final class Coywolf_SEO_OKF_Advertiser {
 	const WELLKNOWN_VAR = 'coywolf_seo_wk_okf';
 
 	/**
+	 * Stable id of the managed Robots.txt Manager rule that allows the bundle
+	 * path, so it can be located for removal.
+	 */
+	const ROBOTS_RULE_ID = 'coywolf-okf-allow';
+
+	/**
 	 * The OKF feature (owns the settings and the canonical bundle URL).
 	 *
 	 * @var Coywolf_SEO_OKF
@@ -88,9 +94,10 @@ final class Coywolf_SEO_OKF_Advertiser {
 		add_filter( 'query_vars', array( $this, 'register_query_vars' ) );
 		add_action( 'template_redirect', array( $this, 'maybe_serve' ), 0 );
 		add_action( 'wp_head', array( $this, 'output_link' ), 2 );
-		// PHP_INT_MAX so this runs after the Robots.txt Manager's own filter and
-		// can see (and, only if needed, top up) the near-final output.
-		add_filter( 'robots_txt', array( $this, 'ensure_bundle_allowed' ), PHP_INT_MAX, 2 );
+		// The robots.txt allowance is a managed rule in the Robots.txt Manager
+		// (added/removed in the OKF save handler), not a runtime filter — so it
+		// is visible and editable in the Rules table and written to a physical
+		// robots.txt too.
 	}
 
 	// ---------------------------------------------------------------------
@@ -224,29 +231,83 @@ final class Coywolf_SEO_OKF_Advertiser {
 	}
 
 	// ---------------------------------------------------------------------
-	// robots.txt allowance (additive only)
+	// robots.txt allowance (a managed Robots.txt Manager rule)
 	// ---------------------------------------------------------------------
 
 	/**
-	 * Ensure the bundle path is not blocked in the virtual robots.txt. Adds an
-	 * explicit `Allow: /okf/` ONLY when the near-final output would disallow the
-	 * bundle for the wildcard agent. Never adds a Disallow. Physical robots.txt
-	 * files bypass this filter entirely (the panel detects and defers for them).
-	 *
-	 * @param string $output      robots.txt body assembled so far.
-	 * @param bool   $blog_public Whether the blog is public (unused; we re-check).
-	 * @return string
+	 * Add (or refresh) the managed Allow rule for the bundle path in the
+	 * Robots.txt Manager. It is stored even when that feature is off, and is
+	 * served once it is on (virtual or physical). Called from the OKF save
+	 * handler when advertising is configured.
 	 */
-	public function ensure_bundle_allowed( $output, $blog_public ) {
-		unset( $blog_public );
-		$output = (string) $output;
-		if ( ! $this->is_public() ) {
-			return $output;
+	public function add_robots_rule() {
+		$robots = $this->robots_manager();
+		if ( $robots ) {
+			$robots->add_managed_rule( $this->robots_rule() );
 		}
-		if ( Coywolf_SEO_Robots_Rep::one_agent_allowed( $output, '*', $this->bundle_root_path() ) ) {
-			return $output;
+	}
+
+	/**
+	 * Remove the managed Allow rule for the bundle path. Called from the OKF
+	 * save handler when advertising is turned off (or OKF is disabled).
+	 */
+	public function remove_robots_rule() {
+		$robots = $this->robots_manager();
+		if ( $robots ) {
+			$robots->remove_managed_rule( self::ROBOTS_RULE_ID );
 		}
-		return rtrim( $output, "\n" ) . "\n\nUser-agent: *\nAllow: " . $this->bundle_root_path() . "\n";
+	}
+
+	/**
+	 * Whether the managed Allow rule is currently stored.
+	 *
+	 * @return bool
+	 */
+	public function robots_rule_present() {
+		$robots = $this->robots_manager();
+		if ( ! $robots ) {
+			return false;
+		}
+		foreach ( $robots->get_rules() as $rule ) {
+			if ( isset( $rule['id'] ) && self::ROBOTS_RULE_ID === (string) $rule['id'] ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * The managed rule that allows crawlers to reach the bundle: an Allow on the
+	 * bundle folder for all robots.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function robots_rule() {
+		return array_merge(
+			Coywolf_SEO_Robots_Rules::blank(),
+			array(
+				'id'          => self::ROBOTS_RULE_ID,
+				'type'        => 'folder',
+				'directive'   => 'allow',
+				'name'        => __( 'Open Knowledge Format (OKF) bundle', 'coywolf-seo' ),
+				'description' => __( 'Lets crawlers reach the OKF bundle (added by the Labs OKF feature).', 'coywolf-seo' ),
+				'path'        => $this->bundle_root_path(),
+				'agents'      => array( '*' ),
+			)
+		);
+	}
+
+	/**
+	 * The Robots.txt Manager instance, or null if unavailable.
+	 *
+	 * @return Coywolf_SEO_Robots|null
+	 */
+	private function robots_manager() {
+		if ( ! class_exists( 'Coywolf_SEO_Robots' ) ) {
+			return null;
+		}
+		$inst = Coywolf_SEO::instance();
+		return method_exists( $inst, 'robots' ) ? $inst->robots() : null;
 	}
 
 	// ---------------------------------------------------------------------
@@ -302,23 +363,6 @@ final class Coywolf_SEO_OKF_Advertiser {
 	public function physical_llms_txt_exists() {
 		$path = $this->site_root_file( 'llms.txt' );
 		return '' !== $path && is_readable( $path );
-	}
-
-	/**
-	 * Whether a physical robots.txt at the site root would block the bundle for
-	 * the wildcard agent. Only physical files matter here — virtual output is
-	 * kept allowed by ensure_bundle_allowed().
-	 *
-	 * @return bool
-	 */
-	public function robots_blocks_bundle() {
-		$path = $this->site_root_file( 'robots.txt' );
-		if ( '' === $path || ! is_readable( $path ) ) {
-			return false;
-		}
-		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading the site's own robots.txt to check whether it blocks the bundle path.
-		$body = (string) file_get_contents( $path );
-		return ! Coywolf_SEO_Robots_Rep::one_agent_allowed( $body, '*', $this->bundle_root_path() );
 	}
 
 	/**
@@ -390,18 +434,27 @@ final class Coywolf_SEO_OKF_Advertiser {
 				);
 				?>
 			</li>
+			<li>
+				<?php
+				if ( $this->robots_rule_present() ) {
+					printf(
+						/* translators: %s: the bundle path, e.g. /okf/ */
+						esc_html__( 'An %s Allow rule was added to your Robots.txt Manager so crawlers are not blocked from the bundle.', 'coywolf-seo' ),
+						'<code>' . esc_html( $this->bundle_root_path() ) . '</code>'
+					);
+					if ( ! Coywolf_SEO_Options::feature_enabled( 'robots' ) ) {
+						echo ' <em>' . esc_html__( '(The Robots.txt Manager is currently off, so it is stored but not served until you turn that feature on.)', 'coywolf-seo' ) . '</em>';
+					}
+				} else {
+					printf(
+						/* translators: %s: the bundle path, e.g. /okf/ */
+						esc_html__( 'Make sure %s is not blocked in your robots.txt so crawlers can reach the bundle.', 'coywolf-seo' ),
+						'<code>' . esc_html( $this->bundle_root_path() ) . '</code>'
+					);
+				}
+				?>
+			</li>
 		</ul>
-
-		<?php if ( $this->robots_blocks_bundle() ) : ?>
-			<div class="notice notice-warning inline" style="margin:.5rem 0;">
-				<p>
-					<?php esc_html_e( 'Your robots.txt is a physical file that blocks the bundle path for crawlers. Add this line so agents can reach it (we cannot edit a file we do not manage):', 'coywolf-seo' ); ?>
-					<br /><code>Allow: <?php echo esc_html( $this->bundle_root_path() ); ?></code>
-				</p>
-			</div>
-		<?php else : ?>
-			<p class="description"><?php esc_html_e( 'robots.txt allows the bundle path.', 'coywolf-seo' ); ?></p>
-		<?php endif; ?>
 		<?php
 	}
 }

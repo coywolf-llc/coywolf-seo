@@ -2685,6 +2685,59 @@ final class Coywolf_SEO_Robots {
 	}
 
 	/**
+	 * Add or replace a single managed rule (matched by its `id`) and sync the
+	 * served output. Lets another module contribute a rule to the managed
+	 * robots.txt — e.g. the Labs OKF feature adding an Allow for its bundle
+	 * path. The rule is stored even when the Robots.txt Manager feature is off;
+	 * it is served once the feature is on (virtual or physical mode).
+	 *
+	 * @param array $rule A rule shaped like {@see Coywolf_SEO_Robots_Rules::blank()}; must carry a non-empty `id`.
+	 * @return void
+	 */
+	public function add_managed_rule( array $rule ) {
+		$id = isset( $rule['id'] ) ? (string) $rule['id'] : '';
+		if ( '' === $id ) {
+			return;
+		}
+		$out      = array();
+		$replaced = false;
+		foreach ( $this->get_rules() as $existing ) {
+			if ( isset( $existing['id'] ) && (string) $existing['id'] === $id ) {
+				$out[]    = $rule;
+				$replaced = true;
+			} else {
+				$out[] = $existing;
+			}
+		}
+		if ( ! $replaced ) {
+			$out[] = $rule;
+		}
+		$this->save_rules( $out );
+	}
+
+	/**
+	 * Remove a managed rule by `id` (if present) and sync the served output.
+	 *
+	 * @param string $id Rule id.
+	 * @return void
+	 */
+	public function remove_managed_rule( $id ) {
+		$id      = (string) $id;
+		$out     = array();
+		$changed = false;
+		foreach ( $this->get_rules() as $existing ) {
+			if ( isset( $existing['id'] ) && (string) $existing['id'] === $id ) {
+				$changed = true;
+				continue;
+			}
+			$out[] = $existing;
+		}
+		if ( $changed ) {
+			$this->save_rules( $out );
+		}
+	}
+
+	/**
 	 * Remove exact-duplicate rules, keeping the first occurrence. Two rules are
 	 * duplicates when their type, directive, path/ext/allow/strict, agent set,
 	 * and sitemap list all match — i.e. they would render identically. Distinct
