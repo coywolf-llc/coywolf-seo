@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.108
+- **Version:** 1.0.109
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -231,6 +231,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 ![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
 
 ## Changelog
+
+### 1.0.109
+- llms.txt intro: describe the entity topic index when present (#110).
 
 ### 1.0.108
 - Rework llms.txt entities into a topic index of the site's own articles (#109).
