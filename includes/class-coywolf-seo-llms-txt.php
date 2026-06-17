@@ -179,19 +179,28 @@ final class Coywolf_SEO_Llms_Txt {
 
 		$out  = '# ' . ( '' !== $name ? $name : home_url( '/' ) ) . "\n\n";
 		$out .= '> ' . ( '' !== $tagline ? $tagline : __( 'A curated, agent-readable index of this site\'s public content.', 'coywolf-seo' ) ) . "\n\n";
-		$out .= __( 'Each link below points at the Markdown source of a page, so an agent can read the content directly. Entities are grounded to stable external identifiers.', 'coywolf-seo' ) . "\n";
+		$out .= __( 'Each link below points at the Markdown source of a page, so an agent can read the content directly.', 'coywolf-seo' ) . "\n";
 
-		$optional = array();
-
+		// Fetch the included posts once, keyed by type, and reuse them for both
+		// the canonical content-type listing and the entity topic index.
+		$by_type = array();
 		foreach ( $this->post_types() as $post_type => $label ) {
 			$posts = $this->included_posts( $post_type );
-			if ( empty( $posts ) ) {
-				continue;
+			if ( ! empty( $posts ) ) {
+				$by_type[ $post_type ] = array(
+					'label' => $label,
+					'posts' => $posts,
+				);
 			}
-			$main = array_slice( $posts, 0, self::MAIN_LIMIT );
-			$rest = array_slice( $posts, self::MAIN_LIMIT );
+		}
 
-			$out .= "\n## " . $label . "\n\n";
+		// Canonical listing by content type — the backbone of the file.
+		$optional = array();
+		foreach ( $by_type as $data ) {
+			$main = array_slice( $data['posts'], 0, self::MAIN_LIMIT );
+			$rest = array_slice( $data['posts'], self::MAIN_LIMIT );
+
+			$out .= "\n## " . $data['label'] . "\n\n";
 			foreach ( $main as $post ) {
 				$out .= $this->link_line( $post );
 			}
@@ -200,21 +209,32 @@ final class Coywolf_SEO_Llms_Txt {
 			}
 		}
 
-		$entities = $this->entities_section();
-		if ( '' !== $entities ) {
-			$out .= "\n" . $entities;
-		}
-
 		$okf = $this->okf_section();
 		if ( '' !== $okf ) {
 			$out .= "\n" . $okf;
 		}
 
-		if ( ! empty( $optional ) ) {
-			$optional = array_slice( $optional, 0, self::OPTIONAL_LIMIT );
-			$out     .= "\n## Optional\n\n";
+		// Entity topic index: a plain-text H2 per significant entity, grouping
+		// the site's own articles. Placed in the main body or under Optional.
+		$entities  = $this->entity_sections( $by_type );
+		$placement = (string) Coywolf_SEO_Options::get( 'llms_entity_placement' );
+		if ( '' !== $entities && 'main' === $placement ) {
+			$out .= "\n" . $entities;
+		}
+
+		$optional     = array_slice( $optional, 0, self::OPTIONAL_LIMIT );
+		$entities_opt = ( '' !== $entities && 'optional' === $placement ) ? $entities : '';
+		if ( ! empty( $optional ) || '' !== $entities_opt ) {
+			$out .= "\n## Optional\n\n";
 			foreach ( $optional as $post ) {
 				$out .= $this->link_line( $post );
+			}
+			if ( '' !== $entities_opt ) {
+				if ( ! empty( $optional ) ) {
+					$out .= "\n";
+				}
+				$out .= __( "Topic index — the site's articles grouped by the entities they are primarily about:", 'coywolf-seo' ) . "\n\n";
+				$out .= $entities_opt;
 			}
 		}
 
@@ -240,30 +260,120 @@ final class Coywolf_SEO_Llms_Txt {
 	}
 
 	/**
-	 * A `## Entities` section listing the site's distinct enriched entities,
-	 * each linked to its authoritative (sameAs) source. Omitted when disabled or
-	 * none are stored.
+	 * The entity topic index: a plain-text H2 per "significant" entity — one
+	 * that is the `about` (primary) subject of at least the configured minimum
+	 * number of published articles — listing the site's OWN articles about or
+	 * mentioning it, linked to their Markdown sources. No sameAs / external
+	 * identifiers appear here (those stay in the .md frontmatter + OKF bundle);
+	 * this is a topic index INTO the site, not a pointer at general knowledge.
 	 *
-	 * @return string
+	 * @param array $by_type Included posts keyed by type ( type => { label, posts } ).
+	 * @return string Markdown, or '' when nothing clears the threshold.
 	 */
-	private function entities_section() {
+	private function entity_sections( array $by_type ) {
 		if ( ! (bool) Coywolf_SEO_Options::get( 'llms_entities' ) ) {
 			return '';
 		}
-		$entities = $this->aggregate_entities();
-		if ( empty( $entities ) ) {
+		$min   = max( 1, (int) Coywolf_SEO_Options::get( 'llms_entity_min' ) );
+		$index = $this->entity_article_index( $by_type );
+
+		// Promote only entities that are the primary subject of >= $min articles.
+		$promoted = array();
+		foreach ( $index as $entity ) {
+			if ( count( $entity['about'] ) >= $min ) {
+				$promoted[] = $entity;
+			}
+		}
+		if ( empty( $promoted ) ) {
 			return '';
 		}
-		$out = "## Entities\n\n";
-		foreach ( $entities as $entity ) {
-			$url = isset( $entity['same_as'][0] ) ? $entity['same_as'][0] : '';
-			if ( '' === $url ) {
-				continue;
+		// Most-covered entities first, then alphabetical.
+		usort(
+			$promoted,
+			static function ( $a, $b ) {
+				$diff = count( $b['about'] ) - count( $a['about'] );
+				return 0 !== $diff ? $diff : strcasecmp( $a['name'], $b['name'] );
 			}
-			$note = '' !== $entity['type'] ? $entity['type'] : 'Entity';
-			$out .= '- [' . $this->text( $entity['name'] ) . '](' . esc_url_raw( $url ) . '): ' . $this->text( $note ) . "\n";
+		);
+		$promoted = array_slice( $promoted, 0, self::ENTITY_LIMIT );
+
+		$out = '';
+		foreach ( $promoted as $entity ) {
+			$out .= '## ' . $this->text( $entity['name'] ) . "\n\n";
+			foreach ( $this->by_recent( $entity['about'] ) as $post ) {
+				$out .= $this->entity_link_line( $post, __( 'Primary topic', 'coywolf-seo' ) );
+			}
+			foreach ( $this->by_recent( $entity['mentions'] ) as $post ) {
+				$out .= $this->entity_link_line( $post, __( 'Mentioned', 'coywolf-seo' ) );
+			}
+			$out .= "\n";
 		}
-		return $out;
+		return rtrim( $out ) . "\n";
+	}
+
+	/**
+	 * Build the inverse entity->articles index in one pass over the already-
+	 * fetched included posts. The stored data is article->entities (the same
+	 * source per-article schema uses); this buckets each article under every
+	 * entity it is `about` or `mentions`, deduped by Wikidata QID.
+	 *
+	 * @param array $by_type Included posts keyed by type ( type => { label, posts } ).
+	 * @return array qid => array{ name:string, type:string, about:WP_Post[], mentions:WP_Post[] }
+	 */
+	private function entity_article_index( array $by_type ) {
+		$index = array();
+		foreach ( $by_type as $data ) {
+			foreach ( $data['posts'] as $post ) {
+				foreach ( Coywolf_SEO_AI::stored_entities( $post->ID ) as $entity ) {
+					$qid = $entity['qid'];
+					if ( '' === $qid ) {
+						continue;
+					}
+					if ( ! isset( $index[ $qid ] ) ) {
+						$index[ $qid ] = array(
+							'name'     => $entity['name'],
+							'type'     => $entity['type'],
+							'about'    => array(),
+							'mentions' => array(),
+						);
+					}
+					if ( 'about' === $entity['bucket'] ) {
+						$index[ $qid ]['about'][] = $post;
+					} else {
+						$index[ $qid ]['mentions'][] = $post;
+					}
+				}
+			}
+		}
+		return $index;
+	}
+
+	/**
+	 * A file-list link to an article's Markdown source with a fixed relation
+	 * note ("Primary topic" / "Mentioned").
+	 *
+	 * @param WP_Post $post Post.
+	 * @param string  $note Relation note.
+	 * @return string
+	 */
+	private function entity_link_line( $post, $note ) {
+		return '- [' . $this->text( get_the_title( $post ) ) . '](' . esc_url_raw( $this->page_url( $post ) ) . '): ' . $this->text( $note ) . "\n";
+	}
+
+	/**
+	 * Sort posts newest first, for a stable order within an entity section.
+	 *
+	 * @param WP_Post[] $posts Posts.
+	 * @return WP_Post[]
+	 */
+	private function by_recent( array $posts ) {
+		usort(
+			$posts,
+			static function ( $a, $b ) {
+				return strcmp( (string) $b->post_date, (string) $a->post_date );
+			}
+		);
+		return $posts;
 	}
 
 	/**
@@ -367,38 +477,6 @@ final class Coywolf_SEO_Llms_Txt {
 			)
 		);
 		return array_values( array_filter( $posts, array( 'Coywolf_SEO_Markdown_Source', 'is_public_post' ) ) );
-	}
-
-	/**
-	 * Distinct enriched entities across the included content, most frequent
-	 * first, capped. Deduped by Wikidata QID.
-	 *
-	 * @return array[] Normalized entity rows (name/type/same_as/count).
-	 */
-	private function aggregate_entities() {
-		$seen = array();
-		foreach ( $this->post_types() as $post_type => $label ) {
-			foreach ( $this->included_posts( $post_type ) as $post ) {
-				foreach ( Coywolf_SEO_AI::stored_entities( $post->ID ) as $entity ) {
-					$qid = $entity['qid'];
-					if ( '' === $qid ) {
-						continue;
-					}
-					if ( ! isset( $seen[ $qid ] ) ) {
-						$seen[ $qid ]          = $entity;
-						$seen[ $qid ]['count'] = 0;
-					}
-					++$seen[ $qid ]['count'];
-				}
-			}
-		}
-		usort(
-			$seen,
-			static function ( $a, $b ) {
-				return $b['count'] - $a['count'];
-			}
-		);
-		return array_slice( array_values( $seen ), 0, self::ENTITY_LIMIT );
 	}
 
 	// ---------------------------------------------------------------------

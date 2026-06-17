@@ -82,7 +82,9 @@ final class Coywolf_SEO_Options {
 			// links, and no extra headers are emitted by this feature.
 			'llms_enabled'                 => false,
 			'llms_md_endpoints'            => true,  // Serve per-page .../index.html.md.
-			'llms_entities'                => true,  // Include the entities section / frontmatter.
+			'llms_entities'                => true,  // Include the entities topic index / .md frontmatter.
+			'llms_entity_min'              => 2,     // Min articles an entity is `about` before it earns an llms.txt section.
+			'llms_entity_placement'        => 'optional', // 'optional' | 'main' — where the entity topic index sits.
 			'llms_licence'                 => '',    // Optional content licence noted in .md frontmatter.
 			// AI schema enrichment.
 			'ai_enabled'                   => false,
@@ -237,6 +239,12 @@ final class Coywolf_SEO_Options {
 
 		if ( isset( $raw['llms_licence'] ) ) {
 			$out['llms_licence'] = sanitize_text_field( $raw['llms_licence'] );
+		}
+		if ( isset( $raw['llms_entity_min'] ) ) {
+			$out['llms_entity_min'] = max( 1, min( 999, (int) $raw['llms_entity_min'] ) );
+		}
+		if ( isset( $raw['llms_entity_placement'] ) ) {
+			$out['llms_entity_placement'] = in_array( $raw['llms_entity_placement'], array( 'optional', 'main' ), true ) ? $raw['llms_entity_placement'] : 'optional';
 		}
 
 		if ( isset( $raw['scroll_margin_top'] ) ) {
