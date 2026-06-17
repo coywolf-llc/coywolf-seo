@@ -56,10 +56,18 @@ final class Coywolf_SEO_OKF {
 	private $generator;
 
 	/**
-	 * Construct with the generator.
+	 * Discovery / advertising sub-feature.
+	 *
+	 * @var Coywolf_SEO_OKF_Advertiser
+	 */
+	private $advertiser;
+
+	/**
+	 * Construct with the generator and the advertiser.
 	 */
 	public function __construct() {
-		$this->generator = new Coywolf_SEO_OKF_Generator();
+		$this->generator  = new Coywolf_SEO_OKF_Generator();
+		$this->advertiser = new Coywolf_SEO_OKF_Advertiser( $this );
 	}
 
 	/**
@@ -104,6 +112,10 @@ final class Coywolf_SEO_OKF {
 			add_action( 'template_redirect', array( $this, 'maybe_serve' ), 0 );
 		}
 
+		// Discovery / advertising (self-gates on the advertise sub-setting + the
+		// live endpoint + a public site).
+		$this->advertiser->init();
+
 		// Debounced regeneration when content that the bundle reflects changes.
 		add_action( 'save_post', array( $this, 'on_content_changed' ), 10, 0 );
 		add_action( 'deleted_post', array( $this, 'on_content_changed' ), 10, 0 );
@@ -119,7 +131,7 @@ final class Coywolf_SEO_OKF {
 	/**
 	 * Feature settings merged over defaults.
 	 *
-	 * @return array { bool enabled, bool live_endpoint }
+	 * @return array { bool enabled, bool live_endpoint, bool advertise }
 	 */
 	public function settings() {
 		$saved = get_option( self::OPTION, array() );
@@ -129,6 +141,8 @@ final class Coywolf_SEO_OKF {
 			array(
 				'enabled'       => false,
 				'live_endpoint' => true,
+				// Advertising defaults on once OKF is enabled (see handle_save).
+				'advertise'     => true,
 			)
 		);
 	}
@@ -152,6 +166,17 @@ final class Coywolf_SEO_OKF {
 	public function endpoint_enabled() {
 		$s = $this->settings();
 		return ! empty( $s['live_endpoint'] );
+	}
+
+	/**
+	 * Whether public discovery/advertising is enabled (only meaningful when the
+	 * feature itself is on).
+	 *
+	 * @return bool
+	 */
+	public function advertise_enabled() {
+		$s = $this->settings();
+		return ! empty( $s['advertise'] );
 	}
 
 	// ---------------------------------------------------------------------
@@ -308,30 +333,43 @@ final class Coywolf_SEO_OKF {
 	public function handle_save() {
 		$this->guard( 'coywolf_seo_okf_save' );
 
-		$was_enabled  = $this->is_enabled();
-		$was_endpoint = $this->endpoint_enabled();
+		$was_enabled   = $this->is_enabled();
+		$was_endpoint  = $this->endpoint_enabled();
+		$was_advertise = $this->advertise_enabled();
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- nonce verified in guard(); the only two values read are cast to booleans below.
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- nonce verified in guard(); only the boolean checkboxes below are read.
 		$raw      = isset( $_POST['coywolf_seo_okf'] ) && is_array( $_POST['coywolf_seo_okf'] ) ? wp_unslash( $_POST['coywolf_seo_okf'] ) : array();
 		$enabled  = ! empty( $raw['enabled'] );
 		$endpoint = ! empty( $raw['live_endpoint'] );
+		// The advertise checkbox is only shown once OKF is enabled, so on the
+		// first enable (when it wasn't on screen) honor the default-on rather
+		// than reading its absence as "off"; otherwise take the submitted value.
+		$advertise = ( $enabled && ! $was_enabled ) ? true : ! empty( $raw['advertise'] );
 
 		update_option(
 			self::OPTION,
 			array(
 				'enabled'       => $enabled,
 				'live_endpoint' => $endpoint,
+				'advertise'     => $advertise,
 			)
 		);
 
-		// Rewrite rules change with the endpoint's effective availability.
-		$effective_before = $was_enabled && $was_endpoint;
-		$effective_after  = $enabled && $endpoint;
-		if ( $effective_before !== $effective_after ) {
+		// Rewrite rules change with the OKF endpoint's availability AND with the
+		// advertiser's routes (llms.txt + /.well-known/okf), which need OKF +
+		// endpoint + advertise. Flush when either set changes.
+		$endpoint_before = $was_enabled && $was_endpoint;
+		$endpoint_after  = $enabled && $endpoint;
+		$adv_before      = $endpoint_before && $was_advertise;
+		$adv_after       = $endpoint_after && $advertise;
+		if ( $endpoint_before !== $endpoint_after || $adv_before !== $adv_after ) {
 			// Register the rules for this request before flushing so an enable
 			// persists them (init already ran by admin-post time).
-			if ( $effective_after ) {
+			if ( $endpoint_after ) {
 				$this->add_rewrite_rules();
+			}
+			if ( $adv_after ) {
+				$this->advertiser->add_rewrite_rules();
 			}
 			flush_rewrite_rules();
 		}
@@ -464,6 +502,7 @@ final class Coywolf_SEO_OKF {
 		$s          = $this->settings();
 		$enabled    = ! empty( $s['enabled'] );
 		$endpoint   = ! empty( $s['live_endpoint'] );
+		$advertise  = ! empty( $s['advertise'] );
 		$has_bundle = $this->generator->bundle_exists();
 		$last       = $this->last_build();
 		$zip_ok     = class_exists( 'ZipArchive' );
@@ -489,6 +528,18 @@ final class Coywolf_SEO_OKF {
 						<?php esc_html_e( 'Serve the bundle live at a /okf/ read endpoint (so agents can traverse it without downloading)', 'coywolf-seo' ); ?>
 					</label>
 				</p>
+				<?php if ( $enabled ) : ?>
+					<p style="margin-left:1.75rem;">
+						<label>
+							<input type="checkbox" name="coywolf_seo_okf[advertise]" value="1" <?php checked( $advertise ); ?> />
+							<?php esc_html_e( 'Advertise the bundle publicly (point AI agents at it via llms.txt, a page <head> link, and a robots.txt allowance)', 'coywolf-seo' ); ?>
+						</label>
+						<br />
+						<span class="description" style="margin-left:1.75rem;display:inline-block;">
+							<?php esc_html_e( 'OKF defines no automatic discovery, so this advertises the bundle in the places agents already look — it does not guarantee anything will consume it. Turn it off to keep a bundle for out-of-band (git/tarball) handoff without publishing any hints.', 'coywolf-seo' ); ?>
+						</span>
+					</p>
+				<?php endif; ?>
 				<?php submit_button( __( 'Save OKF settings', 'coywolf-seo' ) ); ?>
 			</form>
 
@@ -519,6 +570,12 @@ final class Coywolf_SEO_OKF {
 						<a href="<?php echo esc_url( $this->endpoint_base_url() ); ?>" target="_blank" rel="noopener"><code><?php echo esc_html( $this->endpoint_base_url() ); ?></code></a>
 					</p>
 				<?php endif; ?>
+
+				<?php
+				if ( $advertise ) {
+					$this->advertiser->render_status();
+				}
+				?>
 
 				<p>
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-block;margin-right:.5rem;">
