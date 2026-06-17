@@ -177,10 +177,6 @@ final class Coywolf_SEO_Llms_Txt {
 		$name    = wp_strip_all_tags( (string) get_bloginfo( 'name' ) );
 		$tagline = wp_strip_all_tags( (string) get_bloginfo( 'description' ) );
 
-		$out  = '# ' . ( '' !== $name ? $name : home_url( '/' ) ) . "\n\n";
-		$out .= '> ' . ( '' !== $tagline ? $tagline : __( 'A curated, agent-readable index of this site\'s public content.', 'coywolf-seo' ) ) . "\n\n";
-		$out .= __( 'Each link below points at the Markdown source of a page, so an agent can read the content directly.', 'coywolf-seo' ) . "\n";
-
 		// Fetch the included posts once, keyed by type, and reuse them for both
 		// the canonical content-type listing and the entity topic index.
 		$by_type = array();
@@ -193,6 +189,20 @@ final class Coywolf_SEO_Llms_Txt {
 				);
 			}
 		}
+
+		// Entity topic index: a plain-text H2 per significant entity, grouping
+		// the site's own articles. Built up front so the intro can describe it;
+		// placed (below) in the main body or under Optional.
+		$entities  = $this->entity_sections( $by_type );
+		$placement = (string) Coywolf_SEO_Options::get( 'llms_entity_placement' );
+
+		$out  = '# ' . ( '' !== $name ? $name : home_url( '/' ) ) . "\n\n";
+		$out .= '> ' . ( '' !== $tagline ? $tagline : __( 'A curated, agent-readable index of this site\'s public content.', 'coywolf-seo' ) ) . "\n\n";
+		$out .= __( 'Each link below points at the Markdown source of a page, so an agent can read the content directly.', 'coywolf-seo' );
+		if ( '' !== $entities ) {
+			$out .= ' ' . __( 'A topic index further down groups articles by the entities they are primarily about.', 'coywolf-seo' );
+		}
+		$out .= "\n";
 
 		// Canonical listing by content type — the backbone of the file.
 		$optional = array();
@@ -214,10 +224,6 @@ final class Coywolf_SEO_Llms_Txt {
 			$out .= "\n" . $okf;
 		}
 
-		// Entity topic index: a plain-text H2 per significant entity, grouping
-		// the site's own articles. Placed in the main body or under Optional.
-		$entities  = $this->entity_sections( $by_type );
-		$placement = (string) Coywolf_SEO_Options::get( 'llms_entity_placement' );
 		if ( '' !== $entities && 'main' === $placement ) {
 			$out .= "\n" . $entities;
 		}
