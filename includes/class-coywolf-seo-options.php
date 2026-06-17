@@ -77,6 +77,13 @@ final class Coywolf_SEO_Options {
 			'news_include_pages'           => false,
 			'news_cat_mode'                => 'all', // all | include | exclude.
 			'news_cats'                    => array(),
+			// LLMs.txt + Markdown source endpoints (Discovery). Off by default —
+			// an explicit opt-in. When off, no /llms.txt, no .md routes, no head
+			// links, and no extra headers are emitted by this feature.
+			'llms_enabled'                 => false,
+			'llms_md_endpoints'            => true,  // Serve per-page .../index.html.md.
+			'llms_entities'                => true,  // Include the entities section / frontmatter.
+			'llms_licence'                 => '',    // Optional content licence noted in .md frontmatter.
 			// AI schema enrichment.
 			'ai_enabled'                   => false,
 			'ai_descriptions'              => false,
@@ -201,6 +208,9 @@ final class Coywolf_SEO_Options {
 			'news_enabled',
 			'news_include_posts',
 			'news_include_pages',
+			'llms_enabled',
+			'llms_md_endpoints',
+			'llms_entities',
 			'ai_enabled',
 			'ai_descriptions',
 			'image_text_write_alt',
@@ -223,6 +233,10 @@ final class Coywolf_SEO_Options {
 
 		if ( isset( $raw['image_text_instructions'] ) ) {
 			$out['image_text_instructions'] = sanitize_textarea_field( $raw['image_text_instructions'] );
+		}
+
+		if ( isset( $raw['llms_licence'] ) ) {
+			$out['llms_licence'] = sanitize_text_field( $raw['llms_licence'] );
 		}
 
 		if ( isset( $raw['scroll_margin_top'] ) ) {

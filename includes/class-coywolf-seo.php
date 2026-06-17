@@ -222,6 +222,22 @@ final class Coywolf_SEO {
 	private $labs = null;
 
 	/**
+	 * Per-page Markdown source endpoints (Discovery / LLMs.txt). Runs on the
+	 * front end; init() no-ops unless the feature + .md sub-option are on.
+	 *
+	 * @var Coywolf_SEO_Markdown_Source
+	 */
+	private $markdown_source;
+
+	/**
+	 * /llms.txt owner (Discovery). Runs on the front end + admin; init() no-ops
+	 * unless the feature is on or the Labs OKF feature is advertising.
+	 *
+	 * @var Coywolf_SEO_Llms_Txt
+	 */
+	private $llms_txt;
+
+	/**
 	 * Create (once) and return the plugin instance.
 	 *
 	 * @return Coywolf_SEO
@@ -326,6 +342,14 @@ final class Coywolf_SEO {
 			$this->labs = new Coywolf_SEO_Labs();
 			$this->labs->init();
 		}
+
+		// Discovery: per-page Markdown endpoints + /llms.txt. Initialised after
+		// Labs so the llms.txt owner can see whether the OKF feature is
+		// advertising (it integrates the OKF reference). Both self-gate.
+		$this->markdown_source = new Coywolf_SEO_Markdown_Source();
+		$this->markdown_source->init();
+		$this->llms_txt = new Coywolf_SEO_Llms_Txt();
+		$this->llms_txt->init();
 
 		if ( is_admin() ) {
 			$this->admin = new Coywolf_SEO_Admin();
@@ -433,6 +457,24 @@ final class Coywolf_SEO {
 	 */
 	public function labs() {
 		return $this->labs;
+	}
+
+	/**
+	 * Markdown source endpoints accessor.
+	 *
+	 * @return Coywolf_SEO_Markdown_Source
+	 */
+	public function markdown_source() {
+		return $this->markdown_source;
+	}
+
+	/**
+	 * llms.txt owner accessor (the Settings page renders its section).
+	 *
+	 * @return Coywolf_SEO_Llms_Txt
+	 */
+	public function llms_txt() {
+		return $this->llms_txt;
 	}
 
 	/**

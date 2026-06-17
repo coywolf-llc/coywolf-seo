@@ -62,6 +62,21 @@ final class Coywolf_SEO_Labs {
 	}
 
 	/**
+	 * The OKF feature instance, or null. Lets core features (the llms.txt owner)
+	 * integrate OKF details through a guarded accessor.
+	 *
+	 * @return Coywolf_SEO_OKF|null
+	 */
+	public function okf() {
+		foreach ( $this->features as $feature ) {
+			if ( $feature instanceof Coywolf_SEO_OKF ) {
+				return $feature;
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * Render the Labs page: experimental notice, any status message, then each
 	 * feature's self-managed panel.
 	 */

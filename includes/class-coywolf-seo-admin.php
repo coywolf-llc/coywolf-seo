@@ -675,6 +675,8 @@ final class Coywolf_SEO_Admin {
 			$message = __( 'The API key has been removed.', 'coywolf-seo' );
 		} elseif ( 'image-text' === $saved ) {
 			$message = __( 'Extra instructions saved.', 'coywolf-seo' );
+		} elseif ( 'llms-rebuilt' === $saved ) {
+			$message = __( 'llms.txt rebuilt.', 'coywolf-seo' );
 		} elseif ( 'import-error' === $saved ) {
 			printf( '<div class="notice notice-error is-dismissible"><p>%s</p></div>', esc_html__( 'The file could not be imported. Use an unmodified Coywolf SEO export file.', 'coywolf-seo' ) );
 			return;
@@ -751,7 +753,7 @@ final class Coywolf_SEO_Admin {
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized field-by-field in Coywolf_SEO_Options::sanitize().
 		$raw = isset( $_POST['coywolf_seo'] ) && is_array( $_POST['coywolf_seo'] ) ? wp_unslash( $_POST['coywolf_seo'] ) : array();
 
-		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'sitemap_exclude_posts', 'sitemap_exclude_pages', 'sitemap_exclude_categories', 'sitemap_exclude_users', 'news_enabled', 'news_include_posts', 'news_include_pages', 'ai_descriptions', 'image_text_write_alt', 'image_text_write_title', 'image_text_write_caption', 'image_text_write_description', 'image_text_overwrite', 'feature_ai_off', 'feature_schema_off', 'feature_sitemaps_off', 'feature_links_off', 'feature_redirects_off', 'feature_robots_off' ) as $key ) {
+		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'sitemap_exclude_posts', 'sitemap_exclude_pages', 'sitemap_exclude_categories', 'sitemap_exclude_users', 'news_enabled', 'news_include_posts', 'news_include_pages', 'llms_enabled', 'llms_md_endpoints', 'llms_entities', 'ai_descriptions', 'image_text_write_alt', 'image_text_write_title', 'image_text_write_caption', 'image_text_write_description', 'image_text_overwrite', 'feature_ai_off', 'feature_schema_off', 'feature_sitemaps_off', 'feature_links_off', 'feature_redirects_off', 'feature_robots_off' ) as $key ) {
 			$raw[ $key ] = ! empty( $raw[ $key ] );
 		}
 		// Entity detection: its checkbox is disabled (so omitted from POST) when
@@ -806,6 +808,11 @@ final class Coywolf_SEO_Admin {
 		// Capture the Robots.txt Manager state before saving so we can honor the
 		// turn-off prompt's restore/keep choice.
 		$robots_was_on = Coywolf_SEO_Options::feature_enabled( 'robots' );
+		// LLMs.txt route toggles (the /llms.txt + .md routes depend on these).
+		$llms_before = array(
+			(bool) Coywolf_SEO_Options::get( 'llms_enabled' ),
+			(bool) Coywolf_SEO_Options::get( 'llms_md_endpoints' ),
+		);
 		Coywolf_SEO_Options::update( $clean );
 		// Robots.txt Manager just turned off: apply the restore/keep choice from
 		// the prompt (no-JS fallback keeps the file as a plain robots.txt).
@@ -823,6 +830,22 @@ final class Coywolf_SEO_Admin {
 		if ( (bool) Coywolf_SEO_Options::get( 'news_enabled' ) !== $news_before ) {
 			// The sitemap URL just appeared or disappeared.
 			flush_rewrite_rules();
+		}
+		// LLMs.txt: flush when its route toggles change, and (re)build or drop the
+		// cached llms.txt to match the new state. The /llms.txt route also stays
+		// registered while the Labs OKF feature advertises, so flush either way.
+		$llms_now = array(
+			(bool) Coywolf_SEO_Options::get( 'llms_enabled' ),
+			(bool) Coywolf_SEO_Options::get( 'llms_md_endpoints' ),
+		);
+		if ( $llms_now !== $llms_before ) {
+			flush_rewrite_rules();
+		}
+		$coywolf_seo_llms = Coywolf_SEO::instance()->llms_txt();
+		if ( $llms_now[0] ) {
+			$coywolf_seo_llms->rebuild_now();
+		} else {
+			$coywolf_seo_llms->clear_cache();
 		}
 		// Robots.txt Manager fields live in this same form (no separate save), so
 		// persist them here too. The nonce + capability are already verified above;
@@ -1200,6 +1223,72 @@ final class Coywolf_SEO_Admin {
 	}
 
 	/**
+	 * Render the LLMs.txt settings section body (Discovery group). The enclosing
+	 * panel and heading are emitted by render_settings().
+	 *
+	 * @param array $o Current options.
+	 * @return void
+	 */
+	private function render_llms_section( array $o ) {
+		$llms     = Coywolf_SEO::instance()->llms_txt();
+		$conflict = $llms->physical_llms_txt_exists();
+		?>
+		<p class="description">
+			<?php esc_html_e( 'Publish an llms.txt index and a Markdown source for every public page so AI agents can read your content directly. Off by default; built from on-site data with no external calls. Honors the same visibility as your sitemaps.', 'coywolf-seo' ); ?>
+		</p>
+		<?php if ( $conflict ) : ?>
+			<div class="notice notice-warning inline"><p>
+				<?php
+				printf(
+					/* translators: %s: the /llms.txt URL. */
+					esc_html__( 'An llms.txt already exists at your site root, so this plugin will not serve or overwrite it. Remove that file to let Coywolf SEO manage %s.', 'coywolf-seo' ),
+					'<code>' . esc_html( $llms->llms_txt_url() ) . '</code>'
+				);
+				?>
+			</p></div>
+		<?php endif; ?>
+		<table class="form-table" role="presentation">
+			<tr>
+				<th scope="row"><?php esc_html_e( 'LLMs.txt', 'coywolf-seo' ); ?></th>
+				<td>
+					<label><input type="checkbox" name="coywolf_seo[llms_enabled]" value="1" <?php checked( $o['llms_enabled'] ); ?> /> <?php esc_html_e( 'Enable llms.txt and Markdown source endpoints', 'coywolf-seo' ); ?></label>
+					<?php if ( ! empty( $o['llms_enabled'] ) && ! $conflict ) : ?>
+						<p class="description">
+							<?php esc_html_e( 'Served at:', 'coywolf-seo' ); ?>
+							<a href="<?php echo esc_url( $llms->llms_txt_url() ); ?>" target="_blank" rel="noopener"><code><?php echo esc_html( $llms->llms_txt_url() ); ?></code></a>
+						</p>
+					<?php endif; ?>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><?php esc_html_e( 'Markdown endpoints', 'coywolf-seo' ); ?></th>
+				<td>
+					<label><input type="checkbox" name="coywolf_seo[llms_md_endpoints]" value="1" <?php checked( $o['llms_md_endpoints'] ); ?> /> <?php esc_html_e( 'Serve a Markdown source for each page at …/index.html.md (adds a <head> link and Accept: text/markdown negotiation)', 'coywolf-seo' ); ?></label>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><?php esc_html_e( 'Entities', 'coywolf-seo' ); ?></th>
+				<td>
+					<label><input type="checkbox" name="coywolf_seo[llms_entities]" value="1" <?php checked( $o['llms_entities'] ); ?> /> <?php esc_html_e( 'Include AI-enriched entities (with sameAs links) in llms.txt and the .md frontmatter', 'coywolf-seo' ); ?></label>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><label for="coywolf-seo-llms-licence"><?php esc_html_e( 'Content licence', 'coywolf-seo' ); ?></label></th>
+				<td>
+					<input type="text" class="regular-text" id="coywolf-seo-llms-licence" name="coywolf_seo[llms_licence]" value="<?php echo esc_attr( (string) $o['llms_licence'] ); ?>" placeholder="<?php esc_attr_e( 'e.g. CC BY 4.0 (optional)', 'coywolf-seo' ); ?>" />
+					<p class="description"><?php esc_html_e( 'Optional. Added to each Markdown page\'s frontmatter; omitted when empty.', 'coywolf-seo' ); ?></p>
+				</td>
+			</tr>
+		</table>
+		<?php if ( ! empty( $o['llms_enabled'] ) ) : ?>
+			<p>
+				<a class="button button-secondary" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=coywolf_seo_llms_rebuild' ), 'coywolf_seo_llms_rebuild' ) ); ?>"><?php esc_html_e( 'Rebuild llms.txt now', 'coywolf-seo' ); ?></a>
+			</p>
+		<?php endif; ?>
+		<?php
+	}
+
+	/**
 	 * Render the Settings page.
 	 */
 	public function render_settings() {
@@ -1211,22 +1300,31 @@ final class Coywolf_SEO_Admin {
 			<?php
 			// Jump links to each settings section. Only sections actually rendered
 			// (per the same feature gates) are listed, so no link is ever dead.
-			$coywolf_seo_toc = array(
-				array( 'coywolf-seo-section-general', __( 'General settings', 'coywolf-seo' ), true ),
-				array( 'coywolf-seo-section-ai', __( 'AI enrichment', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'ai' ) ),
-				array( 'coywolf-seo-section-image-text', __( 'Image Text', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'ai' ) ),
-				array( 'coywolf-seo-section-links', __( 'Link Manager', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'links' ) ),
-				array( 'coywolf-seo-section-indexnow', __( 'IndexNow', 'coywolf-seo' ), true ),
-				array( 'coywolf-seo-section-sitemaps', __( 'Sitemaps', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'sitemaps' ) ),
-				array( 'coywolf-seo-section-robots', __( 'Robots.txt Manager', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'robots' ) ),
-				array( 'coywolf-seo-section-toggles', __( 'Turn off features', 'coywolf-seo' ), true ),
-				array( 'coywolf-seo-section-enrich', __( 'Enrich all content', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'ai' ) ),
-				array( 'coywolf-seo-section-imageids', __( 'Fix missing image IDs', 'coywolf-seo' ), true ),
+			$coywolf_seo_disc = __( 'Discovery', 'coywolf-seo' );
+			$coywolf_seo_toc  = array(
+				array( 'coywolf-seo-section-general', __( 'General settings', 'coywolf-seo' ), true, '' ),
+				array( 'coywolf-seo-section-ai', __( 'AI enrichment', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'ai' ), '' ),
+				array( 'coywolf-seo-section-image-text', __( 'Image Text', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'ai' ), '' ),
+				array( 'coywolf-seo-section-links', __( 'Link Manager', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'links' ), '' ),
+				array( 'coywolf-seo-section-indexnow', __( 'IndexNow', 'coywolf-seo' ), true, $coywolf_seo_disc ),
+				array( 'coywolf-seo-section-sitemaps', __( 'Sitemaps', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'sitemaps' ), $coywolf_seo_disc ),
+				array( 'coywolf-seo-section-llms', __( 'LLMs.txt', 'coywolf-seo' ), true, $coywolf_seo_disc ),
+				array( 'coywolf-seo-section-robots', __( 'Robots.txt Manager', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'robots' ), __( 'Robots.txt', 'coywolf-seo' ) ),
+				array( 'coywolf-seo-section-toggles', __( 'Turn off features', 'coywolf-seo' ), true, '' ),
+				array( 'coywolf-seo-section-enrich', __( 'Enrich all content', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'ai' ), '' ),
+				array( 'coywolf-seo-section-imageids', __( 'Fix missing image IDs', 'coywolf-seo' ), true, '' ),
 			);
 			?>
 			<ul class="coywolf-seo-settings-toc">
+				<?php $coywolf_seo_toc_group = ''; ?>
 				<?php foreach ( $coywolf_seo_toc as $coywolf_seo_toc_item ) : ?>
 					<?php if ( $coywolf_seo_toc_item[2] ) : ?>
+						<?php if ( $coywolf_seo_toc_item[3] !== $coywolf_seo_toc_group ) : ?>
+							<?php $coywolf_seo_toc_group = $coywolf_seo_toc_item[3]; ?>
+							<?php if ( '' !== $coywolf_seo_toc_group ) : ?>
+								<li class="coywolf-seo-toc-group"><?php echo esc_html( $coywolf_seo_toc_group ); ?></li>
+							<?php endif; ?>
+						<?php endif; ?>
 						<li><a href="#<?php echo esc_attr( $coywolf_seo_toc_item[0] ); ?>"><?php echo esc_html( $coywolf_seo_toc_item[1] ); ?></a></li>
 					<?php endif; ?>
 				<?php endforeach; ?>
@@ -1557,9 +1655,9 @@ final class Coywolf_SEO_Admin {
 					</tr>
 				</table>
 
-				<?php if ( Coywolf_SEO_Options::feature_enabled( 'sitemaps' ) ) : ?>
 				</div>
 
+				<?php if ( Coywolf_SEO_Options::feature_enabled( 'sitemaps' ) ) : ?>
 				<div class="coywolf-seo-panel">
 				<h2 id="coywolf-seo-section-sitemaps"><?php esc_html_e( 'Sitemaps', 'coywolf-seo' ); ?></h2>
 				<table class="form-table" role="presentation">
@@ -1626,17 +1724,24 @@ final class Coywolf_SEO_Admin {
 						</td>
 					</tr>
 				</table>
+				</div>
 				<?php endif; // End Sitemaps section. ?>
 
-				<?php
-				// Robots.txt Manager settings are part of this form and save with
-				// the single "Save Settings" button below.
-				if ( Coywolf_SEO_Options::feature_enabled( 'robots' ) ) {
-					Coywolf_SEO::instance()->robots()->render_settings_section();
-				}
-				?>
-
+				<?php // LLMs.txt (Discovery): off by default; enable to serve /llms.txt + per-page .md endpoints. ?>
+				<div class="coywolf-seo-panel">
+				<h2 id="coywolf-seo-section-llms"><?php esc_html_e( 'LLMs.txt', 'coywolf-seo' ); ?></h2>
+				<?php $this->render_llms_section( $o ); ?>
 				</div>
+
+				<?php
+				// Robots.txt Manager settings save with the single "Save Settings"
+				// button below; its own top-level Robots.txt menu holds the rules.
+				if ( Coywolf_SEO_Options::feature_enabled( 'robots' ) ) :
+					?>
+					<div class="coywolf-seo-panel">
+					<?php Coywolf_SEO::instance()->robots()->render_settings_section(); ?>
+					</div>
+					<?php endif; ?>
 
 				<div class="coywolf-seo-panel">
 				<h2 id="coywolf-seo-section-toggles"><?php esc_html_e( 'Turn off features', 'coywolf-seo' ); ?></h2>

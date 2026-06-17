@@ -29,11 +29,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class Coywolf_SEO_OKF_Advertiser {
 
 	/**
-	 * Query var for the virtual llms.txt route.
-	 */
-	const LLMS_VAR = 'coywolf_seo_llms';
-
-	/**
 	 * Query var for the proposed (non-standard) /.well-known/okf route.
 	 */
 	const WELLKNOWN_VAR = 'coywolf_seo_wk_okf';
@@ -101,16 +96,15 @@ final class Coywolf_SEO_OKF_Advertiser {
 	}
 
 	// ---------------------------------------------------------------------
-	// Routes: virtual llms.txt + proposed /.well-known/okf
+	// Route: proposed /.well-known/okf  (llms.txt is owned by Coywolf_SEO_Llms_Txt)
 	// ---------------------------------------------------------------------
 
 	/**
-	 * Register the discovery rewrite rules: a virtual llms.txt at the site root
-	 * and a proposed (non-standard) /.well-known/okf that resolves to the
-	 * bundle root.
+	 * Register the proposed (non-standard) /.well-known/okf rewrite that
+	 * resolves to the bundle root. llms.txt is no longer registered here — the
+	 * core Coywolf_SEO_Llms_Txt owns it and integrates the OKF reference.
 	 */
 	public function add_rewrite_rules() {
-		add_rewrite_rule( '^llms\.txt$', 'index.php?' . self::LLMS_VAR . '=1', 'top' );
 		// PROPOSED CONVENTION, NOT a standard: OKF v0.1 defines no well-known
 		// location. This is a convenience alias that 302s to the canonical
 		// bundle root; consumers must not rely on it existing.
@@ -118,69 +112,42 @@ final class Coywolf_SEO_OKF_Advertiser {
 	}
 
 	/**
-	 * Register the discovery query vars.
+	 * Register the discovery query var.
 	 *
 	 * @param string[] $vars Query vars.
 	 * @return string[]
 	 */
 	public function register_query_vars( $vars ) {
-		$vars[] = self::LLMS_VAR;
 		$vars[] = self::WELLKNOWN_VAR;
 		return $vars;
 	}
 
 	/**
-	 * Serve the virtual llms.txt or resolve /.well-known/okf to the bundle root.
+	 * Resolve /.well-known/okf to the bundle root.
 	 */
 	public function maybe_serve() {
 		if ( ! $this->is_public() ) {
 			return;
 		}
-
 		if ( '1' === (string) get_query_var( self::WELLKNOWN_VAR ) ) {
 			wp_safe_redirect( $this->bundle_root_url(), 302 );
 			exit;
 		}
-
-		if ( '1' !== (string) get_query_var( self::LLMS_VAR ) ) {
-			return;
-		}
-
-		// Never clobber a physical llms.txt owned by the site/another plugin —
-		// if one exists, the web server serves it directly; should the request
-		// still reach WordPress, defer rather than overwrite.
-		if ( $this->physical_llms_txt_exists() ) {
-			return;
-		}
-
-		nocache_headers();
-		header( 'Content-Type: text/markdown; charset=UTF-8' );
-		header( 'X-Content-Type-Options: nosniff' );
-		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- plain-text llms.txt body served as text/markdown, not HTML.
-		echo $this->llms_txt_body();
-		exit;
 	}
 
 	/**
-	 * The minimal llms.txt body referencing the OKF bundle (absolute URL).
+	 * Whether the OKF public advertising is active (used by the llms.txt owner
+	 * to decide whether to include the OKF section).
 	 *
-	 * @return string
+	 * @return bool
 	 */
-	private function llms_txt_body() {
-		$name = wp_strip_all_tags( (string) get_bloginfo( 'name' ) );
-		$desc = wp_strip_all_tags( (string) get_bloginfo( 'description' ) );
-		$out  = '# ' . $name . "\n\n";
-		if ( '' !== trim( $desc ) ) {
-			$out .= '> ' . $desc . "\n\n";
-		}
-		$out .= "## Open Knowledge Format\n\n";
-		$out .= '- [' . $this->llms_reference_line() . "\n";
-		return $out;
+	public function advertise_active() {
+		return $this->is_public();
 	}
 
 	/**
-	 * The exact llms.txt reference entry (without the leading "- ["), reused for
-	 * both the served file and the manual-add guidance in the UI.
+	 * The exact llms.txt reference entry (without the leading "- ["), reused by
+	 * the llms.txt owner and the manual-add guidance in the UI.
 	 *
 	 * @return string
 	 */
@@ -334,53 +301,12 @@ final class Coywolf_SEO_OKF_Advertiser {
 	}
 
 	/**
-	 * The virtual llms.txt URL.
-	 *
-	 * @return string
-	 */
-	public function llms_txt_url() {
-		return home_url( '/llms.txt' );
-	}
-
-	/**
 	 * The proposed /.well-known/okf alias URL.
 	 *
 	 * @return string
 	 */
 	public function wellknown_url() {
 		return home_url( '/.well-known/okf' );
-	}
-
-	// ---------------------------------------------------------------------
-	// Detection (panel)
-	// ---------------------------------------------------------------------
-
-	/**
-	 * Whether a physical llms.txt exists at the site root (owned elsewhere).
-	 *
-	 * @return bool
-	 */
-	public function physical_llms_txt_exists() {
-		$path = $this->site_root_file( 'llms.txt' );
-		return '' !== $path && is_readable( $path );
-	}
-
-	/**
-	 * Absolute path to a site-root file (subdirectory-install safe), or '' when
-	 * it can't be resolved. Loads the admin file API on the front end first.
-	 *
-	 * @param string $name File name.
-	 * @return string
-	 */
-	private function site_root_file( $name ) {
-		if ( ! function_exists( 'get_home_path' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/file.php';
-		}
-		$home = get_home_path();
-		if ( ! $home || '/' === $home ) {
-			return '';
-		}
-		return trailingslashit( $home ) . $name;
 	}
 
 	// ---------------------------------------------------------------------
@@ -414,14 +340,11 @@ final class Coywolf_SEO_OKF_Advertiser {
 			</li>
 			<li>
 				<?php
-				if ( $this->physical_llms_txt_exists() ) {
-					echo '<strong>' . esc_html__( 'llms.txt already exists at your site root', 'coywolf-seo' ) . '</strong> — ';
-					esc_html_e( "we won't overwrite it. Add this line under a section in it by hand:", 'coywolf-seo' );
-					echo '<br /><code>- ' . esc_html( $this->llms_reference_line() ) . '</code>';
-				} else {
-					esc_html_e( 'Serving a minimal llms.txt that references the bundle:', 'coywolf-seo' );
-					echo ' <a href="' . esc_url( $this->llms_txt_url() ) . '" target="_blank" rel="noopener"><code>' . esc_html( $this->llms_txt_url() ) . '</code></a>';
-				}
+				printf(
+					/* translators: %s: the /llms.txt URL */
+					esc_html__( 'The bundle is referenced from %s. With the LLMs.txt feature on, the reference is folded into its full file; with it off, a minimal llms.txt is served here.', 'coywolf-seo' ),
+					'<a href="' . esc_url( home_url( '/llms.txt' ) ) . '" target="_blank" rel="noopener"><code>' . esc_html( home_url( '/llms.txt' ) ) . '</code></a>'
+				);
 				?>
 			</li>
 			<li><?php esc_html_e( 'A single <link rel="alternate" type="text/markdown"> in the <head> of public, indexable pages.', 'coywolf-seo' ); ?></li>

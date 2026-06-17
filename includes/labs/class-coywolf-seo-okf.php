@@ -179,6 +179,26 @@ final class Coywolf_SEO_OKF {
 		return ! empty( $s['advertise'] );
 	}
 
+	/**
+	 * Whether the OKF public advertising is actually active (enabled + advertise
+	 * + endpoint + public site). Used by the llms.txt owner to decide whether to
+	 * include the OKF section.
+	 *
+	 * @return bool
+	 */
+	public function advertise_active() {
+		return $this->advertiser->advertise_active();
+	}
+
+	/**
+	 * The llms.txt reference entry for the OKF bundle (without the leading "- [").
+	 *
+	 * @return string
+	 */
+	public function llms_reference_line() {
+		return $this->advertiser->llms_reference_line();
+	}
+
 	// ---------------------------------------------------------------------
 	// Public read endpoint
 	// ---------------------------------------------------------------------
