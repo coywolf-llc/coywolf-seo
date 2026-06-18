@@ -395,8 +395,11 @@ final class Coywolf_SEO_Markdown_Source {
 	 */
 	public static function decode_text( $text ) {
 		$text = html_entity_decode( (string) $text, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
-		$text = preg_replace( '/\s+/u', ' ', $text );
-		return trim( (string) $text );
+		// preg_replace() with the /u flag returns null when the subject is not
+		// valid UTF-8; fall back to the un-collapsed string so a malformed title
+		// (e.g. a truncated multibyte sequence) is never silently blanked.
+		$collapsed = preg_replace( '/\s+/u', ' ', $text );
+		return trim( null === $collapsed ? $text : $collapsed );
 	}
 
 	/**

@@ -136,8 +136,12 @@ final class Coywolf_SEO_Llms_Txt {
 		if ( '' === $body ) {
 			return;
 		}
-		nocache_headers();
 		header( 'Content-Type: text/plain; charset=utf-8' );
+		// A short, public max-age (matching the per-page .md responses) so a stale
+		// copy can never be pinned indefinitely at a proxy/CDN even absent an
+		// explicit purge. Regeneration additionally purges the page caches we can
+		// reach (see purge_public_caches()).
+		header( 'Cache-Control: public, max-age=3600' );
 		header( 'X-Content-Type-Options: nosniff' );
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- plain-text llms.txt body.
 		echo $body;
@@ -501,11 +505,27 @@ final class Coywolf_SEO_Llms_Txt {
 	}
 
 	/**
-	 * Cron callback: rebuild the cache when the feature is on.
+	 * Cron callback: rebuild the cache when the feature is on, then purge the
+	 * public copy so the live URL reflects the new body without a manual clear.
 	 */
 	public function run_rebuild() {
 		if ( $this->enabled() ) {
 			$this->rebuild_now();
+			$this->purge_public_caches();
+		}
+	}
+
+	/**
+	 * Best-effort purge of the public /llms.txt (and per-page .md) copies any
+	 * reachable page cache may be holding, after a regeneration. Reuses the
+	 * plugin's existing page-cache purge (WP Rocket / W3TC / WP Super Cache /
+	 * LiteSpeed / SiteGround / Autoptimize). Host and CDN edge caches the plugin
+	 * cannot reach are instead bounded by the Cache-Control max-age on the served
+	 * responses; sites fronted by such a cache must purge it at that layer.
+	 */
+	private function purge_public_caches() {
+		if ( method_exists( 'Coywolf_SEO', 'purge_known_caches' ) ) {
+			Coywolf_SEO::purge_known_caches();
 		}
 	}
 
@@ -535,6 +555,7 @@ final class Coywolf_SEO_Llms_Txt {
 		check_admin_referer( 'coywolf_seo_llms_rebuild' );
 		if ( $this->enabled() ) {
 			$this->rebuild_now();
+			$this->purge_public_caches();
 		}
 		wp_safe_redirect(
 			add_query_arg(
