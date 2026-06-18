@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.110
+- **Version:** 1.0.111
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -231,6 +231,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 ![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
 
 ## Changelog
+
+### 1.0.111
+- llms.txt: bound public cache + purge on rebuild; harden title decode against invalid UTF-8 (#112).
 
 ### 1.0.110
 - Fix: decode HTML entities in titles for llms.txt + .md frontmatter (#111).
