@@ -1637,21 +1637,35 @@ final class Coywolf_SEO_AI {
 	}
 
 	/**
+	 * A post's content as plain, shortcode/block-free, entity-decoded text,
+	 * optionally bounded. The single place the plugin derives plain page text
+	 * from post content, so the enrichment prompt and any reuse (e.g. the Labs
+	 * EntityMap chunk extraction) see identical input.
+	 *
+	 * @param WP_Post $post  Post.
+	 * @param int     $limit Max characters to return (0 = no bound).
+	 * @return string
+	 */
+	public static function plain_text( $post, $limit = 24000 ) {
+		$content = (string) $post->post_content;
+		$content = strip_shortcodes( $content );
+		$content = excerpt_remove_blocks( $content );
+		$content = wp_strip_all_tags( $content, true );
+		$content = html_entity_decode( $content, ENT_QUOTES, 'UTF-8' );
+		if ( $limit > 0 ) {
+			return function_exists( 'mb_substr' ) ? mb_substr( $content, 0, $limit ) : substr( $content, 0, $limit );
+		}
+		return $content;
+	}
+
+	/**
 	 * The post's content as plain text, bounded for the prompt.
 	 *
 	 * @param WP_Post $post Post.
 	 * @return string
 	 */
 	private function plain_content( $post ) {
-		$content = (string) $post->post_content;
-		$content = strip_shortcodes( $content );
-		$content = excerpt_remove_blocks( $content );
-		$content = wp_strip_all_tags( $content, true );
-		$content = html_entity_decode( $content, ENT_QUOTES, 'UTF-8' );
-		if ( function_exists( 'mb_substr' ) ) {
-			return mb_substr( $content, 0, 24000 );
-		}
-		return substr( $content, 0, 24000 );
+		return self::plain_text( $post, 24000 );
 	}
 
 	/**

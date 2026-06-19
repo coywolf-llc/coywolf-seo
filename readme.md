@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.111
+- **Version:** 1.0.112
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -42,6 +42,7 @@ Coywolf SEO is built on a simple idea: an SEO plugin should give you exactly wha
 - **Import/Export** — download the plugin settings, author properties, and redirect rules as JSON and import them on another site. API keys are never exported.
 <!-- labs-strip:start -->
 - **Labs → Open Knowledge Format (OKF) export** *(experimental, off by default)* — opt in on the **Labs** page and the plugin generates an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) v0.1 bundle of your public content: a navigable graph of Markdown concepts for every published article, topic, and author, cross-linked to the AI-enriched entities each page is *about* or *mentions* — each entity grounded to its Wikidata QID and Wikipedia page so an agent gets a stable identifier for disambiguation, not a copy of your page text. It is built entirely from data already on your site (no new external calls). Download the bundle as a `.zip`, or let an agent traverse it live at a `/okf/` read endpoint; it rebuilds in the background as content changes, with a manual *Rebuild* button. An optional **Advertise the bundle publicly** sub-setting (on by default once OKF is enabled, independently toggleable) points AI agents at the canonical `/okf/` root from the places they look — a referenced `llms.txt`, a single `<link rel="alternate">` in the page `<head>` on indexable pages, and a `robots.txt` allowance — without ever overwriting an `llms.txt` or `robots.txt` owned elsewhere (it detects those and shows the exact line to add by hand). OKF defines no automatic discovery, so this is honest advertising, not a guarantee anything consumes it. The whole feature — its toggle, settings, and cleanup — is managed on the Labs page; disabling it stops serving and offers to remove the generated files. Labs ships in the GitHub distribution only.
+- **Labs → EntityMap** *(experimental, off by default)* — opt in on the **Labs** page and the plugin publishes a spec-conformant [EntityMap v1.0](https://entitymap.org/spec/v1.0) file set: `entitymap.json` plus a human/crawler-readable `entitymap.html`, served from your domain root. It indexes the Wikidata-grounded entities your pages are *about* or *mention*, each with extractive, publisher-attributed evidence passages pulled from the pages themselves — so the attribution survives plain-text ingestion into a vector store. It is built entirely from data already on your site (no new external calls — it reuses the entities the AI enrichment already grounded), and the automated output is marked `verificationStatus: "generator-draft"`. Download the files as a `.zip`, or let agents read them live; they rebuild in the background as content changes, with a manual *Rebuild* button. An optional **Advertise** sub-setting (on by default once enabled) points AI agents at the EntityMap from the channels the spec lists — a referenced `llms.txt`, a `<link rel="entitymap">` in the page `<head>` on indexable pages, and a `robots.txt` allowance — without ever overwriting an `llms.txt` or `robots.txt` owned elsewhere. Toggle, settings, and cleanup are all managed on the Labs page; disabling stops serving and offers to remove the generated files. Labs ships in the GitHub distribution only.
 <!-- labs-strip:end -->
 
 <!-- wporg-strip:start -->
@@ -231,6 +232,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 ![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
 
 ## Changelog
+
+### 1.0.112
+- EntityMap (Labs): publish a spec-conformant EntityMap v1.0 file set (entitymap.json + entitymap.html) of your Wikidata-grounded entities, advertised via llms.txt, a `<head>` link, and a robots.txt allowance (#113).
 
 ### 1.0.111
 - llms.txt: bound public cache + purge on rebuild; harden title decode against invalid UTF-8 (#112).

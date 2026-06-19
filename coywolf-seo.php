@@ -3,7 +3,7 @@
  * Plugin Name:       Coywolf SEO
  * Plugin URI:        https://coywolf.com/notes/coywolf-seo/
  * Description:       An SEO plugin that has exactly what you need, and nothing more.
- * Version:           1.0.111
+ * Version:           1.0.112
  * Requires at least: 7.0
  * Requires PHP:      7.4
  * Author:            Coywolf
@@ -90,6 +90,9 @@ require_once __DIR__ . '/includes/class-coywolf-seo-duplicate.php';
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-okf-generator.php';
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-okf-advertiser.php';
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-okf.php';
+require_once __DIR__ . '/includes/labs/class-coywolf-seo-entitymap-generator.php';
+require_once __DIR__ . '/includes/labs/class-coywolf-seo-entitymap-advertiser.php';
+require_once __DIR__ . '/includes/labs/class-coywolf-seo-entitymap.php';
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-labs.php';
 /* labs-strip:end */
 require_once __DIR__ . '/includes/class-coywolf-seo.php';

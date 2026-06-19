@@ -50,6 +50,7 @@ final class Coywolf_SEO_Labs {
 	 */
 	public function __construct() {
 		$this->features[] = new Coywolf_SEO_OKF();
+		$this->features[] = new Coywolf_SEO_EntityMap();
 	}
 
 	/**
@@ -70,6 +71,21 @@ final class Coywolf_SEO_Labs {
 	public function okf() {
 		foreach ( $this->features as $feature ) {
 			if ( $feature instanceof Coywolf_SEO_OKF ) {
+				return $feature;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * The EntityMap feature instance, or null. Lets core features (the llms.txt
+	 * owner) integrate the EntityMap reference through a guarded accessor.
+	 *
+	 * @return Coywolf_SEO_EntityMap|null
+	 */
+	public function entitymap() {
+		foreach ( $this->features as $feature ) {
+			if ( $feature instanceof Coywolf_SEO_EntityMap ) {
 				return $feature;
 			}
 		}

@@ -325,6 +325,34 @@ final class Coywolf_SEO_Schema {
 	}
 
 	/**
+	 * The publisher identity used throughout the schema graph — the canonical
+	 * brand (Organization or Person) name, its URL, and any sameAs identifiers —
+	 * shaped from Site Details exactly as entity_node() does. Exposed so other
+	 * features (the Labs EntityMap export) attribute content to the SAME brand
+	 * string the schema publisher uses, never a bare domain.
+	 *
+	 * @return array{name:string,url:string,same_as:string[]}
+	 */
+	public function publisher_identity() {
+		$node    = $this->entity_node();
+		$name    = ( isset( $node['name'] ) && '' !== (string) $node['name'] ) ? (string) $node['name'] : (string) get_bloginfo( 'name' );
+		$url     = ( isset( $node['url'] ) && '' !== (string) $node['url'] ) ? (string) $node['url'] : home_url( '/' );
+		$same_as = array();
+		if ( isset( $node['sameAs'] ) ) {
+			foreach ( (array) $node['sameAs'] as $value ) {
+				if ( is_string( $value ) && '' !== $value ) {
+					$same_as[] = $value;
+				}
+			}
+		}
+		return array(
+			'name'    => $name,
+			'url'     => $url,
+			'same_as' => $same_as,
+		);
+	}
+
+	/**
 	 * The Person node for an article author. Uses the Authors page data
 	 * when saved; falls back to the user account basics.
 	 *

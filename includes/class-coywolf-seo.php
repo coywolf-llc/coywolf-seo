@@ -22,7 +22,7 @@ final class Coywolf_SEO {
 	 * Plugin version. Kept in sync with the main-file "Version:" header by the
 	 * release workflow (it bumps both).
 	 */
-	const VERSION = '1.0.111';
+	const VERSION = '1.0.112';
 
 	/**
 	 * Rewrite-rules version. Bumped whenever this plugin's rewrite rules change
@@ -455,6 +455,16 @@ final class Coywolf_SEO {
 	 */
 	public function ai() {
 		return $this->ai;
+	}
+
+	/**
+	 * Schema graph builder accessor (the Labs EntityMap export reuses its
+	 * publisher identity so attribution matches the schema publisher).
+	 *
+	 * @return Coywolf_SEO_Schema
+	 */
+	public function schema() {
+		return $this->schema;
 	}
 
 	/**
