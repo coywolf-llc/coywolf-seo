@@ -431,10 +431,16 @@ final class Coywolf_SEO_Admin {
 		// Documentation. Guarded: the Labs class is stripped from the
 		// WordPress.org build, where this item simply does not appear.
 		if ( class_exists( 'Coywolf_SEO_Labs' ) && Coywolf_SEO::instance()->labs() ) {
+			// A small beaker/flask glyph after the label, signalling the
+			// experimental nature of Labs. WordPress echoes the menu title
+			// raw (same path the Redirects pending bubble uses), so the
+			// inline SVG renders as-is; fill="currentColor" makes it track
+			// the menu text colour and its hover/current states.
+			$beaker = ' <svg class="coywolf-seo-labs-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false" style="vertical-align:-2px"><path d="M19.8 18.4 14 10.67V6.5l1.35-1.69a.5.5 0 0 0-.39-.81H9.04a.5.5 0 0 0-.39.81L10 6.5v4.17L4.2 18.4c-.49.66-.02 1.6.8 1.6h14c.82 0 1.29-.94.8-1.6z"/></svg>';
 			add_submenu_page(
 				self::SLUG_SITE,
 				__( 'Labs', 'coywolf-seo' ),
-				__( 'Labs', 'coywolf-seo' ),
+				__( 'Labs', 'coywolf-seo' ) . $beaker,
 				'manage_options',
 				Coywolf_SEO_Labs::SLUG,
 				array( Coywolf_SEO::instance()->labs(), 'render_page' )
