@@ -76,7 +76,7 @@ final class Coywolf_SEO_Llms_Txt {
 	 * @return bool
 	 */
 	public function active() {
-		return $this->enabled() || $this->okf_advertise_active();
+		return $this->enabled() || $this->okf_advertise_active() || $this->entitymap_advertise_active();
 	}
 
 	/**
@@ -166,10 +166,7 @@ final class Coywolf_SEO_Llms_Txt {
 			}
 			return $this->rebuild_now();
 		}
-		if ( $this->okf_advertise_active() ) {
-			return $this->minimal_okf_body();
-		}
-		return '';
+		return $this->minimal_advertise_body();
 	}
 
 	/**
@@ -228,6 +225,11 @@ final class Coywolf_SEO_Llms_Txt {
 			$out .= "\n" . $okf;
 		}
 
+		$entitymap = $this->entitymap_section();
+		if ( '' !== $entitymap ) {
+			$out .= "\n" . $entitymap;
+		}
+
 		if ( '' !== $entities && 'main' === $placement ) {
 			$out .= "\n" . $entities;
 		}
@@ -252,12 +254,19 @@ final class Coywolf_SEO_Llms_Txt {
 	}
 
 	/**
-	 * The minimal llms.txt served when only the OKF feature is on (no LLMs.txt
-	 * feature). H1 + summary + the OKF section.
+	 * The minimal llms.txt served when the LLMs.txt feature itself is off but a
+	 * Labs feature (OKF and/or EntityMap) is advertising: H1 + summary + each
+	 * active feature's section. Returns '' when nothing is advertising.
 	 *
 	 * @return string
 	 */
-	private function minimal_okf_body() {
+	private function minimal_advertise_body() {
+		$okf       = $this->okf_section();
+		$entitymap = $this->entitymap_section();
+		if ( '' === $okf && '' === $entitymap ) {
+			return '';
+		}
+
 		$name    = Coywolf_SEO_Markdown_Source::decode_text( wp_strip_all_tags( (string) get_bloginfo( 'name' ) ) );
 		$tagline = Coywolf_SEO_Markdown_Source::decode_text( wp_strip_all_tags( (string) get_bloginfo( 'description' ) ) );
 
@@ -265,8 +274,26 @@ final class Coywolf_SEO_Llms_Txt {
 		if ( '' !== $tagline ) {
 			$out .= '> ' . $tagline . "\n\n";
 		}
-		$okf = $this->okf_section();
-		return '' !== $okf ? $out . $okf : '';
+		if ( '' !== $okf ) {
+			$out .= $okf;
+		}
+		if ( '' !== $entitymap ) {
+			if ( '' !== $okf ) {
+				$out .= "\n";
+			}
+			$out .= $entitymap;
+		}
+		return $out;
+	}
+
+	/**
+	 * Backwards-compatible thin wrapper (the minimal body now also carries the
+	 * EntityMap section when that feature is advertising).
+	 *
+	 * @return string
+	 */
+	private function minimal_okf_body() {
+		return $this->minimal_advertise_body();
 	}
 
 	/**
@@ -397,6 +424,19 @@ final class Coywolf_SEO_Llms_Txt {
 			return '';
 		}
 		return "## Open Knowledge Format\n\n- [" . $okf->llms_reference_line() . "\n";
+	}
+
+	/**
+	 * The EntityMap section, when the Labs EntityMap feature is advertising.
+	 *
+	 * @return string
+	 */
+	private function entitymap_section() {
+		$entitymap = $this->entitymap();
+		if ( ! $entitymap || ! $this->entitymap_advertise_active() || ! method_exists( $entitymap, 'llms_reference_line' ) ) {
+			return '';
+		}
+		return "## EntityMap\n\n- [" . $entitymap->llms_reference_line() . "\n";
 	}
 
 	/**
@@ -635,6 +675,42 @@ final class Coywolf_SEO_Llms_Txt {
 		// Mirror Coywolf_SEO_OKF::settings() defaults (advertise + endpoint on).
 		$advertise = array_key_exists( 'advertise', $okf ) ? ! empty( $okf['advertise'] ) : true;
 		$endpoint  = array_key_exists( 'live_endpoint', $okf ) ? ! empty( $okf['live_endpoint'] ) : true;
+		return $advertise && $endpoint && (bool) get_option( 'blog_public', 1 );
+	}
+
+	/**
+	 * The Labs EntityMap feature, or null when Labs is absent. Uses the
+	 * singleton, so only safe at request time (NOT during plugin construction).
+	 *
+	 * @return Coywolf_SEO_EntityMap|null
+	 */
+	private function entitymap() {
+		if ( ! class_exists( 'Coywolf_SEO_Labs' ) ) {
+			return null;
+		}
+		$labs = Coywolf_SEO::instance()->labs();
+		return ( $labs && method_exists( $labs, 'entitymap' ) ) ? $labs->entitymap() : null;
+	}
+
+	/**
+	 * Whether the EntityMap feature's public advertising is active. Reads the
+	 * EntityMap option DIRECTLY (mirroring the feature's own defaults) rather
+	 * than via the singleton, so it is safe to call from init() during plugin
+	 * construction — calling Coywolf_SEO::instance() there would recurse.
+	 *
+	 * @return bool
+	 */
+	private function entitymap_advertise_active() {
+		if ( ! class_exists( 'Coywolf_SEO_EntityMap' ) ) {
+			return false; // Labs (and thus EntityMap) absent — e.g. the WordPress.org build.
+		}
+		$entitymap = get_option( 'coywolf_seo_entitymap', array() );
+		if ( ! is_array( $entitymap ) || empty( $entitymap['enabled'] ) ) {
+			return false;
+		}
+		// Mirror Coywolf_SEO_EntityMap::settings() defaults (advertise + endpoint on).
+		$advertise = array_key_exists( 'advertise', $entitymap ) ? ! empty( $entitymap['advertise'] ) : true;
+		$endpoint  = array_key_exists( 'live_endpoint', $entitymap ) ? ! empty( $entitymap['live_endpoint'] ) : true;
 		return $advertise && $endpoint && (bool) get_option( 'blog_public', 1 );
 	}
 

@@ -4,7 +4,7 @@ Tags: seo
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.111
+Stable tag: 1.0.112
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -43,6 +43,7 @@ Features:
 * Import/Export — download the plugin settings, author properties, and redirect rules as JSON and import them on another site. API keys are never exported.
 <!-- labs-strip:start -->
 * Labs > Open Knowledge Format (OKF) export (experimental, off by default) — opt in on the Labs page and the plugin generates an Open Knowledge Format v0.1 bundle of your public content: a navigable graph of Markdown concepts for every published article, topic, and author, cross-linked to the AI-enriched entities each page is about or mentions, each grounded to its Wikidata QID and Wikipedia page. Built entirely from data already on your site (no new external calls). Download it as a .zip or traverse it live at a /okf/ read endpoint; it rebuilds in the background as content changes, with a manual Rebuild button. An optional "Advertise the bundle publicly" sub-setting (on by default once OKF is enabled, independently toggleable) points AI agents at the canonical /okf/ root from the places they look — a referenced llms.txt, a single alternate link in the page head on indexable pages, and a robots.txt allowance — without overwriting an llms.txt or robots.txt owned elsewhere (it detects those and shows the exact line to add by hand). OKF defines no automatic discovery, so this is honest advertising, not a guarantee anything consumes it. Toggle, settings, and cleanup are all managed on the Labs page; disabling stops serving and offers to remove the generated files. Labs ships in the GitHub distribution only.
+* Labs > EntityMap (experimental, off by default) — opt in on the Labs page and the plugin publishes a spec-conformant EntityMap v1.0 file set: entitymap.json plus a human/crawler-readable entitymap.html, served from your domain root. It indexes the Wikidata-grounded entities your pages are about or mention, each with extractive, publisher-attributed evidence passages pulled from the pages themselves, so the attribution survives plain-text ingestion into a vector store. Built entirely from data already on your site (no new external calls — it reuses the entities the AI enrichment already grounded), and the automated output is marked verificationStatus "generator-draft". Download the files as a .zip or let agents read them live; they rebuild in the background as content changes, with a manual Rebuild button. An optional "Advertise" sub-setting (on by default once enabled) points AI agents at the EntityMap from the channels the spec lists — a referenced llms.txt, a rel="entitymap" link in the page head on indexable pages, and a robots.txt allowance — without overwriting an llms.txt or robots.txt owned elsewhere. Toggle, settings, and cleanup are all managed on the Labs page; disabling stops serving and offers to remove the generated files. Labs ships in the GitHub distribution only.
 <!-- labs-strip:end -->
 
 <!-- wporg-strip:start -->
@@ -205,6 +206,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 8. The Import/Export screen, with controls to export and import plugin settings and author properties as JSON, and a separate section for exporting and importing Robots.txt rules.
 
 == Changelog ==
+
+= 1.0.112 =
+* EntityMap (Labs): publish a spec-conformant EntityMap v1.0 file set (entitymap.json + entitymap.html) of your Wikidata-grounded entities, advertised via llms.txt, a <head> link, and a robots.txt allowance (#113).
 
 = 1.0.111 =
 * llms.txt: bound public cache + purge on rebuild; harden title decode against invalid UTF-8 (#112).
