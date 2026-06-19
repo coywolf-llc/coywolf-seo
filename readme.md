@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.112
+- **Version:** 1.0.113
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -232,6 +232,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 ![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
 
 ## Changelog
+
+### 1.0.113
+- Add a beaker icon after the Labs submenu label (#114).
 
 ### 1.0.112
 - EntityMap (Labs): publish a spec-conformant EntityMap v1.0 file set (entitymap.json + entitymap.html) of your Wikidata-grounded entities, advertised via llms.txt, a `<head>` link, and a robots.txt allowance (#113).

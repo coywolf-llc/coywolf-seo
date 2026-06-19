@@ -4,7 +4,7 @@ Tags: seo
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.112
+Stable tag: 1.0.113
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -206,6 +206,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 8. The Import/Export screen, with controls to export and import plugin settings and author properties as JSON, and a separate section for exporting and importing Robots.txt rules.
 
 == Changelog ==
+
+= 1.0.113 =
+* Add a beaker icon after the Labs submenu label (#114).
 
 = 1.0.112 =
 * EntityMap (Labs): publish a spec-conformant EntityMap v1.0 file set (entitymap.json + entitymap.html) of your Wikidata-grounded entities, advertised via llms.txt, a <head> link, and a robots.txt allowance (#113).
