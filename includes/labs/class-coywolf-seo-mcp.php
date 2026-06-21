@@ -89,10 +89,15 @@ final class Coywolf_SEO_MCP {
 	 * and a no-op unless the adapter + Abilities API are present.
 	 */
 	public function init() {
-		if ( ! $this->adapter_available() ) {
-			return;
-		}
+		// No adapter_available() gate here. This runs at plugin-include time —
+		// Coywolf_SEO is constructed when coywolf-seo.php loads — which is BEFORE
+		// sibling plugins (including the MCP Adapter) are loaded, so a
+		// class_exists() check would always fail and silently disable MCP. The
+		// hooks below self-gate instead: wp_abilities_api_categories_init and
+		// wp_abilities_api_init only fire when the Abilities API is loaded, and
+		// mcp_adapter_init only fires when the MCP Adapter plugin is loaded.
 		add_action( 'admin_post_coywolf_seo_mcp_save', array( $this, 'handle_save' ) );
+		add_action( 'wp_abilities_api_categories_init', array( $this, 'register_category' ) );
 		add_action( 'wp_abilities_api_init', array( $this, 'register_abilities' ) );
 		add_action( 'mcp_adapter_init', array( $this, 'register_server' ) );
 	}
@@ -285,6 +290,28 @@ final class Coywolf_SEO_MCP {
 	// ---------------------------------------------------------------------
 	// Registration
 	// ---------------------------------------------------------------------
+
+	/**
+	 * Register the ability category on `wp_abilities_api_categories_init`.
+	 *
+	 * The Abilities API refuses any ability whose category is not registered
+	 * first (`wp_register_ability()` returns null and does it_wrong), so this
+	 * must run before register_abilities(). The categories action only fires
+	 * when the Abilities API is loaded; the function_exists guard covers older
+	 * API shapes defensively.
+	 */
+	public function register_category() {
+		if ( ! $this->ai->is_enabled() || ! function_exists( 'wp_register_ability_category' ) ) {
+			return;
+		}
+		wp_register_ability_category(
+			self::CATEGORY,
+			array(
+				'label'       => __( 'Coywolf SEO', 'coywolf-seo' ),
+				'description' => __( 'Read-only access to this site\'s published AI Discovery outputs (OKF, EntityMap, ai-catalog) for MCP clients.', 'coywolf-seo' ),
+			)
+		);
+	}
 
 	/**
 	 * Register the allow-listed, published abilities on `wp_abilities_api_init`.
