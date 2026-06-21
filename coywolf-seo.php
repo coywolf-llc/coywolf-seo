@@ -99,6 +99,7 @@ require_once __DIR__ . '/includes/labs/class-coywolf-seo-entitymap.php';
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-ard-generator.php';
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-ard-advertiser.php';
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-ard.php';
+require_once __DIR__ . '/includes/labs/class-coywolf-seo-mcp.php';
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-ai-discovery.php';
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-labs.php';
 /* labs-strip:end */

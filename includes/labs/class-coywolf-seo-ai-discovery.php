@@ -74,12 +74,21 @@ final class Coywolf_SEO_AI_Discovery {
 	private $ard;
 
 	/**
-	 * Construct the three output engines.
+	 * MCP integration (exposes the published outputs as MCP tools when the MCP
+	 * Adapter plugin is present). Not an output engine.
+	 *
+	 * @var Coywolf_SEO_MCP
+	 */
+	private $mcp;
+
+	/**
+	 * Construct the three output engines and the MCP integration.
 	 */
 	public function __construct() {
 		$this->okf       = new Coywolf_SEO_OKF();
 		$this->entitymap = new Coywolf_SEO_EntityMap();
 		$this->ard       = new Coywolf_SEO_ARD();
+		$this->mcp       = new Coywolf_SEO_MCP( $this );
 	}
 
 	/**
@@ -152,6 +161,9 @@ final class Coywolf_SEO_AI_Discovery {
 		foreach ( $this->engines() as $engine ) {
 			$engine->init();
 		}
+		// MCP is not an output engine (no endpoint); it exposes the published
+		// outputs as MCP tools when the MCP Adapter plugin is present.
+		$this->mcp->init();
 	}
 
 	/**
@@ -270,6 +282,7 @@ final class Coywolf_SEO_AI_Discovery {
 		foreach ( $this->engines() as $engine ) {
 			$notices += $engine->notices();
 		}
+		$notices += $this->mcp->notices();
 		return $notices;
 	}
 
@@ -287,7 +300,7 @@ final class Coywolf_SEO_AI_Discovery {
 		<div class="coywolf-seo-labs-feature coywolf-seo-panel">
 			<h2><?php echo esc_html( $this->title() ); ?></h2>
 			<p class="description">
-				<?php esc_html_e( 'Make this site discoverable to AI agents. Turn AI Discovery on, then choose which outputs to publish — each is off until you enable it. They are built from data already on your site; no content is sent anywhere by these outputs themselves.', 'coywolf-seo' ); ?>
+				<?php esc_html_e( 'Make this site discoverable to AI agents. Turn AI Discovery on, then choose which outputs to publish — each is off until you enable it. They are built from data already on your site; no content is sent anywhere by these outputs themselves. If the WordPress MCP Adapter plugin is installed, the outputs you publish can additionally be exposed as read-only MCP tools for AI agents.', 'coywolf-seo' ); ?>
 			</p>
 
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
@@ -310,6 +323,7 @@ final class Coywolf_SEO_AI_Discovery {
 				$engine->render_panel();
 			}
 			?>
+			<?php $this->mcp->render_panel(); ?>
 		<?php endif; ?>
 		<?php
 	}
