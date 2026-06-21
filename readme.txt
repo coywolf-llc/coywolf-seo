@@ -4,7 +4,7 @@ Tags: seo
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.115
+Stable tag: 1.0.116
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -206,6 +206,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 8. The Import/Export screen, with controls to export and import plugin settings and author properties as JSON, and a separate section for exporting and importing Robots.txt rules.
 
 == Changelog ==
+
+= 1.0.116 =
+* Fix MCP server never registering: defer adapter detection and register the ability category (#117).
 
 = 1.0.115 =
 * Expose AI Discovery outputs as MCP tools via the WordPress MCP Adapter (#116).
