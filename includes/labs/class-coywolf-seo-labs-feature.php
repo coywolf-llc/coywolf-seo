@@ -323,9 +323,7 @@ abstract class Coywolf_SEO_Labs_Feature {
 	public function handle_save() {
 		$this->guard( static::OPTION . '_save' );
 
-		$was_enabled   = $this->is_enabled();
-		$was_endpoint  = $this->endpoint_enabled();
-		$was_advertise = $this->advertise_enabled();
+		$was_enabled = $this->is_enabled();
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- nonce verified in guard(); only the boolean checkboxes below are read.
 		$raw      = isset( $_POST[ static::OPTION ] ) && is_array( $_POST[ static::OPTION ] ) ? wp_unslash( $_POST[ static::OPTION ] ) : array();
@@ -336,12 +334,33 @@ abstract class Coywolf_SEO_Labs_Feature {
 		// "off"; otherwise take the submitted value.
 		$advertise = ( $enabled && ! $was_enabled ) ? true : ! empty( $raw['advertise'] );
 
+		$this->redirect( $this->apply_settings( $enabled, $endpoint, $advertise ) );
+	}
+
+	/**
+	 * Persist the enable/endpoint/advertise state and run every side effect a
+	 * change implies: flush rewrite rules on a route change, reconcile the managed
+	 * robots rule(s), fire the on-settings-saved hook, and schedule (or cancel)
+	 * the background build on a first enable / disable. Extracted from handle_save
+	 * so an orchestrating feature (AI Discovery) can drive the same transitions
+	 * from a combined form. Returns the status-message key.
+	 *
+	 * @param bool $enabled   Whether the feature is on.
+	 * @param bool $endpoint  Whether the live endpoint is on.
+	 * @param bool $advertise Whether advertising is on.
+	 * @return string Message key for the Labs-page notice.
+	 */
+	public function apply_settings( $enabled, $endpoint, $advertise ) {
+		$was_enabled   = $this->is_enabled();
+		$was_endpoint  = $this->endpoint_enabled();
+		$was_advertise = $this->advertise_enabled();
+
 		update_option(
 			static::OPTION,
 			array(
-				'enabled'       => $enabled,
-				'live_endpoint' => $endpoint,
-				'advertise'     => $advertise,
+				'enabled'       => (bool) $enabled,
+				'live_endpoint' => (bool) $endpoint,
+				'advertise'     => (bool) $advertise,
 			)
 		);
 
@@ -356,20 +375,19 @@ abstract class Coywolf_SEO_Labs_Feature {
 
 		$this->on_settings_saved();
 
-		$msg = $this->id() . '-saved';
 		if ( $enabled && ! $was_enabled ) {
 			// First enable: kick off an initial build in the background.
 			if ( ! wp_next_scheduled( static::CRON_HOOK ) ) {
 				wp_schedule_single_event( time() + 5, static::CRON_HOOK );
 			}
-			$msg = $this->id() . '-enabled';
-		} elseif ( ! $enabled && $was_enabled ) {
+			return $this->id() . '-enabled';
+		}
+		if ( ! $enabled && $was_enabled ) {
 			// Disabled: stop the background rebuild; files remain until cleanup.
 			wp_unschedule_hook( static::CRON_HOOK );
-			$msg = $this->id() . '-disabled';
+			return $this->id() . '-disabled';
 		}
-
-		$this->redirect( $msg );
+		return $this->id() . '-saved';
 	}
 
 	/**
