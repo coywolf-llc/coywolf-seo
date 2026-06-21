@@ -22,7 +22,7 @@ final class Coywolf_SEO {
 	 * Plugin version. Kept in sync with the main-file "Version:" header by the
 	 * release workflow (it bumps both).
 	 */
-	const VERSION = '1.0.114';
+	const VERSION = '1.0.115';
 
 	/**
 	 * Rewrite-rules version. Bumped whenever this plugin's rewrite rules change

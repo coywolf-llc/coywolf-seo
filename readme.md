@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.114
+- **Version:** 1.0.115
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -234,6 +234,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 ![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
 
 ## Changelog
+
+### 1.0.115
+- Expose AI Discovery outputs as MCP tools via the WordPress MCP Adapter (#116).
 
 ### 1.0.114
 - Add AI Discovery (Labs): group OKF + EntityMap + new ARD ai-catalog.json output, with an OKF .tar.gz download and an enrichment-status panel (#115).
