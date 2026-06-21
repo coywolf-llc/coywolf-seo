@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Discovery hints for the EntityMap file set.
  */
-final class Coywolf_SEO_EntityMap_Advertiser {
+final class Coywolf_SEO_EntityMap_Advertiser extends Coywolf_SEO_Labs_Bundle_Advertiser {
 
 	/**
 	 * Stable ids of the managed Robots.txt Manager Allow rules (one per file),
@@ -49,34 +49,12 @@ final class Coywolf_SEO_EntityMap_Advertiser {
 	}
 
 	/**
-	 * Whether advertising is configured on: EntityMap enabled + advertise
-	 * sub-setting + the live endpoint. Independent of blog_public, which gates
-	 * the actual public output.
+	 * The owning Labs feature (lets the shared base gates read its toggles).
 	 *
-	 * @return bool
+	 * @return Coywolf_SEO_Labs_Feature
 	 */
-	public function is_configured() {
-		return $this->entitymap->is_enabled() && $this->entitymap->advertise_enabled() && $this->entitymap->endpoint_enabled();
-	}
-
-	/**
-	 * Whether public output should actually be emitted: configured AND the site
-	 * is public.
-	 *
-	 * @return bool
-	 */
-	private function is_public() {
-		return $this->is_configured() && (bool) get_option( 'blog_public', 1 );
-	}
-
-	/**
-	 * Whether the EntityMap public advertising is active (used by the llms.txt
-	 * owner to decide whether to include the EntityMap section).
-	 *
-	 * @return bool
-	 */
-	public function advertise_active() {
-		return $this->is_public();
+	protected function feature() {
+		return $this->entitymap;
 	}
 
 	/**
@@ -108,29 +86,6 @@ final class Coywolf_SEO_EntityMap_Advertiser {
 			'<link rel="entitymap" type="application/json" href="%1$s" />' . "\n",
 			esc_url( $this->json_url() )
 		);
-	}
-
-	/**
-	 * Whether the current response is a public, indexable HTML page (mirrors the
-	 * generator's visibility rules: no admin/feed/robots/404/search/preview, no
-	 * password-protected or per-post noindex singular).
-	 *
-	 * @return bool
-	 */
-	private function is_indexable_response() {
-		if ( is_admin() || is_feed() || is_robots() || is_404() || is_search() || is_preview() ) {
-			return false;
-		}
-		if ( is_singular() ) {
-			if ( post_password_required() ) {
-				return false;
-			}
-			$meta = Coywolf_SEO_Options::post_meta( get_queried_object_id() );
-			if ( ! empty( $meta['noindex'] ) ) {
-				return false;
-			}
-		}
-		return true;
 	}
 
 	// ---------------------------------------------------------------------
@@ -230,19 +185,6 @@ final class Coywolf_SEO_EntityMap_Advertiser {
 			)
 		);
 		return array( $json, $html );
-	}
-
-	/**
-	 * The Robots.txt Manager instance, or null if unavailable.
-	 *
-	 * @return Coywolf_SEO_Robots|null
-	 */
-	private function robots_manager() {
-		if ( ! class_exists( 'Coywolf_SEO_Robots' ) ) {
-			return null;
-		}
-		$inst = Coywolf_SEO::instance();
-		return method_exists( $inst, 'robots' ) ? $inst->robots() : null;
 	}
 
 	// ---------------------------------------------------------------------

@@ -87,12 +87,19 @@ require_once __DIR__ . '/includes/class-coywolf-seo-toc.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-mobile-image.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-duplicate.php';
 /* labs-strip:start — experimental Labs features (removed from the WordPress.org build) */
+require_once __DIR__ . '/includes/labs/class-coywolf-seo-labs-feature.php';
+require_once __DIR__ . '/includes/labs/class-coywolf-seo-labs-bundle-generator.php';
+require_once __DIR__ . '/includes/labs/class-coywolf-seo-labs-bundle-advertiser.php';
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-okf-generator.php';
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-okf-advertiser.php';
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-okf.php';
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-entitymap-generator.php';
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-entitymap-advertiser.php';
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-entitymap.php';
+require_once __DIR__ . '/includes/labs/class-coywolf-seo-ard-generator.php';
+require_once __DIR__ . '/includes/labs/class-coywolf-seo-ard-advertiser.php';
+require_once __DIR__ . '/includes/labs/class-coywolf-seo-ard.php';
+require_once __DIR__ . '/includes/labs/class-coywolf-seo-ai-discovery.php';
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-labs.php';
 /* labs-strip:end */
 require_once __DIR__ . '/includes/class-coywolf-seo.php';

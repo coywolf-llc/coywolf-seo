@@ -2,13 +2,17 @@
 /**
  * Open Knowledge Format (OKF) export — a self-contained Labs feature.
  *
- * Owns everything for the feature: its opt-in toggle and settings, the Labs
- * page panel that manages it, the rebuild / download / cleanup actions, the
- * public read endpoint, and the debounced background regeneration. Disabled by
- * default — nothing is generated, written, or served until the site owner
+ * Generates an OKF v0.1 bundle of public content (a navigable Markdown graph of
+ * articles, topics, authors, and the AI-enriched entities pages are about or
+ * mention), serves it live at a /okf/ read endpoint, and advertises it. Disabled
+ * by default — nothing is generated, written, or served until the site owner
  * enables it on the Labs page.
  *
- * Implements the Labs feature contract: id(), title(), init(), render_panel().
+ * The controller skeleton (settings, the four admin-post handlers, the cron
+ * rebuild, the guard/redirect helpers) lives in Coywolf_SEO_Labs_Feature; this
+ * class supplies only the OKF-specific parts: the /okf/ route + .md serving, the
+ * absolute-cross-link rebuild, the /.well-known/okf advertiser route flush, and
+ * the panel.
  *
  * @package CoywolfSEO
  */
@@ -20,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * The OKF Labs feature.
  */
-final class Coywolf_SEO_OKF {
+final class Coywolf_SEO_OKF extends Coywolf_SEO_Labs_Feature {
 
 	/**
 	 * Option holding this feature's settings (kept out of the core options
@@ -44,25 +48,6 @@ final class Coywolf_SEO_OKF {
 	const CRON_HOOK = 'coywolf_seo_okf_rebuild';
 
 	/**
-	 * Capability required to manage the feature (matches Settings).
-	 */
-	const CAPABILITY = 'manage_options';
-
-	/**
-	 * Bundle generator.
-	 *
-	 * @var Coywolf_SEO_OKF_Generator
-	 */
-	private $generator;
-
-	/**
-	 * Discovery / advertising sub-feature.
-	 *
-	 * @var Coywolf_SEO_OKF_Advertiser
-	 */
-	private $advertiser;
-
-	/**
 	 * Construct with the generator and the advertiser.
 	 */
 	public function __construct() {
@@ -71,7 +56,7 @@ final class Coywolf_SEO_OKF {
 	}
 
 	/**
-	 * Feature id (used by the Labs registry / nonces).
+	 * Feature id (used by the Labs registry / nonces / message keys).
 	 *
 	 * @return string
 	 */
@@ -89,114 +74,13 @@ final class Coywolf_SEO_OKF {
 	}
 
 	/**
-	 * Register hooks. Runtime hooks (endpoint, regeneration) are gated on the
-	 * opt-in toggle; the admin-post handlers register unconditionally (they
-	 * only fire on their own admin-post requests and re-check the capability).
+	 * Register hooks. The base wires the standard handlers (save/rebuild/download/
+	 * cleanup); OKF additionally offers a gzipped-tarball download alongside the
+	 * zip, so it registers that extra admin-post action.
 	 */
 	public function init() {
-		add_action( 'admin_post_coywolf_seo_okf_save', array( $this, 'handle_save' ) );
-		add_action( 'admin_post_coywolf_seo_okf_rebuild', array( $this, 'handle_rebuild' ) );
-		add_action( 'admin_post_coywolf_seo_okf_download', array( $this, 'handle_download' ) );
-		add_action( 'admin_post_coywolf_seo_okf_cleanup', array( $this, 'handle_cleanup' ) );
-
-		add_action( self::CRON_HOOK, array( $this, 'run_scheduled_rebuild' ) );
-
-		// Everything below this point only matters while the feature is on.
-		if ( ! $this->is_enabled() ) {
-			return;
-		}
-
-		if ( $this->endpoint_enabled() ) {
-			add_action( 'init', array( $this, 'add_rewrite_rules' ) );
-			add_filter( 'query_vars', array( $this, 'register_query_var' ) );
-			add_action( 'template_redirect', array( $this, 'maybe_serve' ), 0 );
-		}
-
-		// Discovery / advertising (self-gates on the advertise sub-setting + the
-		// live endpoint + a public site).
-		$this->advertiser->init();
-
-		// Debounced regeneration when content that the bundle reflects changes.
-		add_action( 'save_post', array( $this, 'on_content_changed' ), 10, 0 );
-		add_action( 'deleted_post', array( $this, 'on_content_changed' ), 10, 0 );
-		add_action( 'edited_term', array( $this, 'on_content_changed' ), 10, 0 );
-		add_action( 'created_term', array( $this, 'on_content_changed' ), 10, 0 );
-		add_action( 'delete_term', array( $this, 'on_content_changed' ), 10, 0 );
-	}
-
-	// ---------------------------------------------------------------------
-	// Settings
-	// ---------------------------------------------------------------------
-
-	/**
-	 * Feature settings merged over defaults.
-	 *
-	 * @return array { bool enabled, bool live_endpoint, bool advertise }
-	 */
-	public function settings() {
-		$saved = get_option( self::OPTION, array() );
-		$saved = is_array( $saved ) ? $saved : array();
-		return wp_parse_args(
-			$saved,
-			array(
-				'enabled'       => false,
-				'live_endpoint' => true,
-				// Advertising defaults on once OKF is enabled (see handle_save).
-				'advertise'     => true,
-			)
-		);
-	}
-
-	/**
-	 * Whether the feature is enabled (opt-in; false by default).
-	 *
-	 * @return bool
-	 */
-	public function is_enabled() {
-		$s = $this->settings();
-		return ! empty( $s['enabled'] );
-	}
-
-	/**
-	 * Whether the public read endpoint is enabled (only meaningful when the
-	 * feature itself is on).
-	 *
-	 * @return bool
-	 */
-	public function endpoint_enabled() {
-		$s = $this->settings();
-		return ! empty( $s['live_endpoint'] );
-	}
-
-	/**
-	 * Whether public discovery/advertising is enabled (only meaningful when the
-	 * feature itself is on).
-	 *
-	 * @return bool
-	 */
-	public function advertise_enabled() {
-		$s = $this->settings();
-		return ! empty( $s['advertise'] );
-	}
-
-	/**
-	 * Whether the OKF public advertising is actually active (enabled + advertise
-	 * + endpoint + public site). Used by the llms.txt owner to decide whether to
-	 * include the OKF section.
-	 *
-	 * @return bool
-	 */
-	public function advertise_active() {
-		return $this->advertiser->advertise_active();
-	}
-
-	/**
-	 * The llms.txt reference entry for the OKF bundle (without the leading "- [").
-	 *
-	 * @return string
-	 */
-	public function llms_reference_line() {
-		return $this->advertiser->llms_reference_line();
+		parent::init();
+		add_action( 'admin_post_coywolf_seo_okf_download_targz', array( $this, 'handle_download_targz' ) );
 	}
 
 	// ---------------------------------------------------------------------
@@ -209,17 +93,6 @@ final class Coywolf_SEO_OKF {
 	public function add_rewrite_rules() {
 		add_rewrite_rule( '^okf/?$', 'index.php?' . self::QUERY_VAR . '=index.md', 'top' );
 		add_rewrite_rule( '^okf/(.+)$', 'index.php?' . self::QUERY_VAR . '=$matches[1]', 'top' );
-	}
-
-	/**
-	 * Register the endpoint query var.
-	 *
-	 * @param string[] $vars Query vars.
-	 * @return string[]
-	 */
-	public function register_query_var( $vars ) {
-		$vars[] = self::QUERY_VAR;
-		return $vars;
 	}
 
 	/**
@@ -272,17 +145,6 @@ final class Coywolf_SEO_OKF {
 	}
 
 	/**
-	 * Send a 404 for an endpoint request and stop.
-	 */
-	private function serve_404() {
-		status_header( 404 );
-		nocache_headers();
-		header( 'Content-Type: text/plain; charset=UTF-8' );
-		echo 'Not found.';
-		exit;
-	}
-
-	/**
 	 * The public base URL of the read endpoint.
 	 *
 	 * @return string
@@ -296,89 +158,33 @@ final class Coywolf_SEO_OKF {
 	// ---------------------------------------------------------------------
 
 	/**
-	 * Content the bundle reflects changed: schedule a single, debounced
-	 * background rebuild rather than blocking the request. A full rebuild
-	 * keeps the cross-link graph internally consistent.
-	 */
-	public function on_content_changed() {
-		if ( ! $this->is_enabled() ) {
-			return;
-		}
-		if ( ! wp_next_scheduled( self::CRON_HOOK ) ) {
-			wp_schedule_single_event( time() + MINUTE_IN_SECONDS, self::CRON_HOOK );
-		}
-	}
-
-	/**
-	 * Cron callback: rebuild the bundle and record the summary.
-	 */
-	public function run_scheduled_rebuild() {
-		if ( ! $this->is_enabled() ) {
-			return;
-		}
-		$this->rebuild_and_record();
-	}
-
-	/**
-	 * Rebuild now and store the build summary; returns the generator result.
+	 * Rebuild the bundle. Cross-links in the bundle are absolute against the
+	 * served root URL, so the endpoint URL is passed through.
 	 *
 	 * @return array|WP_Error
 	 */
-	private function rebuild_and_record() {
-		// Cross-links in the bundle are absolute against the served root URL.
-		$result = $this->generator->rebuild( $this->endpoint_base_url() );
-		if ( ! is_wp_error( $result ) ) {
-			update_option( self::BUILD_OPTION, $result, false );
-		}
-		return $result;
+	protected function do_rebuild() {
+		return $this->generator->rebuild( $this->endpoint_base_url() );
 	}
 
+	// ---------------------------------------------------------------------
+	// Save / download specifics
+	// ---------------------------------------------------------------------
+
 	/**
-	 * Last successful build summary, or null.
+	 * Flush rewrite rules when the OKF endpoint OR the advertiser's routes
+	 * (the /.well-known/okf alias) change availability — the advertiser registers
+	 * its own route, unlike the EntityMap default.
 	 *
-	 * @return array|null
+	 * @param bool $was_enabled   Enabled before the save.
+	 * @param bool $was_endpoint  Endpoint enabled before the save.
+	 * @param bool $was_advertise Advertise enabled before the save.
+	 * @param bool $enabled       Enabled after the save.
+	 * @param bool $endpoint      Endpoint enabled after the save.
+	 * @param bool $advertise     Advertise enabled after the save.
+	 * @return void
 	 */
-	public function last_build() {
-		$build = get_option( self::BUILD_OPTION, null );
-		return is_array( $build ) ? $build : null;
-	}
-
-	// ---------------------------------------------------------------------
-	// Admin-post action handlers
-	// ---------------------------------------------------------------------
-
-	/**
-	 * Save the feature settings (enable + endpoint), flushing rewrite rules on
-	 * any state change and scheduling an initial build on enable.
-	 */
-	public function handle_save() {
-		$this->guard( 'coywolf_seo_okf_save' );
-
-		$was_enabled   = $this->is_enabled();
-		$was_endpoint  = $this->endpoint_enabled();
-		$was_advertise = $this->advertise_enabled();
-
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- nonce verified in guard(); only the boolean checkboxes below are read.
-		$raw      = isset( $_POST['coywolf_seo_okf'] ) && is_array( $_POST['coywolf_seo_okf'] ) ? wp_unslash( $_POST['coywolf_seo_okf'] ) : array();
-		$enabled  = ! empty( $raw['enabled'] );
-		$endpoint = ! empty( $raw['live_endpoint'] );
-		// The advertise checkbox is only shown once OKF is enabled, so on the
-		// first enable (when it wasn't on screen) honor the default-on rather
-		// than reading its absence as "off"; otherwise take the submitted value.
-		$advertise = ( $enabled && ! $was_enabled ) ? true : ! empty( $raw['advertise'] );
-
-		update_option(
-			self::OPTION,
-			array(
-				'enabled'       => $enabled,
-				'live_endpoint' => $endpoint,
-				'advertise'     => $advertise,
-			)
-		);
-
-		// Rewrite rules change with the OKF endpoint's availability AND with the
-		// advertiser's routes (llms.txt + /.well-known/okf), which need OKF +
-		// endpoint + advertise. Flush when either set changes.
+	protected function flush_rewrite_on_change( $was_enabled, $was_endpoint, $was_advertise, $enabled, $endpoint, $advertise ) {
 		$endpoint_before = $was_enabled && $was_endpoint;
 		$endpoint_after  = $enabled && $endpoint;
 		$adv_before      = $endpoint_before && $was_advertise;
@@ -394,112 +200,45 @@ final class Coywolf_SEO_OKF {
 			}
 			flush_rewrite_rules();
 		}
-
-		// Reconcile the managed robots.txt Allow rule with the current state:
-		// present while advertising is configured, removed otherwise. Idempotent.
-		if ( $this->advertiser->is_configured() ) {
-			$this->advertiser->add_robots_rule();
-		} else {
-			$this->advertiser->remove_robots_rule();
-		}
-
-		$msg = 'okf-saved';
-		if ( $enabled && ! $was_enabled ) {
-			// First enable: kick off an initial build in the background.
-			if ( ! wp_next_scheduled( self::CRON_HOOK ) ) {
-				wp_schedule_single_event( time() + 5, self::CRON_HOOK );
-			}
-			$msg = 'okf-enabled';
-		} elseif ( ! $enabled && $was_enabled ) {
-			// Disabled: stop the background rebuild; files are left for the
-			// owner to clean up explicitly (surfaced on the panel).
-			wp_unschedule_hook( self::CRON_HOOK );
-			$msg = 'okf-disabled';
-		}
-
-		$this->redirect( $msg );
 	}
 
 	/**
-	 * Rebuild the bundle now (synchronous, on explicit request).
+	 * Base filename for the zip download.
+	 *
+	 * @return string
 	 */
-	public function handle_rebuild() {
-		$this->guard( 'coywolf_seo_okf_rebuild' );
-		if ( ! $this->is_enabled() ) {
-			$this->redirect( 'okf-disabled' );
-		}
-		$result = $this->rebuild_and_record();
-		$this->redirect( is_wp_error( $result ) ? 'okf-error' : 'okf-rebuilt' );
+	protected function download_basename() {
+		return 'okf-bundle';
 	}
 
 	/**
-	 * Stream the current bundle as a downloadable zip.
+	 * Stream the current bundle as a downloadable gzipped tarball (.tar.gz).
+	 * Mirrors the base zip handler but uses the tar generator + a gzip mime type.
 	 */
-	public function handle_download() {
-		$this->guard( 'coywolf_seo_okf_download' );
+	public function handle_download_targz() {
+		$this->guard( 'coywolf_seo_okf_download_targz' );
 		if ( ! $this->generator->bundle_exists() ) {
 			$this->redirect( 'okf-nobundle' );
 		}
 
 		require_once ABSPATH . 'wp-admin/includes/file.php';
-		$tmp = wp_tempnam( 'coywolf-okf.zip' );
-		$res = $this->generator->build_zip( $tmp );
+		$tmp = wp_tempnam( 'coywolf-okf.tar.gz' );
+		$res = $this->generator->build_tar_gz( $tmp );
 		if ( is_wp_error( $res ) ) {
 			wp_delete_file( $tmp );
 			$this->redirect( 'okf-error' );
 		}
 
 		$site = sanitize_title( get_bloginfo( 'name' ) );
-		$name = 'okf-bundle' . ( $site ? '-' . $site : '' ) . '.zip';
+		$name = $this->download_basename() . ( $site ? '-' . $site : '' ) . '.tar.gz';
 
 		nocache_headers();
-		header( 'Content-Type: application/zip' );
+		header( 'Content-Type: application/gzip' );
 		header( 'Content-Disposition: attachment; filename="' . $name . '"' );
 		header( 'Content-Length: ' . (string) filesize( $tmp ) );
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile -- streaming a generated temp archive to the browser.
 		readfile( $tmp );
 		wp_delete_file( $tmp );
-		exit;
-	}
-
-	/**
-	 * Delete the generated bundle from disk (explicit cleanup).
-	 */
-	public function handle_cleanup() {
-		$this->guard( 'coywolf_seo_okf_cleanup' );
-		$ok = $this->generator->cleanup();
-		delete_option( self::BUILD_OPTION );
-		$this->redirect( $ok ? 'okf-cleaned' : 'okf-error' );
-	}
-
-	/**
-	 * Capability + nonce guard shared by every action handler.
-	 *
-	 * @param string $nonce_action Nonce action name.
-	 * @return void
-	 */
-	private function guard( $nonce_action ) {
-		if ( ! current_user_can( self::CAPABILITY ) ) {
-			wp_die( esc_html__( 'You are not allowed to manage Coywolf SEO Labs features.', 'coywolf-seo' ) );
-		}
-		check_admin_referer( $nonce_action );
-	}
-
-	/**
-	 * Redirect back to the Labs page with a status message key.
-	 *
-	 * @param string $msg Message key read by the Labs page notice.
-	 * @return void
-	 */
-	private function redirect( $msg ) {
-		$url = add_query_arg(
-			array(
-				'page'                 => Coywolf_SEO_Labs::SLUG,
-				'coywolf-seo-labs-msg' => $msg,
-			),
-			admin_url( 'admin.php' )
-		);
-		wp_safe_redirect( $url );
 		exit;
 	}
 
@@ -621,6 +360,14 @@ final class Coywolf_SEO_OKF {
 						</form>
 					<?php elseif ( $has_bundle && ! $zip_ok ) : ?>
 						<span class="description"><?php esc_html_e( '(The PHP Zip extension is unavailable, so downloads are disabled on this server.)', 'coywolf-seo' ); ?></span>
+					<?php endif; ?>
+
+					<?php if ( $has_bundle && class_exists( 'PharData' ) ) : ?>
+						<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-block;margin-right:.5rem;">
+							<input type="hidden" name="action" value="coywolf_seo_okf_download_targz" />
+							<?php wp_nonce_field( 'coywolf_seo_okf_download_targz' ); ?>
+							<?php submit_button( __( 'Download bundle (.tar.gz)', 'coywolf-seo' ), 'secondary', 'submit', false ); ?>
+						</form>
 					<?php endif; ?>
 				</p>
 			<?php endif; ?>

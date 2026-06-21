@@ -49,8 +49,9 @@ final class Coywolf_SEO_Labs {
 	 * Build the feature registry.
 	 */
 	public function __construct() {
-		$this->features[] = new Coywolf_SEO_OKF();
-		$this->features[] = new Coywolf_SEO_EntityMap();
+		// The OKF, EntityMap, and ARD outputs are grouped under one AI Discovery
+		// feature rather than registered separately.
+		$this->features[] = new Coywolf_SEO_AI_Discovery();
 	}
 
 	/**
@@ -63,14 +64,13 @@ final class Coywolf_SEO_Labs {
 	}
 
 	/**
-	 * The OKF feature instance, or null. Lets core features (the llms.txt owner)
-	 * integrate OKF details through a guarded accessor.
+	 * The AI Discovery feature instance, or null.
 	 *
-	 * @return Coywolf_SEO_OKF|null
+	 * @return Coywolf_SEO_AI_Discovery|null
 	 */
-	public function okf() {
+	public function ai_discovery() {
 		foreach ( $this->features as $feature ) {
-			if ( $feature instanceof Coywolf_SEO_OKF ) {
+			if ( $feature instanceof Coywolf_SEO_AI_Discovery ) {
 				return $feature;
 			}
 		}
@@ -78,18 +78,35 @@ final class Coywolf_SEO_Labs {
 	}
 
 	/**
-	 * The EntityMap feature instance, or null. Lets core features (the llms.txt
-	 * owner) integrate the EntityMap reference through a guarded accessor.
+	 * The OKF output engine, or null. Lets core features (the llms.txt owner)
+	 * integrate OKF details through a guarded accessor — unchanged for callers
+	 * even though OKF now lives inside AI Discovery.
+	 *
+	 * @return Coywolf_SEO_OKF|null
+	 */
+	public function okf() {
+		$ai = $this->ai_discovery();
+		return $ai ? $ai->okf() : null;
+	}
+
+	/**
+	 * The EntityMap output engine, or null.
 	 *
 	 * @return Coywolf_SEO_EntityMap|null
 	 */
 	public function entitymap() {
-		foreach ( $this->features as $feature ) {
-			if ( $feature instanceof Coywolf_SEO_EntityMap ) {
-				return $feature;
-			}
-		}
-		return null;
+		$ai = $this->ai_discovery();
+		return $ai ? $ai->entitymap() : null;
+	}
+
+	/**
+	 * The ARD output engine, or null.
+	 *
+	 * @return Coywolf_SEO_ARD|null
+	 */
+	public function ard() {
+		$ai = $this->ai_discovery();
+		return $ai ? $ai->ard() : null;
 	}
 
 	/**

@@ -33,7 +33,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * EntityMap file-set builder.
  */
-final class Coywolf_SEO_EntityMap_Generator {
+final class Coywolf_SEO_EntityMap_Generator extends Coywolf_SEO_Labs_Bundle_Generator {
 
 	/**
 	 * Storage directory name, under the uploads basedir.
@@ -61,16 +61,6 @@ final class Coywolf_SEO_EntityMap_Generator {
 	const MAX_CHUNK_CHARS = 600;
 
 	/**
-	 * Absolute path to the storage directory (no trailing slash).
-	 *
-	 * @return string
-	 */
-	public function bundle_path() {
-		$uploads = wp_upload_dir();
-		return untrailingslashit( $uploads['basedir'] ) . '/' . self::DIR;
-	}
-
-	/**
 	 * Absolute path to the generated JSON file.
 	 *
 	 * @return string
@@ -95,23 +85,6 @@ final class Coywolf_SEO_EntityMap_Generator {
 	 */
 	public function bundle_exists() {
 		return is_readable( $this->json_path() );
-	}
-
-	/**
-	 * Initialise WP_Filesystem and return it, loading the admin file API on
-	 * front-end / cron requests (mirrors the OKF generator).
-	 *
-	 * @return WP_Filesystem_Base|null
-	 */
-	private function filesystem() {
-		global $wp_filesystem;
-		if ( ! function_exists( 'WP_Filesystem' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/file.php';
-		}
-		if ( ! WP_Filesystem() ) {
-			return null;
-		}
-		return $wp_filesystem;
 	}
 
 	// ---------------------------------------------------------------------
@@ -159,23 +132,6 @@ final class Coywolf_SEO_EntityMap_Generator {
 			),
 			'time'   => gmdate( 'c' ),
 		);
-	}
-
-	/**
-	 * Delete the entire generated directory.
-	 *
-	 * @return bool True when the directory is gone (or never existed).
-	 */
-	public function cleanup() {
-		$base = $this->bundle_path();
-		if ( ! is_dir( $base ) ) {
-			return true;
-		}
-		$fs = $this->filesystem();
-		if ( null === $fs ) {
-			return false;
-		}
-		return (bool) $fs->delete( $base, true );
 	}
 
 	/**
@@ -278,29 +234,6 @@ final class Coywolf_SEO_EntityMap_Generator {
 			'posts'    => $posts,
 			'entities' => $entities,
 		);
-	}
-
-	/**
-	 * Whether a post belongs in the public surface (mirrors the OKF generator).
-	 *
-	 * @param WP_Post $post Post object.
-	 * @return bool
-	 */
-	private function is_post_visible( $post ) {
-		if ( 'publish' !== $post->post_status ) {
-			return false;
-		}
-		if ( '' !== (string) $post->post_password ) {
-			return false;
-		}
-		if ( ! is_post_type_viewable( $post->post_type ) ) {
-			return false;
-		}
-		$meta = Coywolf_SEO_Options::post_meta( $post->ID );
-		if ( ! empty( $meta['noindex'] ) ) {
-			return false;
-		}
-		return true;
 	}
 
 	// ---------------------------------------------------------------------
@@ -819,22 +752,4 @@ final class Coywolf_SEO_EntityMap_Generator {
 	// ---------------------------------------------------------------------
 	// Filesystem
 	// ---------------------------------------------------------------------
-
-	/**
-	 * Write a file, creating its parent directory first.
-	 *
-	 * @param string $abs     Absolute file path.
-	 * @param string $content File content.
-	 * @return void
-	 */
-	private function write_file( $abs, $content ) {
-		$dir = dirname( $abs );
-		if ( ! is_dir( $dir ) ) {
-			wp_mkdir_p( $dir );
-		}
-		global $wp_filesystem;
-		if ( $wp_filesystem ) {
-			$wp_filesystem->put_contents( $abs, $content, FS_CHMOD_FILE );
-		}
-	}
 }
