@@ -4,7 +4,7 @@ Tags: seo
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.113
+Stable tag: 1.0.114
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -206,6 +206,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 8. The Import/Export screen, with controls to export and import plugin settings and author properties as JSON, and a separate section for exporting and importing Robots.txt rules.
 
 == Changelog ==
+
+= 1.0.114 =
+* Add AI Discovery (Labs): group OKF + EntityMap + new ARD ai-catalog.json output, with an OKF .tar.gz download and an enrichment-status panel (#115).
 
 = 1.0.113 =
 * Add a beaker icon after the Labs submenu label (#114).
