@@ -6,14 +6,12 @@
  * file set — entitymap.json plus a human/crawler-readable entitymap.html — of
  * the Wikidata-grounded entities the site's pages are about or mention, with
  * extractive, publisher-attributed evidence passages. Built entirely from data
- * already stored on the site; no new external calls.
+ * already stored on the site; no new external calls. Disabled by default.
  *
- * Owns everything for the feature: its opt-in toggle and settings, the Labs
- * page panel, the rebuild / download / cleanup actions, the public root
- * endpoints, and the debounced background regeneration. Disabled by default —
- * nothing is generated, written, or served until the site owner enables it.
- *
- * Implements the Labs feature contract: id(), title(), init(), render_panel().
+ * The controller skeleton lives in Coywolf_SEO_Labs_Feature; this class supplies
+ * the EntityMap-specific parts: the root entitymap.json/.html routes + serving
+ * (noindex JSON, indexable HTML), and the llms.txt cache invalidation on save /
+ * rebuild so the advertised section toggles immediately.
  *
  * @package CoywolfSEO
  */
@@ -25,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * The EntityMap Labs feature.
  */
-final class Coywolf_SEO_EntityMap {
+final class Coywolf_SEO_EntityMap extends Coywolf_SEO_Labs_Feature {
 
 	/**
 	 * Option holding this feature's settings.
@@ -48,25 +46,6 @@ final class Coywolf_SEO_EntityMap {
 	const CRON_HOOK = 'coywolf_seo_entitymap_rebuild';
 
 	/**
-	 * Capability required to manage the feature (matches Settings).
-	 */
-	const CAPABILITY = 'manage_options';
-
-	/**
-	 * File-set generator.
-	 *
-	 * @var Coywolf_SEO_EntityMap_Generator
-	 */
-	private $generator;
-
-	/**
-	 * Discovery / advertising sub-feature.
-	 *
-	 * @var Coywolf_SEO_EntityMap_Advertiser
-	 */
-	private $advertiser;
-
-	/**
 	 * Construct with the generator and the advertiser.
 	 */
 	public function __construct() {
@@ -75,7 +54,7 @@ final class Coywolf_SEO_EntityMap {
 	}
 
 	/**
-	 * Feature id (used by the Labs registry / nonces).
+	 * Feature id (used by the Labs registry / nonces / message keys).
 	 *
 	 * @return string
 	 */
@@ -92,132 +71,6 @@ final class Coywolf_SEO_EntityMap {
 		return __( 'EntityMap', 'coywolf-seo' );
 	}
 
-	/**
-	 * Register hooks. Runtime hooks (endpoints, regeneration) are gated on the
-	 * opt-in toggle; the admin-post handlers and cron hook register
-	 * unconditionally (they only fire on their own requests and re-check the
-	 * capability / enabled state).
-	 */
-	public function init() {
-		add_action( 'admin_post_coywolf_seo_entitymap_save', array( $this, 'handle_save' ) );
-		add_action( 'admin_post_coywolf_seo_entitymap_rebuild', array( $this, 'handle_rebuild' ) );
-		add_action( 'admin_post_coywolf_seo_entitymap_download', array( $this, 'handle_download' ) );
-		add_action( 'admin_post_coywolf_seo_entitymap_cleanup', array( $this, 'handle_cleanup' ) );
-
-		add_action( self::CRON_HOOK, array( $this, 'run_scheduled_rebuild' ) );
-
-		// Everything below this point only matters while the feature is on.
-		if ( ! $this->is_enabled() ) {
-			return;
-		}
-
-		if ( $this->endpoint_enabled() ) {
-			add_action( 'init', array( $this, 'add_rewrite_rules' ) );
-			add_filter( 'query_vars', array( $this, 'register_query_var' ) );
-			add_action( 'template_redirect', array( $this, 'maybe_serve' ), 0 );
-		}
-
-		// Discovery / advertising (self-gates on advertise + endpoint + public).
-		$this->advertiser->init();
-
-		// Debounced regeneration when content the file set reflects changes.
-		add_action( 'save_post', array( $this, 'on_content_changed' ), 10, 0 );
-		add_action( 'deleted_post', array( $this, 'on_content_changed' ), 10, 0 );
-		add_action( 'edited_term', array( $this, 'on_content_changed' ), 10, 0 );
-		add_action( 'created_term', array( $this, 'on_content_changed' ), 10, 0 );
-		add_action( 'delete_term', array( $this, 'on_content_changed' ), 10, 0 );
-	}
-
-	// ---------------------------------------------------------------------
-	// Settings
-	// ---------------------------------------------------------------------
-
-	/**
-	 * Feature settings merged over defaults.
-	 *
-	 * @return array { bool enabled, bool live_endpoint, bool advertise }
-	 */
-	public function settings() {
-		$saved = get_option( self::OPTION, array() );
-		$saved = is_array( $saved ) ? $saved : array();
-		return wp_parse_args(
-			$saved,
-			array(
-				'enabled'       => false,
-				'live_endpoint' => true,
-				// Advertising defaults on once EntityMap is enabled (see handle_save).
-				'advertise'     => true,
-			)
-		);
-	}
-
-	/**
-	 * Whether the feature is enabled (opt-in; false by default).
-	 *
-	 * @return bool
-	 */
-	public function is_enabled() {
-		$s = $this->settings();
-		return ! empty( $s['enabled'] );
-	}
-
-	/**
-	 * Whether the public root endpoints are enabled.
-	 *
-	 * @return bool
-	 */
-	public function endpoint_enabled() {
-		$s = $this->settings();
-		return ! empty( $s['live_endpoint'] );
-	}
-
-	/**
-	 * Whether public discovery/advertising is enabled.
-	 *
-	 * @return bool
-	 */
-	public function advertise_enabled() {
-		$s = $this->settings();
-		return ! empty( $s['advertise'] );
-	}
-
-	/**
-	 * Whether the EntityMap public advertising is actually active (enabled +
-	 * advertise + endpoint + public site).
-	 *
-	 * @return bool
-	 */
-	public function advertise_active() {
-		return $this->advertiser->advertise_active();
-	}
-
-	/**
-	 * The llms.txt reference entry for the EntityMap (without the leading "- [").
-	 *
-	 * @return string
-	 */
-	public function llms_reference_line() {
-		return $this->advertiser->llms_reference_line();
-	}
-
-	/**
-	 * Generator accessor (used by the advertiser and the panel).
-	 *
-	 * @return Coywolf_SEO_EntityMap_Generator
-	 */
-	public function generator() {
-		return $this->generator;
-	}
-
-	/**
-	 * Advertiser accessor.
-	 *
-	 * @return Coywolf_SEO_EntityMap_Advertiser
-	 */
-	public function advertiser() {
-		return $this->advertiser;
-	}
-
 	// ---------------------------------------------------------------------
 	// Public read endpoints
 	// ---------------------------------------------------------------------
@@ -228,17 +81,6 @@ final class Coywolf_SEO_EntityMap {
 	public function add_rewrite_rules() {
 		add_rewrite_rule( '^entitymap\.json$', 'index.php?' . self::QUERY_VAR . '=json', 'top' );
 		add_rewrite_rule( '^entitymap\.html$', 'index.php?' . self::QUERY_VAR . '=html', 'top' );
-	}
-
-	/**
-	 * Register the endpoint query var.
-	 *
-	 * @param string[] $vars Query vars.
-	 * @return string[]
-	 */
-	public function register_query_var( $vars ) {
-		$vars[] = self::QUERY_VAR;
-		return $vars;
 	}
 
 	/**
@@ -295,241 +137,45 @@ final class Coywolf_SEO_EntityMap {
 		exit;
 	}
 
-	/**
-	 * Send a 404 for an endpoint request and stop.
-	 */
-	private function serve_404() {
-		status_header( 404 );
-		nocache_headers();
-		header( 'Content-Type: text/plain; charset=UTF-8' );
-		echo 'Not found.';
-		exit;
-	}
-
 	// ---------------------------------------------------------------------
 	// Regeneration
 	// ---------------------------------------------------------------------
 
 	/**
-	 * Content the file set reflects changed: schedule a single, debounced
-	 * background rebuild rather than blocking the request.
-	 */
-	public function on_content_changed() {
-		if ( ! $this->is_enabled() ) {
-			return;
-		}
-		if ( ! wp_next_scheduled( self::CRON_HOOK ) ) {
-			wp_schedule_single_event( time() + MINUTE_IN_SECONDS, self::CRON_HOOK );
-		}
-	}
-
-	/**
-	 * Cron callback: rebuild the file set and record the summary.
-	 */
-	public function run_scheduled_rebuild() {
-		if ( ! $this->is_enabled() ) {
-			return;
-		}
-		$this->rebuild_and_record();
-	}
-
-	/**
-	 * Rebuild now and store the build summary; returns the generator result.
-	 * After a successful rebuild, also refresh the llms.txt cache so the
-	 * advertised section reflects the current state.
+	 * Rebuild the file set.
 	 *
 	 * @return array|WP_Error
 	 */
-	private function rebuild_and_record() {
-		$result = $this->generator->rebuild();
-		if ( ! is_wp_error( $result ) ) {
-			update_option( self::BUILD_OPTION, $result, false );
-			$this->invalidate_llms_cache();
-		}
-		return $result;
+	protected function do_rebuild() {
+		return $this->generator->rebuild();
 	}
 
 	/**
-	 * Last successful build summary, or null.
+	 * After a successful rebuild, refresh the llms.txt cache so the advertised
+	 * section reflects the current state.
 	 *
-	 * @return array|null
+	 * @return void
 	 */
-	public function last_build() {
-		$build = get_option( self::BUILD_OPTION, null );
-		return is_array( $build ) ? $build : null;
-	}
-
-	// ---------------------------------------------------------------------
-	// Admin-post action handlers
-	// ---------------------------------------------------------------------
-
-	/**
-	 * Save the feature settings (enable + endpoint + advertise), flushing rewrite
-	 * rules on any route change, reconciling the managed robots rules, scheduling
-	 * an initial build on first enable, and invalidating the llms.txt cache so
-	 * the EntityMap section appears/disappears immediately.
-	 */
-	public function handle_save() {
-		$this->guard( 'coywolf_seo_entitymap_save' );
-
-		$was_enabled  = $this->is_enabled();
-		$was_endpoint = $this->endpoint_enabled();
-
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- nonce verified in guard(); only the boolean checkboxes below are read.
-		$raw      = isset( $_POST['coywolf_seo_entitymap'] ) && is_array( $_POST['coywolf_seo_entitymap'] ) ? wp_unslash( $_POST['coywolf_seo_entitymap'] ) : array();
-		$enabled  = ! empty( $raw['enabled'] );
-		$endpoint = ! empty( $raw['live_endpoint'] );
-		// The advertise checkbox is only shown once EntityMap is enabled, so on
-		// the first enable honor the default-on rather than reading its absence
-		// as "off"; otherwise take the submitted value.
-		$advertise = ( $enabled && ! $was_enabled ) ? true : ! empty( $raw['advertise'] );
-
-		update_option(
-			self::OPTION,
-			array(
-				'enabled'       => $enabled,
-				'live_endpoint' => $endpoint,
-				'advertise'     => $advertise,
-			)
-		);
-
-		// Rewrite rules change only with the serving endpoint's availability (the
-		// advertiser adds no routes of its own). Flush when that changes.
-		$endpoint_before = $was_enabled && $was_endpoint;
-		$endpoint_after  = $enabled && $endpoint;
-		if ( $endpoint_before !== $endpoint_after ) {
-			if ( $endpoint_after ) {
-				$this->add_rewrite_rules();
-			}
-			flush_rewrite_rules();
-		}
-
-		// Reconcile the managed robots.txt Allow rules with the current state.
-		if ( $this->advertiser->is_configured() ) {
-			$this->advertiser->add_robots_rule();
-		} else {
-			$this->advertiser->remove_robots_rule();
-		}
-
-		// The advertised llms.txt section toggles with this save.
+	protected function on_built() {
 		$this->invalidate_llms_cache();
-
-		$msg = 'entitymap-saved';
-		if ( $enabled && ! $was_enabled ) {
-			// First enable: kick off an initial build in the background.
-			if ( ! wp_next_scheduled( self::CRON_HOOK ) ) {
-				wp_schedule_single_event( time() + 5, self::CRON_HOOK );
-			}
-			$msg = 'entitymap-enabled';
-		} elseif ( ! $enabled && $was_enabled ) {
-			// Disabled: stop the background rebuild; files remain until cleanup.
-			wp_unschedule_hook( self::CRON_HOOK );
-			$msg = 'entitymap-disabled';
-		}
-
-		$this->redirect( $msg );
 	}
 
 	/**
-	 * Rebuild the file set now (synchronous, on explicit request).
-	 */
-	public function handle_rebuild() {
-		$this->guard( 'coywolf_seo_entitymap_rebuild' );
-		if ( ! $this->is_enabled() ) {
-			$this->redirect( 'entitymap-disabled' );
-		}
-		$result = $this->rebuild_and_record();
-		$this->redirect( is_wp_error( $result ) ? 'entitymap-error' : 'entitymap-rebuilt' );
-	}
-
-	/**
-	 * Stream the current file set as a downloadable zip (json + html).
-	 */
-	public function handle_download() {
-		$this->guard( 'coywolf_seo_entitymap_download' );
-		if ( ! $this->generator->bundle_exists() ) {
-			$this->redirect( 'entitymap-nobundle' );
-		}
-
-		require_once ABSPATH . 'wp-admin/includes/file.php';
-		$tmp = wp_tempnam( 'coywolf-entitymap.zip' );
-		$res = $this->generator->build_zip( $tmp );
-		if ( is_wp_error( $res ) ) {
-			wp_delete_file( $tmp );
-			$this->redirect( 'entitymap-error' );
-		}
-
-		$site = sanitize_title( get_bloginfo( 'name' ) );
-		$name = 'entitymap' . ( $site ? '-' . $site : '' ) . '.zip';
-
-		nocache_headers();
-		header( 'Content-Type: application/zip' );
-		header( 'Content-Disposition: attachment; filename="' . $name . '"' );
-		header( 'Content-Length: ' . (string) filesize( $tmp ) );
-		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile -- streaming a generated temp archive to the browser.
-		readfile( $tmp );
-		wp_delete_file( $tmp );
-		exit;
-	}
-
-	/**
-	 * Delete the generated files from disk (explicit cleanup).
-	 */
-	public function handle_cleanup() {
-		$this->guard( 'coywolf_seo_entitymap_cleanup' );
-		$ok = $this->generator->cleanup();
-		delete_option( self::BUILD_OPTION );
-		$this->redirect( $ok ? 'entitymap-cleaned' : 'entitymap-error' );
-	}
-
-	/**
-	 * Capability + nonce guard shared by every action handler.
-	 *
-	 * @param string $nonce_action Nonce action name.
-	 * @return void
-	 */
-	private function guard( $nonce_action ) {
-		if ( ! current_user_can( self::CAPABILITY ) ) {
-			wp_die( esc_html__( 'You are not allowed to manage Coywolf SEO Labs features.', 'coywolf-seo' ) );
-		}
-		check_admin_referer( $nonce_action );
-	}
-
-	/**
-	 * Redirect back to the Labs page with a status message key.
-	 *
-	 * @param string $msg Message key read by the Labs page notice.
-	 * @return void
-	 */
-	private function redirect( $msg ) {
-		$url = add_query_arg(
-			array(
-				'page'                 => Coywolf_SEO_Labs::SLUG,
-				'coywolf-seo-labs-msg' => $msg,
-			),
-			admin_url( 'admin.php' )
-		);
-		wp_safe_redirect( $url );
-		exit;
-	}
-
-	/**
-	 * Invalidate the llms.txt cache (guarded) so the EntityMap section appears /
-	 * disappears immediately after a save or rebuild.
+	 * The advertised llms.txt section toggles with a settings save.
 	 *
 	 * @return void
 	 */
-	private function invalidate_llms_cache() {
-		if ( ! class_exists( 'Coywolf_SEO' ) ) {
-			return;
-		}
-		$inst = Coywolf_SEO::instance();
-		if ( $inst && method_exists( $inst, 'llms_txt' ) ) {
-			$llms = $inst->llms_txt();
-			if ( $llms && method_exists( $llms, 'clear_cache' ) ) {
-				$llms->clear_cache();
-			}
-		}
+	protected function on_settings_saved() {
+		$this->invalidate_llms_cache();
+	}
+
+	/**
+	 * Base filename for the zip download.
+	 *
+	 * @return string
+	 */
+	protected function download_basename() {
+		return 'entitymap';
 	}
 
 	// ---------------------------------------------------------------------

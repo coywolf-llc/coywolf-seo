@@ -51,6 +51,7 @@ final class Coywolf_SEO_Labs {
 	public function __construct() {
 		$this->features[] = new Coywolf_SEO_OKF();
 		$this->features[] = new Coywolf_SEO_EntityMap();
+		$this->features[] = new Coywolf_SEO_ARD();
 	}
 
 	/**
@@ -86,6 +87,20 @@ final class Coywolf_SEO_Labs {
 	public function entitymap() {
 		foreach ( $this->features as $feature ) {
 			if ( $feature instanceof Coywolf_SEO_EntityMap ) {
+				return $feature;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * The ARD feature instance, or null.
+	 *
+	 * @return Coywolf_SEO_ARD|null
+	 */
+	public function ard() {
+		foreach ( $this->features as $feature ) {
+			if ( $feature instanceof Coywolf_SEO_ARD ) {
 				return $feature;
 			}
 		}

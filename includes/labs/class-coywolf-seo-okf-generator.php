@@ -30,7 +30,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * OKF bundle builder.
  */
-final class Coywolf_SEO_OKF_Generator {
+final class Coywolf_SEO_OKF_Generator extends Coywolf_SEO_Labs_Bundle_Generator {
 
 	/**
 	 * Bundle directory name, under the uploads basedir.
@@ -52,39 +52,12 @@ final class Coywolf_SEO_OKF_Generator {
 	private $base_url = '';
 
 	/**
-	 * Absolute path to the bundle directory (no trailing slash).
-	 *
-	 * @return string
-	 */
-	public function bundle_path() {
-		$uploads = wp_upload_dir();
-		return untrailingslashit( $uploads['basedir'] ) . '/' . self::DIR;
-	}
-
-	/**
 	 * Whether a generated bundle is present on disk.
 	 *
 	 * @return bool
 	 */
 	public function bundle_exists() {
 		return is_readable( $this->bundle_path() . '/index.md' );
-	}
-
-	/**
-	 * Initialise WP_Filesystem (direct on the uploads dir in practice) and
-	 * return it, loading the admin file API on front-end / cron requests.
-	 *
-	 * @return WP_Filesystem_Base|null
-	 */
-	private function filesystem() {
-		global $wp_filesystem;
-		if ( ! function_exists( 'WP_Filesystem' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/file.php';
-		}
-		if ( ! WP_Filesystem() ) {
-			return null;
-		}
-		return $wp_filesystem;
 	}
 
 	/**
@@ -184,23 +157,6 @@ final class Coywolf_SEO_OKF_Generator {
 	}
 
 	/**
-	 * Delete the entire generated bundle directory.
-	 *
-	 * @return bool True when the directory is gone (or never existed).
-	 */
-	public function cleanup() {
-		$base = $this->bundle_path();
-		if ( ! is_dir( $base ) ) {
-			return true;
-		}
-		$fs = $this->filesystem();
-		if ( null === $fs ) {
-			return false;
-		}
-		return (bool) $fs->delete( $base, true );
-	}
-
-	/**
 	 * Build a downloadable zip of the current bundle at the given path.
 	 *
 	 * @param string $dest_path Absolute path the archive is written to.
@@ -232,6 +188,80 @@ final class Coywolf_SEO_OKF_Generator {
 		}
 		$zip->close();
 		return true;
+	}
+
+	/**
+	 * Build a downloadable gzipped tarball (.tar.gz) of the current bundle — the
+	 * archive form the OKF spec names for distribution ("tarballs or zip
+	 * archives of the directory"). The single index.html listing guard is
+	 * excluded, exactly as in build_zip().
+	 *
+	 * @param string $dest_path Absolute path the .tar.gz is written to.
+	 * @return bool|WP_Error True on success, WP_Error otherwise.
+	 */
+	public function build_tar_gz( $dest_path ) {
+		if ( ! $this->bundle_exists() ) {
+			return new WP_Error( 'okf_no_bundle', __( 'There is no generated bundle to download yet. Rebuild it first.', 'coywolf-seo' ) );
+		}
+		if ( ! class_exists( 'PharData' ) ) {
+			return new WP_Error( 'okf_no_phar', __( 'The PHP Phar extension is not available on this server, so .tar.gz downloads are disabled.', 'coywolf-seo' ) );
+		}
+
+		$base = $this->bundle_path();
+		// PharData writes a .tar and compress() emits a sibling .tar.gz; work
+		// alongside the requested destination, then move the result onto it.
+		$tar_path = $dest_path . '.tar';
+		$gz_path  = $tar_path . '.gz';
+		if ( file_exists( $tar_path ) ) {
+			wp_delete_file( $tar_path );
+		}
+		if ( file_exists( $gz_path ) ) {
+			wp_delete_file( $gz_path );
+		}
+
+		try {
+			$phar     = new PharData( $tar_path, 0, null, Phar::TAR );
+			$iterator = new RecursiveIteratorIterator(
+				new RecursiveDirectoryIterator( $base, FilesystemIterator::SKIP_DOTS ),
+				RecursiveIteratorIterator::LEAVES_ONLY
+			);
+			foreach ( $iterator as $file ) {
+				$abs = $file->getPathname();
+				$rel = ltrim( substr( $abs, strlen( $base ) ), '/\\' );
+				if ( 'index.html' === $rel ) {
+					continue; // The listing guard does not belong in the distribution.
+				}
+				$phar->addFile( $abs, self::DIR . '/' . str_replace( '\\', '/', $rel ) );
+			}
+			$phar->compress( Phar::GZ ); // Emits $gz_path.
+			unset( $phar ); // Release the handle before moving / deleting.
+		} catch ( Exception $e ) {
+			if ( file_exists( $tar_path ) ) {
+				wp_delete_file( $tar_path );
+			}
+			if ( file_exists( $gz_path ) ) {
+				wp_delete_file( $gz_path );
+			}
+			return new WP_Error( 'okf_tar_open', __( 'The download archive could not be created.', 'coywolf-seo' ) );
+		}
+
+		global $wp_filesystem;
+		if ( ! function_exists( 'WP_Filesystem' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+		}
+		WP_Filesystem();
+		$ok = $wp_filesystem && $wp_filesystem->exists( $gz_path )
+			? (bool) $wp_filesystem->move( $gz_path, $dest_path, true )
+			: false;
+
+		if ( file_exists( $tar_path ) ) {
+			wp_delete_file( $tar_path );
+		}
+		if ( ! $ok && file_exists( $gz_path ) ) {
+			wp_delete_file( $gz_path );
+		}
+
+		return $ok ? true : new WP_Error( 'okf_tar_move', __( 'The download archive could not be finalised.', 'coywolf-seo' ) );
 	}
 
 	// ---------------------------------------------------------------------
@@ -335,29 +365,6 @@ final class Coywolf_SEO_OKF_Generator {
 		$obj   = get_post_type_object( $post_type );
 		$label = ( $obj && ! empty( $obj->labels->singular_name ) ) ? $obj->labels->singular_name : $post_type;
 		return array( sanitize_title( $post_type ), $label );
-	}
-
-	/**
-	 * Whether a post belongs in the public surface (and thus the bundle).
-	 *
-	 * @param WP_Post $post Post object.
-	 * @return bool
-	 */
-	private function is_post_visible( $post ) {
-		if ( 'publish' !== $post->post_status ) {
-			return false;
-		}
-		if ( '' !== (string) $post->post_password ) {
-			return false;
-		}
-		if ( ! is_post_type_viewable( $post->post_type ) ) {
-			return false;
-		}
-		$meta = Coywolf_SEO_Options::post_meta( $post->ID );
-		if ( ! empty( $meta['noindex'] ) ) {
-			return false;
-		}
-		return true;
 	}
 
 	/**
@@ -930,23 +937,5 @@ final class Coywolf_SEO_OKF_Generator {
 		$text = str_replace( array( "\r\n", "\r", "\n" ), ' ', $text );
 		$text = str_replace( array( '[', ']' ), array( '\[', '\]' ), $text );
 		return trim( $text );
-	}
-
-	/**
-	 * Write a file, creating its parent directory first.
-	 *
-	 * @param string $abs     Absolute file path.
-	 * @param string $content File content.
-	 * @return void
-	 */
-	private function write_file( $abs, $content ) {
-		$dir = dirname( $abs );
-		if ( ! is_dir( $dir ) ) {
-			wp_mkdir_p( $dir );
-		}
-		global $wp_filesystem;
-		if ( $wp_filesystem ) {
-			$wp_filesystem->put_contents( $abs, $content, FS_CHMOD_FILE );
-		}
 	}
 }
