@@ -350,10 +350,15 @@ final class Coywolf_SEO_Redirects_Import {
 
 	/**
 	 * Offer the import when a source plugin is active — never import
-	 * automatically.
+	 * automatically. Scoped to this plugin's own screens (like the takeover
+	 * notice above) so it never nags site-wide across wp-admin.
 	 */
 	public function maybe_show_banner() {
 		if ( ! current_user_can( Coywolf_SEO_Admin::CAPABILITY ) ) {
+			return;
+		}
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen || false === strpos( (string) $screen->id, 'coywolf-seo' ) ) {
 			return;
 		}
 		$dismissed = (array) get_option( self::DISMISSED_OPTION, array() );
