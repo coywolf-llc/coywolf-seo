@@ -9,7 +9,7 @@
 ( function () {
 	'use strict';
 
-	var cfg = window.coywolfSEOImageText || {};
+	var cfg = window.coywolf_seo_image_text || {};
 	if ( ! cfg.restRoot ) {
 		return;
 	}

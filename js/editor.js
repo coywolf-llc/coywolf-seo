@@ -21,7 +21,7 @@
 		return;
 	}
 
-	var config = window.CoywolfSEOEditor || { pageTypeOptions: [], articleTypeOptions: [], i18n: {} };
+	var config = window.coywolf_seo_editor || { pageTypeOptions: [], articleTypeOptions: [], i18n: {} };
 	var useSelect = wp.data.useSelect;
 	var useDispatch = wp.data.useDispatch;
 	var useState = wp.element.useState;

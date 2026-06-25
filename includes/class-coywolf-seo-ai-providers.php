@@ -123,8 +123,10 @@ class Coywolf_SEO_AI_Providers {
 	 * vision/Image Text). Each is suffixed with the provider id, so switching
 	 * providers never surfaces another's list.
 	 */
-	const MODELS_CACHE_TEXT   = 'coywolf_seo_ai_models';
-	const MODELS_CACHE_VISION = 'coywolf_seo_image_models';
+	// Cache-key suffixes. The shared "coywolf_seo_" prefix is prepended at each
+	// transient call so the full keys stay coywolf_seo_ai_models[_<provider>].
+	const MODELS_CACHE_TEXT   = 'ai_models';
+	const MODELS_CACHE_VISION = 'image_models';
 
 	/**
 	 * The shared "list models, cached per provider for 12 hours" routine behind
@@ -138,7 +140,7 @@ class Coywolf_SEO_AI_Providers {
 	 * @return array
 	 */
 	public static function cached_models( $prefix, callable $fetch, ?callable $fallback = null ) {
-		$cache_key = $prefix . '_' . self::current_id();
+		$cache_key = 'coywolf_seo_' . $prefix . '_' . self::current_id();
 		$cached    = get_transient( $cache_key );
 		if ( is_array( $cached ) ) {
 			return $cached;
@@ -160,10 +162,10 @@ class Coywolf_SEO_AI_Providers {
 	 */
 	public static function flush_model_caches() {
 		foreach ( self::ids() as $id ) {
-			delete_transient( self::MODELS_CACHE_TEXT . '_' . $id );
-			delete_transient( self::MODELS_CACHE_VISION . '_' . $id );
+			delete_transient( 'coywolf_seo_' . self::MODELS_CACHE_TEXT . '_' . $id );
+			delete_transient( 'coywolf_seo_' . self::MODELS_CACHE_VISION . '_' . $id );
 		}
 		// Legacy single-key cache from the pre-multi-provider era.
-		delete_transient( self::MODELS_CACHE_TEXT );
+		delete_transient( 'coywolf_seo_' . self::MODELS_CACHE_TEXT );
 	}
 }

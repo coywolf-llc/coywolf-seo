@@ -1360,7 +1360,7 @@ final class Coywolf_SEO_Image_Text {
 		$wp_version = (string) preg_replace( '/[^0-9.].*$/', '', get_bloginfo( 'version' ) );
 		wp_add_inline_script(
 			'coywolf-seo-it-editor',
-			'window.coywolfSEOImageTextEditor = ' . wp_json_encode(
+			'window.coywolf_seo_image_text_editor = ' . wp_json_encode(
 				array(
 					'configured' => $this->ai->is_configured(),
 					'contentTab' => version_compare( $wp_version, '7.0', '>=' ),
@@ -1722,7 +1722,7 @@ final class Coywolf_SEO_Image_Text {
 		wp_enqueue_script( 'coywolf-seo-image-text', COYWOLF_SEO_URL . 'js/image-text.js', array(), Coywolf_SEO::VERSION, true );
 		wp_add_inline_script(
 			'coywolf-seo-image-text',
-			'window.coywolfSEOImageText = ' . wp_json_encode(
+			'window.coywolf_seo_image_text = ' . wp_json_encode(
 				array(
 					'restRoot'    => esc_url_raw( rest_url( 'coywolf-seo/v1' ) ),
 					'nonce'       => wp_create_nonce( 'wp_rest' ),
@@ -1780,7 +1780,7 @@ final class Coywolf_SEO_Image_Text {
 		wp_enqueue_script( 'coywolf-seo-image-text-media', COYWOLF_SEO_URL . 'js/image-text-media.js', array(), Coywolf_SEO::VERSION, true );
 		wp_add_inline_script(
 			'coywolf-seo-image-text-media',
-			'window.coywolfSEOImageTextMedia = ' . wp_json_encode(
+			'window.coywolf_seo_image_text_media = ' . wp_json_encode(
 				array(
 					'restRoot' => esc_url_raw( rest_url( 'coywolf-seo/v1' ) ),
 					'nonce'    => wp_create_nonce( 'wp_rest' ),

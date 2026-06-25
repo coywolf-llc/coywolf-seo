@@ -192,7 +192,7 @@ final class Coywolf_SEO_Metabox {
 
 		wp_localize_script(
 			'coywolf-seo-editor',
-			'CoywolfSEOEditor',
+			'coywolf_seo_editor',
 			array(
 				'pageTypeOptions'    => $page_options,
 				'articleTypeOptions' => $article_options,

@@ -27,7 +27,7 @@
 		return;
 	}
 
-	var cfg = window.coywolfSEOImageTextEditor || {};
+	var cfg = window.coywolf_seo_image_text_editor || {};
 	var el = wp.element.createElement;
 	var Fragment = wp.element.Fragment;
 	var useState = wp.element.useState;

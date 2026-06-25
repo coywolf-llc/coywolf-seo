@@ -91,7 +91,7 @@ final class Coywolf_SEO_Mobile_Image {
 
 		wp_localize_script(
 			'coywolf-seo-image-block',
-			'CoywolfSEOImageBlock',
+			'coywolf_seo_image_block',
 			array(
 				'contentGroup' => version_compare( $wp_version, '7.0', '>=' ),
 			)
