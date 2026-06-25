@@ -3,14 +3,14 @@
  * property repeaters (Site Details and Authors), the media pickers, and
  * the Settings-page field visibility.
  *
- * Property input metadata arrives via the CoywolfSEOAdmin global
+ * Property input metadata arrives via the coywolf_seo_admin global
  * (wp_localize_script): propertyInputs maps a property name to either
  * { input: 'url'|'email'|... } or { fields: { sub: { label, input } } }.
  */
 ( function ( $ ) {
 	'use strict';
 
-	var config = window.CoywolfSEOAdmin || { propertyInputs: {}, i18n: {} };
+	var config = window.coywolf_seo_admin || { propertyInputs: {}, i18n: {} };
 
 	/**
 	 * Build the value cell contents for a property, mirroring the PHP
@@ -541,7 +541,7 @@
 				.attr( 'aria-expanded', $row.is( ':visible' ) ? 'true' : 'false' );
 		} );
 		$( document ).on( 'submit', '.coywolf-seo-delete-form', function ( e ) {
-			if ( ! window.confirm( ( window.CoywolfSEOAdmin && CoywolfSEOAdmin.i18n.confirmDelete ) || 'Delete this redirect?' ) ) {
+			if ( ! window.confirm( ( window.coywolf_seo_admin && coywolf_seo_admin.i18n.confirmDelete ) || 'Delete this redirect?' ) ) {
 				e.preventDefault();
 			}
 		} );
@@ -555,7 +555,7 @@
 				e.preventDefault();
 				return;
 			}
-			if ( 'delete' === action && ! window.confirm( ( window.CoywolfSEOAdmin && CoywolfSEOAdmin.i18n.confirmBulkDelete ) || 'Delete the selected redirects?' ) ) {
+			if ( 'delete' === action && ! window.confirm( ( window.coywolf_seo_admin && coywolf_seo_admin.i18n.confirmBulkDelete ) || 'Delete the selected redirects?' ) ) {
 				e.preventDefault();
 			}
 		} );

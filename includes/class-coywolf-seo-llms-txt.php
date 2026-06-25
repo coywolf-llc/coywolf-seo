@@ -523,7 +523,7 @@ final class Coywolf_SEO_Llms_Txt {
 				'has_password'     => false,
 				'orderby'          => 'date',
 				'order'            => 'DESC',
-				'suppress_filters' => true,
+				'suppress_filters' => false,
 			)
 		);
 		return array_values( array_filter( $posts, array( 'Coywolf_SEO_Markdown_Source', 'is_public_post' ) ) );

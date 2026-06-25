@@ -10,7 +10,7 @@
 ( function () {
 	'use strict';
 
-	var cfg = window.coywolfSEOImageTextMedia || {};
+	var cfg = window.coywolf_seo_image_text_media || {};
 	if ( ! cfg.restRoot ) {
 		return;
 	}

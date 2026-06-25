@@ -375,7 +375,7 @@ final class Coywolf_SEO_Robots {
 			'types'   => Coywolf_SEO_Robots_Rules::types(),
 		);
 
-		wp_localize_script( 'coywolf-seo-robots', 'CoywolfSEORobots', $data );
+		wp_localize_script( 'coywolf-seo-robots', 'coywolf_seo_robots', $data );
 	}
 
 	/* ================================================================== *

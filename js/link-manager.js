@@ -1,8 +1,8 @@
-/* global CoywolfSEOLM */
+/* global coywolf_seo_lm */
 ( function () {
 	'use strict';
 
-	var cfg = window.CoywolfSEOLM || {};
+	var cfg = window.coywolf_seo_lm || {};
 	var i18n = cfg.i18n || {};
 	var perPage = parseInt( cfg.perPage, 10 ) || 20;
 	var pageKind = cfg.page || 'all'; // 'all' | 'edit'

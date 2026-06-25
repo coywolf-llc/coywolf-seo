@@ -550,7 +550,7 @@ final class Coywolf_SEO_Admin {
 			}
 			wp_enqueue_style( 'coywolf-seo-admin', COYWOLF_SEO_URL . 'css/admin.css', array(), Coywolf_SEO::VERSION );
 			wp_enqueue_script( 'coywolf-seo-admin', COYWOLF_SEO_URL . 'js/admin.js', array( 'jquery' ), Coywolf_SEO::VERSION, true );
-			wp_localize_script( 'coywolf-seo-admin', 'CoywolfSEOAdmin', array( 'robotsRestore' => $coywolf_seo_rr ) );
+			wp_localize_script( 'coywolf-seo-admin', 'coywolf_seo_admin', array( 'robotsRestore' => $coywolf_seo_rr ) );
 			return;
 		}
 		// Category/Tag screens get the media picker and the field script.
@@ -598,7 +598,7 @@ final class Coywolf_SEO_Admin {
 		);
 		wp_localize_script(
 			'coywolf-seo-admin',
-			'CoywolfSEOAdmin',
+			'coywolf_seo_admin',
 			array(
 				'propertyInputs'  => Coywolf_SEO_Options::property_inputs(),
 				'ajaxUrl'         => admin_url( 'admin-ajax.php' ),

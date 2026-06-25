@@ -8,7 +8,7 @@
 ( function () {
 	'use strict';
 
-	var cfg = window.CoywolfSEORobots || {};
+	var cfg = window.coywolf_seo_robots || {};
 	var types = cfg.types || {};
 	var i18n = cfg.i18n || {};
 

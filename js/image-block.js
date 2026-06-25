@@ -10,7 +10,7 @@
  * On WordPress 7.0+ the image block's "Alternative text" lives in a dedicated
  * "Content" inspector tab, so the control is placed in that group; older WP has
  * no such group (it would silently drop the fill), so it falls back to the
- * default Settings panel. The flag comes from PHP (CoywolfSEOImageBlock).
+ * default Settings panel. The flag comes from PHP (coywolf_seo_image_block).
  *
  * No build step: plain wp.element.createElement against the wp globals.
  */
@@ -32,7 +32,7 @@
 	var Button = wp.components.Button;
 	var useSelect = wp.data && wp.data.useSelect;
 
-	var config = window.CoywolfSEOImageBlock || { contentGroup: false };
+	var config = window.coywolf_seo_image_block || { contentGroup: false };
 	var ATTR = 'coywolfMobileImageId';
 	var ALLOWED_TYPES = [ 'image' ];
 

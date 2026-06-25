@@ -181,7 +181,7 @@ final class Coywolf_SEO_Link_Manager {
 
 		wp_localize_script(
 			'coywolf-seo-link-manager',
-			'CoywolfSEOLM',
+			'coywolf_seo_lm',
 			array(
 				'ajaxUrl'  => admin_url( 'admin-ajax.php' ),
 				'nonce'    => wp_create_nonce( 'coywolf_seo_lm' ),
