@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.119
+- **Version:** 1.0.120
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -234,6 +234,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 ![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
 
 ## Changelog
+
+### 1.0.120
+- Fix broken Robots.txt Manager rule editor (version assets with the live plugin version) (#121).
 
 ### 1.0.119
 - Labs: add "Block Google from crawling Markdown files" option to AI Discovery (#120).
