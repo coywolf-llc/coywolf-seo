@@ -275,11 +275,16 @@ final class Coywolf_SEO_AI_Discovery {
 	}
 
 	/**
-	 * Add or remove the managed Robots.txt Manager rule that blocks Googlebot from
-	 * crawling Markdown (.md) files, to match the stored checkbox state. The rule
-	 * renders as:  User-agent: Googlebot  /  Disallow: /*.md$
+	 * Reconcile the Robots.txt Manager rule that blocks Googlebot from crawling
+	 * Markdown (.md) files with the stored checkbox state.
 	 *
-	 * @param bool $on Whether the rule should be present.
+	 * When ON, only ADD our rule if nothing already blocks Markdown for Googlebot
+	 * — we never overwrite a rule the user may have customised (e.g. added more
+	 * bots to it); add_managed_rule upserts by id, so the existence check guards
+	 * the write. When OFF, remove our managed rule by id. Our rule renders as:
+	 * User-agent: Googlebot  /  Disallow: /*.md$
+	 *
+	 * @param bool $on Whether Markdown should be blocked for Google.
 	 * @return void
 	 */
 	private function apply_block_md_rule( $on ) {
@@ -288,10 +293,43 @@ final class Coywolf_SEO_AI_Discovery {
 			return;
 		}
 		if ( $on ) {
-			$robots->add_managed_rule( $this->block_md_rule() );
+			if ( ! $this->markdown_blocked_for_google( $robots ) ) {
+				$robots->add_managed_rule( $this->block_md_rule() );
+			}
 		} else {
 			$robots->remove_managed_rule( self::ROBOTS_RULE_BLOCK_MD );
 		}
+	}
+
+	/**
+	 * Whether any stored rule already disallows Markdown files for Googlebot,
+	 * either via the wildcard agent (`*`) or Googlebot explicitly. Inspects each
+	 * rule's rendered Disallow lines, so it also recognises a hand-written rule
+	 * (e.g. a custom `/*.md$`) — not just our managed `filetype` rule.
+	 *
+	 * @param Coywolf_SEO_Robots $robots Robots.txt Manager.
+	 * @return bool
+	 */
+	private function markdown_blocked_for_google( $robots ) {
+		if ( ! class_exists( 'Coywolf_SEO_Robots_Rules' ) ) {
+			return false;
+		}
+		foreach ( $robots->get_rules() as $rule ) {
+			$agents = ( ! empty( $rule['agents'] ) && is_array( $rule['agents'] ) ) ? $rule['agents'] : array( '*' );
+			if ( ! in_array( '*', $agents, true ) && ! in_array( 'Googlebot', $agents, true ) ) {
+				continue;
+			}
+			foreach ( Coywolf_SEO_Robots_Rules::directives( $rule ) as $line ) {
+				if ( 'Disallow' !== ( isset( $line['directive'] ) ? (string) $line['directive'] : '' ) ) {
+					continue;
+				}
+				$value = rtrim( isset( $line['value'] ) ? (string) $line['value'] : '', '$' );
+				if ( '' !== $value && '.md' === substr( $value, -3 ) ) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/**
