@@ -168,14 +168,14 @@ final class Coywolf_SEO_Link_Manager {
 			'coywolf-seo-link-manager',
 			COYWOLF_SEO_URL . 'css/link-manager.css',
 			array( 'dashicons' ),
-			self::VERSION
+			Coywolf_SEO::VERSION
 		);
 
 		wp_enqueue_script(
 			'coywolf-seo-link-manager',
 			COYWOLF_SEO_URL . 'js/link-manager.js',
 			array(),
-			self::VERSION,
+			Coywolf_SEO::VERSION,
 			true
 		);
 
