@@ -38,6 +38,12 @@ final class Coywolf_SEO_AI_Discovery {
 	const OPTION = 'coywolf_seo_ai_discovery';
 
 	/**
+	 * Managed Robots.txt Manager rule id for the "block Google from crawling
+	 * Markdown files" option.
+	 */
+	const ROBOTS_RULE_BLOCK_MD = 'coywolf-ai-discovery-block-md';
+
+	/**
 	 * Capability required to manage the feature (matches Settings).
 	 */
 	const CAPABILITY = 'manage_options';
@@ -212,12 +218,31 @@ final class Coywolf_SEO_AI_Discovery {
 	public function handle_save() {
 		$this->guard( 'coywolf_seo_ai_discovery_save' );
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- nonce verified in guard(); only the boolean checkbox below is read.
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- nonce verified in guard(); only the boolean checkboxes below are read.
 		$raw     = isset( $_POST[ self::OPTION ] ) && is_array( $_POST[ self::OPTION ] ) ? wp_unslash( $_POST[ self::OPTION ] ) : array();
 		$enabled = ! empty( $raw['enabled'] );
 		$was     = $this->is_enabled();
 
-		update_option( self::OPTION, array( 'enabled' => $enabled ) );
+		// The "Block Google from crawling Markdown files" checkbox only renders
+		// while AI Discovery is on AND the Robots.txt Manager feature is enabled.
+		// Read it only when it was shown; preserve the stored choice when it was
+		// hidden (Robots.txt Manager off) so toggling that feature doesn't drop
+		// it, and clear it whenever AI Discovery itself is turned off.
+		if ( ! $enabled ) {
+			$block_md = false;
+		} elseif ( Coywolf_SEO_Options::feature_enabled( 'robots' ) ) {
+			$block_md = ! empty( $raw['block_md'] );
+		} else {
+			$block_md = $this->block_md_enabled();
+		}
+
+		update_option(
+			self::OPTION,
+			array(
+				'enabled'  => $enabled,
+				'block_md' => $block_md,
+			)
+		);
 
 		if ( ! $enabled && $was ) {
 			foreach ( $this->engines() as $engine ) {
@@ -227,6 +252,8 @@ final class Coywolf_SEO_AI_Discovery {
 			}
 		}
 
+		$this->apply_block_md_rule( $block_md );
+
 		$msg = 'ai-discovery-saved';
 		if ( $enabled && ! $was ) {
 			$msg = 'ai-discovery-enabled';
@@ -234,6 +261,71 @@ final class Coywolf_SEO_AI_Discovery {
 			$msg = 'ai-discovery-disabled';
 		}
 		$this->redirect( $msg );
+	}
+
+	/**
+	 * Whether the "Block Google from crawling Markdown files" option is stored on
+	 * (off by default).
+	 *
+	 * @return bool
+	 */
+	public function block_md_enabled() {
+		$saved = get_option( self::OPTION, array() );
+		return is_array( $saved ) && ! empty( $saved['block_md'] );
+	}
+
+	/**
+	 * Add or remove the managed Robots.txt Manager rule that blocks Googlebot from
+	 * crawling Markdown (.md) files, to match the stored checkbox state. The rule
+	 * renders as:  User-agent: Googlebot  /  Disallow: /*.md$
+	 *
+	 * @param bool $on Whether the rule should be present.
+	 * @return void
+	 */
+	private function apply_block_md_rule( $on ) {
+		$robots = $this->robots_manager();
+		if ( ! $robots ) {
+			return;
+		}
+		if ( $on ) {
+			$robots->add_managed_rule( $this->block_md_rule() );
+		} else {
+			$robots->remove_managed_rule( self::ROBOTS_RULE_BLOCK_MD );
+		}
+	}
+
+	/**
+	 * The Robots.txt Manager instance, or null when its class is unavailable.
+	 *
+	 * @return Coywolf_SEO_Robots|null
+	 */
+	private function robots_manager() {
+		if ( ! class_exists( 'Coywolf_SEO_Robots' ) ) {
+			return null;
+		}
+		$inst = Coywolf_SEO::instance();
+		return method_exists( $inst, 'robots' ) ? $inst->robots() : null;
+	}
+
+	/**
+	 * The managed rule blocking Googlebot from all Markdown files. A `filetype`
+	 * Disallow on `md` for the Googlebot agent renders as the two lines above.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function block_md_rule() {
+		return array_merge(
+			Coywolf_SEO_Robots_Rules::blank(),
+			array(
+				'id'          => self::ROBOTS_RULE_BLOCK_MD,
+				'type'        => 'filetype',
+				'directive'   => 'disallow',
+				'name'        => __( 'Block Markdown', 'coywolf-seo' ),
+				'description' => __( 'Block crawling for all Markdown files', 'coywolf-seo' ),
+				'ext'         => 'md',
+				'agents'      => array( 'Googlebot' ),
+			)
+		);
 	}
 
 	/**
@@ -312,6 +404,14 @@ final class Coywolf_SEO_AI_Discovery {
 						<?php esc_html_e( 'Enable AI Discovery', 'coywolf-seo' ); ?>
 					</label>
 				</p>
+				<?php if ( $enabled && Coywolf_SEO_Options::feature_enabled( 'robots' ) ) : ?>
+					<p>
+						<label>
+							<input type="checkbox" name="coywolf_seo_ai_discovery[block_md]" value="1" <?php checked( $this->block_md_enabled() ); ?> />
+							<?php esc_html_e( 'Block Google from crawling Markdown files', 'coywolf-seo' ); ?>
+						</label>
+					</p>
+				<?php endif; ?>
 				<?php submit_button( $enabled ? __( 'Save AI Discovery', 'coywolf-seo' ) : __( 'Enable AI Discovery', 'coywolf-seo' ) ); ?>
 			</form>
 		</div>
