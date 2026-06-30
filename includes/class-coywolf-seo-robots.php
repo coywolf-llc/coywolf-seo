@@ -334,14 +334,14 @@ final class Coywolf_SEO_Robots {
 			'coywolf-seo-robots',
 			COYWOLF_SEO_URL . 'css/robots-manager.css',
 			array(),
-			self::VERSION
+			Coywolf_SEO::VERSION
 		);
 
 		wp_enqueue_script(
 			'coywolf-seo-robots',
 			COYWOLF_SEO_URL . 'js/robots-manager.js',
 			array(),
-			self::VERSION,
+			Coywolf_SEO::VERSION,
 			true
 		);
 
