@@ -276,13 +276,16 @@ final class Coywolf_SEO_AI_Discovery {
 
 	/**
 	 * Reconcile the Robots.txt Manager rule that blocks Googlebot from crawling
-	 * Markdown (.md) files with the stored checkbox state.
+	 * Markdown (.md) files with the stored checkbox state — agent-aware, so it
+	 * never disturbs the other bots a user may have added to our rule.
 	 *
-	 * When ON, only ADD our rule if nothing already blocks Markdown for Googlebot
-	 * — we never overwrite a rule the user may have customised (e.g. added more
-	 * bots to it); add_managed_rule upserts by id, so the existence check guards
-	 * the write. When OFF, remove our managed rule by id. Our rule renders as:
-	 * User-agent: Googlebot  /  Disallow: /*.md$
+	 * ON: if Markdown is already blocked for Googlebot (our rule, a user's rule,
+	 * or a wildcard) do nothing; otherwise add Googlebot — to our existing rule
+	 * (keeping its other agents) or as a fresh Googlebot-only rule.
+	 * OFF: pull Googlebot out of our rule. If Googlebot was its only agent the
+	 * rule is removed; if other bots remain the rule is kept blocking them. A
+	 * wildcard (`*`) rule, or one that never listed Googlebot, is left untouched.
+	 * Our rule renders as:  User-agent: Googlebot  /  Disallow: /*.md$
 	 *
 	 * @param bool $on Whether Markdown should be blocked for Google.
 	 * @return void
@@ -292,13 +295,77 @@ final class Coywolf_SEO_AI_Discovery {
 		if ( ! $robots ) {
 			return;
 		}
+		$rule = $this->find_managed_rule( $robots, self::ROBOTS_RULE_BLOCK_MD );
+
 		if ( $on ) {
-			if ( ! $this->markdown_blocked_for_google( $robots ) ) {
-				$robots->add_managed_rule( $this->block_md_rule() );
+			// Already covered (our rule, a user's rule, or a wildcard) → leave
+			// every rule untouched so an edit is never clobbered.
+			if ( $this->markdown_blocked_for_google( $robots ) ) {
+				return;
 			}
-		} else {
-			$robots->remove_managed_rule( self::ROBOTS_RULE_BLOCK_MD );
+			if ( null === $rule ) {
+				$robots->add_managed_rule( $this->block_md_rule() );
+				return;
+			}
+			// Our rule exists but no longer covers Googlebot (e.g. it was reduced
+			// to other bots on a previous uncheck): add Googlebot back without
+			// dropping the bots the user kept.
+			$agents         = $this->rule_agents( $rule );
+			$agents[]       = 'Googlebot';
+			$rule['agents'] = array_values( array_unique( $agents ) );
+			$robots->add_managed_rule( $rule );
+			return;
 		}
+
+		// OFF — unchecking only retracts Googlebot, never the other bots.
+		if ( null === $rule ) {
+			return;
+		}
+		$agents = $this->rule_agents( $rule );
+		// A wildcard rule blocks every crawler, not just Google — don't dismantle
+		// it from this Google-specific checkbox.
+		if ( in_array( '*', $agents, true ) ) {
+			return;
+		}
+		$remaining = array_values( array_diff( $agents, array( 'Googlebot' ) ) );
+		if ( $remaining === $agents ) {
+			// Googlebot wasn't on the rule — nothing to retract.
+			return;
+		}
+		if ( empty( $remaining ) ) {
+			// Googlebot was the only agent → drop the whole rule.
+			$robots->remove_managed_rule( self::ROBOTS_RULE_BLOCK_MD );
+		} else {
+			// Keep the rule blocking the other bots the user added.
+			$rule['agents'] = $remaining;
+			$robots->add_managed_rule( $rule );
+		}
+	}
+
+	/**
+	 * Find a stored rule by id, or null.
+	 *
+	 * @param Coywolf_SEO_Robots $robots Robots.txt Manager.
+	 * @param string             $id     Rule id.
+	 * @return array<string,mixed>|null
+	 */
+	private function find_managed_rule( $robots, $id ) {
+		foreach ( $robots->get_rules() as $rule ) {
+			if ( isset( $rule['id'] ) && (string) $rule['id'] === (string) $id ) {
+				return $rule;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * A rule's agent tokens (defaulting to the `*` wildcard), 0-indexed.
+	 *
+	 * @param array<string,mixed> $rule Rule.
+	 * @return array<int,string>
+	 */
+	private function rule_agents( $rule ) {
+		return ( ! empty( $rule['agents'] ) && is_array( $rule['agents'] ) ) ? array_values( $rule['agents'] ) : array( '*' );
 	}
 
 	/**
