@@ -292,6 +292,7 @@ final class Coywolf_SEO_Redirects_Admin {
 			}
 		}
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
+		Coywolf_SEO_Redirects::flush_regex_cache();
 		$this->back( array( 'redirect-saved' => 'updated' ) );
 	}
 
@@ -317,6 +318,7 @@ final class Coywolf_SEO_Redirects_Admin {
 				}
 			}
 		}
+		Coywolf_SEO_Redirects::flush_regex_cache();
 		$this->back( array( 'redirect-saved' => 'updated' ) );
 	}
 

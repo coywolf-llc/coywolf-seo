@@ -129,6 +129,7 @@ final class Coywolf_SEO_Import_Export {
 
 		// Imported settings may change capabilities and URL shapes.
 		Coywolf_SEO_Admin::sync_capability( (string) Coywolf_SEO_Options::get( 'access_role' ) );
+		Coywolf_SEO_Redirects::flush_regex_cache();
 		flush_rewrite_rules();
 
 		$this->redirect_back( 'import' );

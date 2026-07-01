@@ -349,17 +349,56 @@ final class Coywolf_SEO_Redirects {
 			return $rule; // ignore / pass match on path alone.
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- regex rules must be evaluated in PHP.
-		$regex_rules = $wpdb->get_results(
-			"SELECT * FROM {$rules_table} WHERE enabled = 1 AND is_regex = 1 ORDER BY id ASC" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name built from $wpdb->prefix, no user input.
-		);
-		$subject     = $path . ( '' !== $query ? '?' . $query : '' );
-		foreach ( (array) $regex_rules as $rule ) {
+		// Regex rules can't be indexed, so they're evaluated in PHP — but
+		// they change rarely and most sites have none, so the set is cached
+		// (and the whole loop short-circuits when it's empty).
+		$regex_rules = $this->regex_rules();
+		if ( empty( $regex_rules ) ) {
+			return null;
+		}
+		$subject = $path . ( '' !== $query ? '?' . $query : '' );
+		foreach ( $regex_rules as $rule ) {
 			if ( @preg_match( self::regex_pattern( $rule->source ), $subject ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- a bad admin-entered pattern must not raise warnings on the front end.
 				return $rule;
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Cache key for the enabled-regex-rule set.
+	 *
+	 * @var string
+	 */
+	const REGEX_CACHE_KEY = 'coywolf_seo_redirect_regex_rules';
+
+	/**
+	 * The enabled regex rules, cached so the front end doesn't query them on
+	 * every uncached request. An empty array is cached too, so a site with no
+	 * regex redirects skips the query entirely. Invalidated by
+	 * {@see self::flush_regex_cache()} on any rule change.
+	 *
+	 * @return object[]
+	 */
+	private function regex_rules() {
+		$rules = get_transient( self::REGEX_CACHE_KEY );
+		if ( false === $rules ) {
+			global $wpdb;
+			$rules_table = self::table( 'rules' );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name built from $wpdb->prefix, no user input; result is cached in a transient.
+			$rules = $wpdb->get_results( "SELECT * FROM {$rules_table} WHERE enabled = 1 AND is_regex = 1 ORDER BY id ASC" );
+			$rules = is_array( $rules ) ? $rules : array();
+			set_transient( self::REGEX_CACHE_KEY, $rules, DAY_IN_SECONDS );
+		}
+		return $rules;
+	}
+
+	/**
+	 * Drop the cached regex-rule set. Call after any create/update/delete/
+	 * enable/disable of a rule so a change takes effect on the next request.
+	 */
+	public static function flush_regex_cache() {
+		delete_transient( self::REGEX_CACHE_KEY );
 	}
 
 	/**
@@ -701,6 +740,7 @@ final class Coywolf_SEO_Redirects {
 		if ( $id > 0 ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- purpose-built table.
 			$wpdb->update( self::table( 'rules' ), $row, array( 'id' => $id ), $formats, array( '%d' ) );
+			self::flush_regex_cache();
 			return $id;
 		}
 
@@ -708,6 +748,7 @@ final class Coywolf_SEO_Redirects {
 		$formats[]      = '%s';
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- purpose-built table.
 		$wpdb->insert( self::table( 'rules' ), $row, $formats );
+		self::flush_regex_cache();
 		return (int) $wpdb->insert_id;
 	}
 
