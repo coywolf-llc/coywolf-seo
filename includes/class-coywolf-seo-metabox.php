@@ -44,6 +44,8 @@ final class Coywolf_SEO_Metabox {
 		$schema = array(
 			'type'                 => 'object',
 			'properties'           => array(
+				'title'        => array( 'type' => 'string' ),
+				'description'  => array( 'type' => 'string' ),
 				'page_type'    => array(
 					'type' => 'string',
 					'enum' => array_merge( array( '' ), $page_types ),
@@ -63,6 +65,8 @@ final class Coywolf_SEO_Metabox {
 		);
 
 		$default = array(
+			'title'        => '',
+			'description'  => '',
 			'page_type'    => '',
 			'article_type' => '',
 			'noindex'      => false,
@@ -75,14 +79,87 @@ final class Coywolf_SEO_Metabox {
 				$type,
 				'_coywolf_seo',
 				array(
-					'type'          => 'object',
-					'single'        => true,
-					'default'       => $default,
-					'auth_callback' => array( $this, 'can_edit_meta' ),
-					'show_in_rest'  => array( 'schema' => $schema ),
+					'type'              => 'object',
+					'single'            => true,
+					'default'           => $default,
+					'auth_callback'     => array( $this, 'can_edit_meta' ),
+					// The REST (block editor) write path stores whatever the
+					// client sends; sanitize on save so it matches the classic
+					// path field for field.
+					'sanitize_callback' => array( $this, 'sanitize_meta' ),
+					'show_in_rest'      => array( 'schema' => $schema ),
 				)
 			);
 		}
+	}
+
+	/**
+	 * Sanitize the meta object on every write (REST and update_post_meta
+	 * alike), mirroring the classic save() sanitizers per field.
+	 *
+	 * @param mixed $value Raw meta value.
+	 * @return array Clean meta object.
+	 */
+	public function sanitize_meta( $value ) {
+		$value      = is_array( $value ) ? $value : array();
+		$page_types = Coywolf_SEO_Options::page_types();
+		$art_types  = Coywolf_SEO_Options::article_types();
+
+		$page_type = isset( $value['page_type'] ) && isset( $page_types[ $value['page_type'] ] ) ? (string) $value['page_type'] : '';
+		$art_type  = '';
+		if ( isset( $value['article_type'] ) && ( 'none' === $value['article_type'] || isset( $art_types[ $value['article_type'] ] ) ) ) {
+			$art_type = (string) $value['article_type'];
+		}
+
+		return array(
+			'title'        => isset( $value['title'] ) ? sanitize_text_field( (string) $value['title'] ) : '',
+			'description'  => isset( $value['description'] ) ? sanitize_textarea_field( (string) $value['description'] ) : '',
+			'page_type'    => $page_type,
+			'article_type' => $art_type,
+			'noindex'      => ! empty( $value['noindex'] ),
+			'nofollow'     => ! empty( $value['nofollow'] ),
+			'canonical'    => isset( $value['canonical'] ) ? esc_url_raw( (string) $value['canonical'] ) : '',
+		);
+	}
+
+	/**
+	 * Whether this post is the static front page or the posts page. Their
+	 * title/description come from Site Details (homepage_title/description,
+	 * or the posts page's own name), so per-post Title/Description overrides
+	 * would be silently ignored — the fields are hidden there instead.
+	 *
+	 * @param WP_Post $post Post being edited.
+	 * @return bool
+	 */
+	private function is_special_page( $post ) {
+		if ( ! $post instanceof WP_Post || 'page' !== $post->post_type || 'page' !== get_option( 'show_on_front' ) ) {
+			return false;
+		}
+		return (int) get_option( 'page_on_front' ) === (int) $post->ID
+			|| (int) get_option( 'page_for_posts' ) === (int) $post->ID;
+	}
+
+	/**
+	 * Help text for the Title field, reflecting the append-site-name setting.
+	 *
+	 * @return string
+	 */
+	private function title_help() {
+		return Coywolf_SEO_Options::get( 'append_site_name' )
+			? __( 'The page title (title tag) and Open Graph title. Defaults to the post title; the site name is still appended.', 'coywolf-seo' )
+			: __( 'The page title (title tag) and Open Graph title. Defaults to the post title.', 'coywolf-seo' );
+	}
+
+	/**
+	 * Help text for the Description field, reflecting the actual default
+	 * source (AI-written description vs the excerpt).
+	 *
+	 * @return string
+	 */
+	private function description_help() {
+		return Coywolf_SEO::instance()->ai()->descriptions_on()
+			? __( 'The meta description and Open Graph description. Defaults to the AI-written description, or the excerpt.', 'coywolf-seo' )
+			: __( 'The meta description and Open Graph description. Defaults to the excerpt.', 'coywolf-seo' );
 	}
 
 	/**
@@ -189,6 +266,10 @@ final class Coywolf_SEO_Metabox {
 		global $post;
 		$entity_status = ( $post instanceof WP_Post ) ? Coywolf_SEO::instance()->ai()->status_text( $post->ID ) : '';
 		$permalink     = ( $post instanceof WP_Post ) ? (string) get_permalink( $post ) : '';
+		// The AI-written meta description, if the feature is on and one is
+		// stored. The panel falls back to the live excerpt when this is empty —
+		// mirroring how source_description() resolves the front-end default.
+		$ai_description = ( $post instanceof WP_Post ) ? Coywolf_SEO::instance()->ai()->description_for( $post->ID ) : '';
 
 		wp_localize_script(
 			'coywolf-seo-editor',
@@ -198,12 +279,23 @@ final class Coywolf_SEO_Metabox {
 				'articleTypeOptions' => $article_options,
 				'entityStatus'       => $entity_status,
 				'permalink'          => $permalink,
+				'aiDescription'      => $ai_description,
+				// With "Exclude meta description" on, the panel hides the
+				// Description field (a stored override is kept, just not shown).
+				'excludeDescription' => (bool) Coywolf_SEO_Options::get( 'exclude_meta_desc' ),
+				// The front/posts pages take title+description from Site
+				// Details, so the panel hides both fields there.
+				'specialPage'        => ( $post instanceof WP_Post ) && $this->is_special_page( $post ),
 				'aiEnabled'          => Coywolf_SEO::instance()->ai()->enabled(),
 				'postId'             => ( $post instanceof WP_Post ) ? (int) $post->ID : 0,
 				'ajaxUrl'            => admin_url( 'admin-ajax.php' ),
 				'reanalyzeNonce'     => wp_create_nonce( 'coywolf_seo_reanalyze' ),
 				'i18n'               => array(
-					'panelTitle'  => __( 'SEO', 'coywolf-seo' ),
+					'panelTitle'      => __( 'SEO', 'coywolf-seo' ),
+					'title'           => __( 'Title', 'coywolf-seo' ),
+					'titleHelp'       => $this->title_help(),
+					'description'     => __( 'Description', 'coywolf-seo' ),
+					'descriptionHelp' => $this->description_help(),
 					'pageType'    => __( 'Schema page type', 'coywolf-seo' ),
 					'articleType' => __( 'Schema article type', 'coywolf-seo' ),
 					'robots'      => __( 'Robots', 'coywolf-seo' ),
@@ -227,6 +319,18 @@ final class Coywolf_SEO_Metabox {
 		$page_types = Coywolf_SEO_Options::page_types();
 		$art_types  = Coywolf_SEO_Options::article_types();
 
+		// Default Description shown when there is no override: the AI summary if
+		// present, otherwise the manual excerpt (mirrors source_description()).
+		$default_desc = Coywolf_SEO::instance()->ai()->description_for( $post->ID );
+		if ( '' === $default_desc ) {
+			$default_desc = (string) $post->post_excerpt;
+		}
+
+		// The static front page and the posts page take their title/description
+		// from Site Details, so per-post overrides would be silently ignored
+		// there — hide the fields instead (see self::is_special_page()).
+		$is_special = $this->is_special_page( $post );
+
 		$default_page_type = Coywolf_SEO_Options::get( $is_page ? 'page_page_type' : 'post_page_type' );
 		$default_art_type  = Coywolf_SEO_Options::get( $is_page ? 'page_article_type' : 'post_article_type' );
 		$default_art_label = ( 'none' === $default_art_type )
@@ -236,6 +340,27 @@ final class Coywolf_SEO_Metabox {
 		wp_nonce_field( 'coywolf_seo_meta_' . $post->ID, 'coywolf_seo_meta_nonce' );
 		?>
 		<table class="form-table" role="presentation">
+			<?php if ( ! $is_special ) : ?>
+			<tr>
+				<th scope="row"><label for="coywolf-seo-title"><?php esc_html_e( 'Title', 'coywolf-seo' ); ?></label></th>
+				<td>
+					<input type="text" class="large-text" id="coywolf-seo-title" name="coywolf_seo_meta[title]" value="<?php echo esc_attr( '' !== $meta['title'] ? $meta['title'] : $post->post_title ); ?>" />
+					<?php // The default the field was rendered with, so save() can tell "untouched" apart from "edited" even when the post title changes in the same update. ?>
+					<input type="hidden" name="coywolf_seo_meta[title_default]" value="<?php echo esc_attr( $post->post_title ); ?>" />
+					<p class="description"><?php echo esc_html( $this->title_help() ); ?></p>
+				</td>
+			</tr>
+			<?php if ( ! Coywolf_SEO_Options::get( 'exclude_meta_desc' ) ) : ?>
+			<tr>
+				<th scope="row"><label for="coywolf-seo-description"><?php esc_html_e( 'Description', 'coywolf-seo' ); ?></label></th>
+				<td>
+					<textarea class="large-text" rows="3" id="coywolf-seo-description" name="coywolf_seo_meta[description]"><?php echo esc_textarea( '' !== $meta['description'] ? $meta['description'] : $default_desc ); ?></textarea>
+					<input type="hidden" name="coywolf_seo_meta[description_default]" value="<?php echo esc_attr( $default_desc ); ?>" />
+					<p class="description"><?php echo esc_html( $this->description_help() ); ?></p>
+				</td>
+			</tr>
+			<?php endif; ?>
+			<?php endif; ?>
 			<tr>
 				<th scope="row"><label for="coywolf-seo-page-type"><?php esc_html_e( 'Schema page type', 'coywolf-seo' ); ?></label></th>
 				<td>
@@ -329,6 +454,43 @@ final class Coywolf_SEO_Metabox {
 			$art_type = (string) $raw['article_type'];
 		}
 
+		// Title/Description fields are pre-filled with the defaults (post
+		// title; AI summary or excerpt); a value matching its default is not
+		// an override worth storing. Each field's render-time default rides
+		// along in a hidden *_default field: comparing against it (as well as
+		// the current default) keeps an UNTOUCHED field from being stored as
+		// an override when its default changed in the same update — e.g. the
+		// user renames the post, edits the excerpt, or an AI summary landed
+		// between render and save. All comparisons are sanitized-vs-sanitized
+		// so kses/whitespace normalization can't fabricate an override either.
+		if ( isset( $raw['title'] ) ) {
+			$title          = sanitize_text_field( (string) $raw['title'] );
+			$render_default = isset( $raw['title_default'] ) ? sanitize_text_field( (string) $raw['title_default'] ) : null;
+			if ( sanitize_text_field( $post->post_title ) === $title || ( null !== $render_default && $render_default === $title ) ) {
+				$title = '';
+			}
+		} else {
+			// Field not submitted (hidden on the front/posts pages): keep any
+			// stored override rather than wiping it.
+			$title = (string) Coywolf_SEO_Options::post_meta( $post_id )['title'];
+		}
+
+		if ( isset( $raw['description'] ) ) {
+			$description  = sanitize_textarea_field( (string) $raw['description'] );
+			$default_desc = Coywolf_SEO::instance()->ai()->description_for( $post_id );
+			if ( '' === $default_desc ) {
+				$default_desc = (string) $post->post_excerpt;
+			}
+			$render_default = isset( $raw['description_default'] ) ? sanitize_textarea_field( (string) $raw['description_default'] ) : null;
+			if ( sanitize_textarea_field( $default_desc ) === $description || ( null !== $render_default && $render_default === $description ) ) {
+				$description = '';
+			}
+		} else {
+			// Field not submitted — hidden by "Exclude meta description" or on
+			// the front/posts pages. Keep any stored override.
+			$description = (string) Coywolf_SEO_Options::post_meta( $post_id )['description'];
+		}
+
 		$canonical = isset( $raw['canonical'] ) ? esc_url_raw( (string) $raw['canonical'] ) : '';
 		// The field shows the post's own URL; that is the default, not an
 		// override worth storing.
@@ -337,6 +499,8 @@ final class Coywolf_SEO_Metabox {
 		}
 
 		$meta = array(
+			'title'        => $title,
+			'description'  => $description,
 			'page_type'    => $page_type,
 			'article_type' => $art_type,
 			'noindex'      => ! empty( $raw['noindex'] ),
@@ -345,7 +509,7 @@ final class Coywolf_SEO_Metabox {
 		);
 
 		// All defaults? Keep the database clean.
-		if ( '' === $meta['page_type'] && '' === $meta['article_type'] && ! $meta['noindex'] && ! $meta['nofollow'] && '' === $meta['canonical'] ) {
+		if ( '' === $meta['title'] && '' === $meta['description'] && '' === $meta['page_type'] && '' === $meta['article_type'] && ! $meta['noindex'] && ! $meta['nofollow'] && '' === $meta['canonical'] ) {
 			delete_post_meta( $post_id, '_coywolf_seo' );
 			return;
 		}
