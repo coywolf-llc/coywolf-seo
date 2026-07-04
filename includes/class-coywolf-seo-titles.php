@@ -61,6 +61,13 @@ final class Coywolf_SEO_Titles {
 			return (string) single_post_title( '', false );
 		}
 		if ( is_singular( array( 'post', 'page' ) ) ) {
+			// A per-post Title override wins over the post's own title. Read
+			// through sanitize_text_field so a stored value can never inject
+			// markup into the <title> tag (core does not escape it there).
+			$override = sanitize_text_field( (string) Coywolf_SEO_Options::post_meta( get_queried_object_id() )['title'] );
+			if ( '' !== $override ) {
+				return $override;
+			}
 			return (string) single_post_title( '', false );
 		}
 		if ( is_category() || is_tag() ) {
@@ -152,9 +159,14 @@ final class Coywolf_SEO_Titles {
 		if ( '' === $title || false === stripos( $html, '<title' ) ) {
 			return $html;
 		}
-		$replaced = preg_replace(
+		// preg_replace_callback so '$' and '\' in the title are literal — in a
+		// plain preg_replace replacement, "$25" would be eaten as a
+		// backreference and "$0" would re-inject the matched theme <title>.
+		$replaced = preg_replace_callback(
 			'#<title[^>]*>.*?</title>#is',
-			'<title>' . esc_html( $title ) . '</title>',
+			static function () use ( $title ) {
+				return '<title>' . esc_html( $title ) . '</title>';
+			},
 			$html,
 			1
 		);

@@ -153,11 +153,15 @@ final class Coywolf_SEO_Schema {
 		$published = get_the_date( 'c', $post );
 		$modified  = get_the_modified_date( 'c', $post );
 
+		// managed_title() honors the per-post Title override, keeping the
+		// schema name/headline consistent with the title tag and og:title.
+		$title = Coywolf_SEO::instance()->titles()->managed_title();
+
 		$webpage = array(
 			'@type'         => $page_type,
 			'@id'           => $url . '#webpage',
 			'url'           => $url,
-			'name'          => single_post_title( '', false ),
+			'name'          => $title,
 			'isPartOf'      => array( '@id' => $this->website_id() ),
 			'datePublished' => $published,
 			'dateModified'  => $modified,
@@ -186,7 +190,7 @@ final class Coywolf_SEO_Schema {
 			$article = array(
 				'@type'            => $article_type,
 				'@id'              => $url . '#article',
-				'headline'         => wp_html_excerpt( single_post_title( '', false ), 110 ),
+				'headline'         => wp_html_excerpt( $title, 110 ),
 				'mainEntityOfPage' => array( '@id' => $url . '#webpage' ),
 				'datePublished'    => $published,
 				'dateModified'     => $modified,

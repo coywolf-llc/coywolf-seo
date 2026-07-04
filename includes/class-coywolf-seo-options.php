@@ -685,10 +685,12 @@ final class Coywolf_SEO_Options {
 	 * Per-post SEO meta for a post, merged over empty defaults.
 	 *
 	 * @param int $post_id Post ID.
-	 * @return array { page_type, article_type, noindex, nofollow, canonical }
+	 * @return array { title, description, page_type, article_type, noindex, nofollow, canonical }
 	 */
 	public static function post_meta( $post_id ) {
 		$defaults = array(
+			'title'        => '',
+			'description'  => '',
 			'page_type'    => '',
 			'article_type' => '',
 			'noindex'      => false,

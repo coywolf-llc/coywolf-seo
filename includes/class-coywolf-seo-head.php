@@ -157,11 +157,17 @@ final class Coywolf_SEO_Head {
 		} elseif ( is_singular( array( 'post', 'page' ) ) ) {
 			$post = get_queried_object();
 			if ( $post ) {
-				// With AI meta descriptions active, the written summary
-				// replaces the excerpt; otherwise the excerpt applies.
-				$text = Coywolf_SEO::instance()->ai()->description_for( $post->ID );
-				if ( '' === $text && '' !== $post->post_excerpt ) {
-					$text = $post->post_excerpt;
+				// A per-post Description override wins over everything else.
+				$override = (string) Coywolf_SEO_Options::post_meta( $post->ID )['description'];
+				if ( '' !== $override ) {
+					$text = $override;
+				} else {
+					// With AI meta descriptions active, the written summary
+					// replaces the excerpt; otherwise the excerpt applies.
+					$text = Coywolf_SEO::instance()->ai()->description_for( $post->ID );
+					if ( '' === $text && '' !== $post->post_excerpt ) {
+						$text = $post->post_excerpt;
+					}
 				}
 			}
 		} elseif ( is_category() || is_tag() ) {
