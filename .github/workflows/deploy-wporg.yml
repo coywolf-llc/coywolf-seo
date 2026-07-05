@@ -1,0 +1,99 @@
+name: Deploy to WordPress.org (manual)
+
+# WP.org guideline #14: the plugin directory is a RELEASE repository, not a
+# development one — frequent commits are discouraged. So the .org/SVN deploy is
+# intentionally manual: run this workflow only when a release should actually
+# ship to the directory (the per-merge GitHub release in release.yml does NOT
+# auto-deploy to SVN).
+#
+# Usage: Actions → "Deploy to WordPress.org (manual)" → Run workflow, optionally
+# entering the release tag (e.g. v1.0.128). Blank deploys the latest GitHub
+# release. CLI: gh workflow run deploy-wporg.yml -f tag=v1.0.128
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to deploy (e.g. v1.0.128). Blank = latest GitHub release."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  # Match release.yml: run bundled JS actions on Node 24.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SLUG: coywolf-seo
+      WPORG_SLUG: coywolf-seo
+    steps:
+      - name: Resolve tag + version
+        id: tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ -n "${INPUT_TAG:-}" ]; then
+            T="$INPUT_TAG"
+          else
+            T=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          fi
+          echo "Deploying tag: $T"
+          echo "tag=$T" >> "$GITHUB_OUTPUT"
+          echo "version=${T#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Require SVN credentials
+        env:
+          SVN_USERNAME: ${{ secrets.WPORG_SVN_USERNAME }}
+        run: |
+          set -euo pipefail
+          [ -n "${SVN_USERNAME:-}" ] || { echo "::error::WPORG_SVN_* secrets are not set."; exit 1; }
+
+      - name: Check out the release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+
+      - name: Build the WordPress.org variant
+        run: |
+          set -euo pipefail
+          # Stage the runtime tree under the slug (same excludes as release.yml's
+          # GitHub build), then hand it to build-wporg.sh, which strips the
+          # self-updater + the "Update URI" header, includes/labs, and vendored
+          # bin/ dirs for the .org variant.
+          STAGE="$RUNNER_TEMP/build/$SLUG"
+          rm -rf "$RUNNER_TEMP/build"
+          mkdir -p "$STAGE"
+          rsync -a --delete \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude '.gitignore' \
+            --exclude 'build' \
+            --exclude '*.zip' \
+            --exclude 'tests' \
+            --exclude 'bin' \
+            --exclude 'CONTRIBUTING.md' \
+            --exclude 'node_modules' \
+            ./ "$STAGE/"
+
+          WPORG_SRC="$RUNNER_TEMP/wporg-src/$WPORG_SLUG"
+          rm -rf "$RUNNER_TEMP/wporg-src"
+          mkdir -p "$WPORG_SRC"
+          cp -a "$STAGE"/. "$WPORG_SRC/"
+          bash .github/build-wporg.sh "$WPORG_SRC" "$RUNNER_TEMP/wporg"
+
+      - name: Deploy to WordPress.org SVN
+        uses: 10up/action-wordpress-plugin-deploy@stable
+        env:
+          SVN_USERNAME: ${{ secrets.WPORG_SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.WPORG_SVN_PASSWORD }}
+          SLUG:         ${{ env.WPORG_SLUG }}
+          VERSION:      ${{ steps.tag.outputs.version }}
+          BUILD_DIR:    ${{ runner.temp }}/wporg/coywolf-seo
+          ASSETS_DIR:   .wordpress-org
