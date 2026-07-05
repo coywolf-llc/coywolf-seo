@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.0.125
+- **Version:** 1.0.126
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -234,6 +234,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 ![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
 
 ## Changelog
+
+### 1.0.126
+- Security and accessibility audit: screen-reader support + security hardening (#127).
 
 ### 1.0.125
 - Add per-post Title and Description fields to the SEO panel (#126).
