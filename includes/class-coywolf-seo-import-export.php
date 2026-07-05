@@ -115,16 +115,50 @@ final class Coywolf_SEO_Import_Export {
 
 		if ( isset( $decoded['redirects'] ) && is_array( $decoded['redirects'] ) ) {
 			$redirects = Coywolf_SEO::instance()->redirects();
+			global $wpdb;
+
+			// Insert the imported rules FIRST, only wiping the existing set once
+			// every imported rule saved cleanly. Otherwise a hand-edited,
+			// foreign-version, or otherwise-invalid file would delete the live
+			// redirects and silently drop the (invalid) replacements — a
+			// site-wide 404 with a false success notice. Any failure rolls back
+			// the just-inserted rows and reports the error instead.
+			$old_ids  = array();
 			foreach ( $redirects->all_rules() as $existing ) {
-				global $wpdb;
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- import replaces the rule set.
-				$wpdb->delete( Coywolf_SEO_Redirects::table( 'rules' ), array( 'id' => (int) $existing->id ), array( '%d' ) );
+				$old_ids[] = (int) $existing->id;
 			}
+
+			$new_ids = array();
+			$failed  = 0;
 			foreach ( $decoded['redirects'] as $rule ) {
-				if ( is_array( $rule ) ) {
-					$redirects->save_rule( $rule );
+				if ( ! is_array( $rule ) ) {
+					++$failed;
+					continue;
 				}
+				$result = $redirects->save_rule( $rule );
+				if ( is_wp_error( $result ) ) {
+					++$failed;
+					continue;
+				}
+				$new_ids[] = (int) $result;
 			}
+
+			if ( $failed > 0 ) {
+				// Roll back the rows we just inserted; leave the live set intact.
+				foreach ( $new_ids as $new_id ) {
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- rolling back the just-imported rules.
+					$wpdb->delete( Coywolf_SEO_Redirects::table( 'rules' ), array( 'id' => $new_id ), array( '%d' ) );
+				}
+				Coywolf_SEO_Redirects::flush_regex_cache();
+				$this->redirect_back( 'import-error' );
+			}
+
+			// Every imported rule saved — now retire the pre-existing set.
+			foreach ( $old_ids as $old_id ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- import replaces the rule set.
+				$wpdb->delete( Coywolf_SEO_Redirects::table( 'rules' ), array( 'id' => $old_id ), array( '%d' ) );
+			}
+			Coywolf_SEO_Redirects::flush_regex_cache();
 		}
 
 		// Imported settings may change capabilities and URL shapes.

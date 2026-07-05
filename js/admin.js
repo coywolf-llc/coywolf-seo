@@ -16,9 +16,12 @@
 	 * Build the value cell contents for a property, mirroring the PHP
 	 * renderer in Coywolf_SEO_Admin::render_property_value_cell().
 	 */
-	function buildValueCell( nameBase, prop ) {
+	function buildValueCell( nameBase, prop, label ) {
 		var meta = config.propertyInputs[ prop ] || { input: 'text' };
 		var $cell = $( '<td class="coywolf-seo-prop-value"></td>' );
+		// Accessible name for the value input, derived from the property label
+		// (mirrors the PHP renderer's aria-label="<label> value").
+		var valueAria = ( config.i18n.propValue || '%s value' ).replace( '%s', label || prop || '' );
 
 		if ( meta.fields ) {
 			var $wrap = $( '<div class="coywolf-seo-subfields"></div>' );
@@ -47,7 +50,8 @@
 					type: 'url',
 					class: 'regular-text coywolf-seo-image-url',
 					name: nameBase,
-					placeholder: config.i18n.pasteOrSelect || ''
+					placeholder: config.i18n.pasteOrSelect || '',
+					'aria-label': valueAria
 				} )
 			);
 			$field.append( ' ' );
@@ -74,7 +78,8 @@
 			$( '<input/>', {
 				type: meta.input || 'text',
 				class: 'regular-text',
-				name: nameBase
+				name: nameBase,
+				'aria-label': valueAria
 			} )
 		);
 		return $cell;
@@ -90,13 +95,22 @@
 		$( '.coywolf-seo-entity-toggle' ).on( 'change', syncEntityRows );
 
 		// Property repeaters: the picker below the rows adds a row for the
-		// chosen property, then resets itself.
-		$( '.coywolf-seo-add-select' ).on( 'change', function () {
-			var prop = $( this ).val();
+		// chosen property when the Add button is pressed. Adding on the SELECT's
+		// change event was a keyboard trap — arrowing through the options fired
+		// a change per option and spawned a junk row each time (WCAG 3.2.2). The
+		// select now only holds the choice; the explicit Add button commits it.
+		$( document ).on( 'click', '.coywolf-seo-add-btn', function () {
+			var target = $( this ).data( 'target' );
+			var $picker = $( '.coywolf-seo-add-select[data-target="' + target + '"]' );
+			var prop = $picker.val();
 			if ( ! prop ) {
+				if ( window.wp && wp.a11y && wp.a11y.speak ) {
+					wp.a11y.speak( config.i18n.chooseProperty || 'Choose a property first.', 'assertive' );
+				}
+				$picker.trigger( 'focus' );
 				return;
 			}
-			var $table = $( '#' + $( this ).data( 'target' ) );
+			var $table = $( '#' + target );
 			var $tbody = $table.find( 'tbody' );
 			var field = $table.data( 'field' );
 			var index = parseInt( $table.attr( 'data-next-index' ), 10 ) || $tbody.find( 'tr' ).length;
@@ -104,31 +118,52 @@
 
 			// The row's select carries the same catalog as the picker,
 			// minus its placeholder option.
-			var $select = $( this ).clone();
+			var $select = $picker.clone();
 			$select
 				.removeClass( 'coywolf-seo-add-select' )
 				.addClass( 'coywolf-seo-prop-select' )
-				.removeAttr( 'data-target aria-label' )
+				.removeAttr( 'data-target' )
+				.attr( 'aria-label', config.i18n.propertyLabel || 'Property' )
 				.attr( 'name', 'coywolf_seo[' + field + '][' + index + '][prop]' );
 			$select.find( 'option[value=""]' ).remove();
 			$select.val( prop );
+			var propLabel = $select.find( 'option:selected' ).text();
 
 			var $row = $( '<tr class="coywolf-seo-prop-row"></tr>' );
 			$row.append( $( '<td class="coywolf-seo-drag-cell"></td>' ).append( $( '<span class="coywolf-seo-drag-handle dashicons dashicons-sort" aria-hidden="true"></span>' ) ) );
 			$row.append( $( '<td></td>' ).append( $select ) );
-			$row.append( buildValueCell( 'coywolf_seo[' + field + '][' + index + '][value]', prop ) );
+			$row.append( buildValueCell( 'coywolf_seo[' + field + '][' + index + '][value]', prop, propLabel ) );
+			var $moveUp = $( '<button/>', {
+				type: 'button',
+				class: 'button coywolf-seo-move-up',
+				'aria-label': config.i18n.moveUp || 'Move property up'
+			} ).append( $( '<span aria-hidden="true">↑</span>' ) );
+			var $moveDown = $( '<button/>', {
+				type: 'button',
+				class: 'button coywolf-seo-move-down',
+				'aria-label': config.i18n.moveDown || 'Move property down'
+			} ).append( $( '<span aria-hidden="true">↓</span>' ) );
 			$row.append(
-				$( '<td></td>' ).append(
-					$( '<button/>', {
-						type: 'button',
-						class: 'button coywolf-seo-remove-row',
-						'aria-label': config.i18n.removeProperty || 'Remove property',
-						text: config.i18n.remove || 'Remove'
-					} )
-				)
+				$( '<td></td>' )
+					.append( $moveUp )
+					.append( $moveDown )
+					.append(
+						$( '<button/>', {
+							type: 'button',
+							class: 'button coywolf-seo-remove-row',
+							'aria-label': config.i18n.removeProperty || 'Remove property',
+							text: config.i18n.remove || 'Remove'
+						} )
+					)
 			);
 			$tbody.append( $row );
-			$( this ).val( '' );
+			$picker.val( '' );
+			// Move focus into the new row's property select and announce it,
+			// so keyboard and screen-reader users land on the added row.
+			$select.trigger( 'focus' );
+			if ( window.wp && wp.a11y && wp.a11y.speak ) {
+				wp.a11y.speak( ( config.i18n.propertyAdded || 'Property added' ) + ': ' + propLabel );
+			}
 		} );
 
 		// Changing a row's property swaps its value cell to the matching
@@ -140,12 +175,46 @@
 				return;
 			}
 			var nameBase = 'coywolf_seo[' + match[ 1 ] + '][' + match[ 2 ] + '][value]';
-			$select.closest( 'tr' ).find( '.coywolf-seo-prop-value' ).replaceWith( buildValueCell( nameBase, $select.val() ) );
+			var propLabel = $select.find( 'option:selected' ).text();
+			$select.closest( 'tr' ).find( '.coywolf-seo-prop-value' ).replaceWith( buildValueCell( nameBase, $select.val(), propLabel ) );
 		} );
 
-		// Rows can all be removed — the picker below adds them back.
+		// Rows can all be removed — the picker below adds them back. Move focus
+		// to a sensible target (a sibling Remove button, else the Add picker) so
+		// it never falls to <body>, and announce the removal for screen readers.
 		$( document ).on( 'click', '.coywolf-seo-remove-row', function () {
-			$( this ).closest( 'tr' ).remove();
+			var $row = $( this ).closest( 'tr' );
+			var $table = $row.closest( 'table' );
+			var $sibling = $row.next( 'tr.coywolf-seo-prop-row' ).add( $row.prev( 'tr.coywolf-seo-prop-row' ) ).first();
+			$row.remove();
+			if ( $sibling.length ) {
+				$sibling.find( '.coywolf-seo-remove-row' ).trigger( 'focus' );
+			} else if ( $table.attr( 'id' ) ) {
+				$( '.coywolf-seo-add-select[data-target="' + $table.attr( 'id' ) + '"]' ).trigger( 'focus' );
+			}
+			if ( window.wp && wp.a11y && wp.a11y.speak ) {
+				wp.a11y.speak( config.i18n.propertyRemoved || 'Property removed' );
+			}
+		} );
+
+		// Keyboard alternative to drag-reordering: Move up / Move down buttons.
+		// The saved order is read from DOM order at submit time, so swapping the
+		// rows is enough — no index rewriting needed.
+		$( document ).on( 'click', '.coywolf-seo-move-up, .coywolf-seo-move-down', function () {
+			var $btn = $( this );
+			var $tr = $btn.closest( 'tr.coywolf-seo-prop-row' );
+			if ( $btn.hasClass( 'coywolf-seo-move-up' ) ) {
+				var $prev = $tr.prev( 'tr.coywolf-seo-prop-row' );
+				if ( $prev.length ) {
+					$tr.insertBefore( $prev );
+				}
+			} else {
+				var $next = $tr.next( 'tr.coywolf-seo-prop-row' );
+				if ( $next.length ) {
+					$tr.insertAfter( $next );
+				}
+			}
+			$btn.trigger( 'focus' );
 		} );
 
 		// Drag-to-reorder property rows (mouse/touch enhancement). The saved
@@ -220,10 +289,9 @@
 			$field.attr( 'data-mode', 'url' );
 		} );
 
-		// Authors: load the selected user's details.
-		$( '#coywolf-seo-author-select' ).on( 'change', function () {
-			$( this ).closest( 'form' ).trigger( 'submit' );
-		} );
+		// Authors: the user is loaded via the explicit "Load" submit button (or
+		// Enter), not on select 'change' — arrowing through options must not
+		// trigger navigation (WCAG 3.2.2 On Input) or discard unsaved edits.
 
 		// News sitemap: the Include and Categories rows only apply when the
 		// News sitemap itself is enabled.
@@ -278,7 +346,24 @@
 		var bulkPollTimer = null;
 
 		function bulkRender( html, status ) {
+			// The whole area is replaced, destroying the button the user just
+			// activated (Start/Stop/Resume/Cancel) and dropping focus to <body>.
+			// Note which op had focus so we can restore it to the equivalent new
+			// control after the swap.
+			var hadFocus = $bulkArea[ 0 ] && $.contains( $bulkArea[ 0 ], document.activeElement );
+			var focusedOp = hadFocus ? $( document.activeElement ).closest( '.coywolf-seo-bulk-op' ).data( 'op' ) : null;
 			$bulkArea.html( html ).attr( 'data-status', status );
+			if ( hadFocus ) {
+				var $target = focusedOp ? $bulkArea.find( '.coywolf-seo-bulk-op[data-op="' + focusedOp + '"] button' ).first() : $();
+				if ( ! $target.length ) {
+					$target = $bulkArea.find( 'button' ).first();
+				}
+				if ( $target.length ) {
+					$target.trigger( 'focus' );
+				} else {
+					$bulkArea.attr( 'tabindex', '-1' ).trigger( 'focus' );
+				}
+			}
 			window.clearTimeout( bulkPollTimer );
 			if ( 'running' === status ) {
 				bulkPollTimer = window.setTimeout( pollBulk, 4000 );
@@ -426,8 +511,13 @@
 		}
 		if ( $estimate.length ) {
 			loadEstimate( '', false );
-			$( '#coywolf-seo-ai-model' ).on( 'change', function () {
-				loadEstimate( $( this ).val(), true );
+			// One model <select> per provider row (class, not id, since the row is
+			// emitted per service). Preview only the currently visible provider's
+			// model — the others are display:none.
+			$( document ).on( 'change', '.coywolf-seo-ai-model', function () {
+				if ( $( this ).closest( '.coywolf-seo-ai-svc' ).is( ':visible' ) ) {
+					loadEstimate( $( this ).val(), true );
+				}
 			} );
 			$( document ).on( 'change', '#coywolf-seo-bulk-force', function () {
 				loadEstimate( '', false );
@@ -501,8 +591,15 @@
 						var attachment = termFrame.state().get( 'selection' ).first().toJSON();
 						var size = ( attachment.sizes && attachment.sizes.medium ) || attachment;
 						$( '#coywolf-seo-term-og-id' ).val( attachment.id );
-						$( '#coywolf-seo-term-og-preview' ).attr( 'src', size.url ).show();
+						// Give the live preview a meaningful alt so the selection
+						// isn't invisible to screen readers, and announce it.
+						$( '#coywolf-seo-term-og-preview' )
+							.attr( { src: size.url, alt: attachment.alt || attachment.title || '' } )
+							.show();
 						$( '#coywolf-seo-term-og-remove' ).show();
+						if ( window.wp && wp.a11y && wp.a11y.speak ) {
+							wp.a11y.speak( config.i18n.imageSelected || 'Image selected' );
+						}
 					} );
 				}
 				termFrame.open();
@@ -510,14 +607,26 @@
 			$( document ).on( 'click', '#coywolf-seo-term-og-remove', function ( e ) {
 				e.preventDefault();
 				$( '#coywolf-seo-term-og-id' ).val( '' );
-				$( '#coywolf-seo-term-og-preview' ).hide().attr( 'src', '' );
+				$( '#coywolf-seo-term-og-preview' ).hide().attr( { src: '', alt: '' } );
 				$( this ).hide();
+				if ( window.wp && wp.a11y && wp.a11y.speak ) {
+					wp.a11y.speak( config.i18n.imageRemoved || 'Image removed' );
+				}
 			} );
 
 			// WordPress adds terms over AJAX and clears its own fields —
 			// clear ours too once the new term is in.
 			$( document ).ajaxComplete( function ( event, xhr, settings ) {
-				if ( settings.data && -1 !== String( settings.data ).indexOf( 'action=add-tag' ) && xhr.status === 200 ) {
+				// WordPress's add-tag endpoint returns HTTP 200 even on failure
+				// (a wp_error wrapped in <wp_error> XML — e.g. a duplicate term
+				// name). Core keeps the Name/Description in that case; only clear
+				// our fields on an actual success, so a retry doesn't lose them.
+				if (
+					settings.data &&
+					-1 !== String( settings.data ).indexOf( 'action=add-tag' ) &&
+					xhr.status === 200 &&
+					-1 === String( xhr.responseText ).indexOf( '<wp_error' )
+				) {
 					$( '#coywolf-seo-term-title' ).val( '' );
 					$( '#coywolf-seo-term-og-id' ).val( '' );
 					$( '#coywolf-seo-term-og-preview' ).hide().attr( 'src', '' );
@@ -610,14 +719,23 @@
 		var t = rr.i18n || {};
 
 		function showModal( onRestore, onKeep, onCancel ) {
+			// Remember what had focus so we can restore it when the dialog closes.
+			var lastFocus = document.activeElement;
 			var overlay = document.createElement( 'div' );
 			overlay.className = 'coywolf-seo-modal';
 			var box = document.createElement( 'div' );
 			box.className = 'coywolf-seo-modal-box';
+			// Dialog semantics: labelled by the title, described by the message.
+			box.setAttribute( 'role', 'dialog' );
+			box.setAttribute( 'aria-modal', 'true' );
 			var h2 = document.createElement( 'h2' );
+			h2.id = 'coywolf-seo-modal-title';
 			h2.textContent = t.title || 'Restore robots.txt?';
 			var p = document.createElement( 'p' );
+			p.id = 'coywolf-seo-modal-desc';
 			p.textContent = t.message || '';
+			box.setAttribute( 'aria-labelledby', h2.id );
+			box.setAttribute( 'aria-describedby', p.id );
 			var actions = document.createElement( 'p' );
 			actions.className = 'coywolf-seo-modal-actions';
 			function button( label, cls ) {
@@ -630,9 +748,38 @@
 			var restoreBtn = button( t.restore || 'Restore', 'button-primary' );
 			var keepBtn = button( t.keep || 'Keep', 'button-secondary' );
 			var cancelBtn = button( t.cancel || 'Cancel', 'button-secondary' );
+			var buttons = [ restoreBtn, keepBtn, cancelBtn ];
 			function close() {
+				document.removeEventListener( 'keydown', onKeydown, true );
 				if ( overlay.parentNode ) {
 					overlay.parentNode.removeChild( overlay );
+				}
+				// Return focus to wherever it was before the dialog opened.
+				if ( lastFocus && typeof lastFocus.focus === 'function' ) {
+					lastFocus.focus();
+				}
+			}
+			// Escape cancels; Tab / Shift+Tab cycle within the three buttons.
+			function onKeydown( e ) {
+				if ( 'Escape' === e.key || 'Esc' === e.key ) {
+					e.preventDefault();
+					close();
+					if ( onCancel ) { onCancel(); }
+					return;
+				}
+				if ( 'Tab' === e.key ) {
+					var idx = buttons.indexOf( document.activeElement );
+					if ( -1 === idx ) {
+						idx = 0;
+					}
+					var next = e.shiftKey ? idx - 1 : idx + 1;
+					if ( next < 0 ) {
+						next = buttons.length - 1;
+					} else if ( next >= buttons.length ) {
+						next = 0;
+					}
+					e.preventDefault();
+					buttons[ next ].focus();
 				}
 			}
 			restoreBtn.addEventListener( 'click', function () { close(); onRestore(); } );
@@ -649,6 +796,7 @@
 			box.appendChild( actions );
 			overlay.appendChild( box );
 			document.body.appendChild( overlay );
+			document.addEventListener( 'keydown', onKeydown, true );
 			restoreBtn.focus();
 		}
 
@@ -735,9 +883,22 @@
 			return $.post( config.ajaxUrl, $.extend( { action: 'coywolf_seo_idfix', _ajax_nonce: config.idFixNonce }, data ) );
 		}
 		function buttons( on ) {
+			// Disabling/hiding the control that currently holds focus drops focus
+			// to <body>. Move it to the control that stays operable so a keyboard
+			// user keeps their place. Only act when focus is inside this tool.
+			var active = document.activeElement;
+			var inTool = active && $.contains( $idfix[ 0 ], active );
 			$preview.prop( 'disabled', on );
 			$run.prop( 'disabled', on );
 			$stop.toggleClass( 'hidden', ! on );
+			if ( ! inTool ) {
+				return;
+			}
+			if ( on && ( active === $preview[ 0 ] || active === $run[ 0 ] ) ) {
+				$stop.trigger( 'focus' );
+			} else if ( ! on && active === $stop[ 0 ] ) {
+				$preview.trigger( 'focus' );
+			}
 		}
 		function fill( tmpl, d ) {
 			return String( tmpl )

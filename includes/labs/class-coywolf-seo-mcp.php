@@ -612,7 +612,7 @@ final class Coywolf_SEO_MCP {
 		$catalog = $this->ability_catalog();
 		?>
 		<div class="coywolf-seo-labs-feature coywolf-seo-panel">
-			<h3><?php esc_html_e( 'MCP server', 'coywolf-seo' ); ?></h3>
+			<h2><?php esc_html_e( 'MCP server', 'coywolf-seo' ); ?></h2>
 			<p class="description">
 				<?php
 				printf(
@@ -632,22 +632,29 @@ final class Coywolf_SEO_MCP {
 						$engine    = $this->engine_for( $def['engine'] );
 						$available = ( '' === $def['engine'] ) || $this->engine_public( $engine );
 						$checked   = $available && $this->is_allowed( $id );
+						// Associate the tool description + disabled reason with the
+						// checkbox: the presentation-role table strips header/cell
+						// semantics, so without aria-describedby a screen reader hears
+						// only the short label (and no reason a disabled tool is off).
+						$desc_id = 'coywolf-seo-mcp-desc-' . sanitize_key( $id );
 						?>
 						<tr>
 							<th scope="row" style="font-weight:400;">
 								<label>
-									<input type="checkbox" name="coywolf_seo_mcp_abilities[<?php echo esc_attr( $id ); ?>]" value="1" <?php checked( $checked ); ?> <?php disabled( ! $available ); ?> />
+									<input type="checkbox" name="coywolf_seo_mcp_abilities[<?php echo esc_attr( $id ); ?>]" value="1" <?php checked( $checked ); ?> <?php disabled( ! $available ); ?> aria-describedby="<?php echo esc_attr( $desc_id ); ?>" />
 									<?php echo esc_html( $def['label'] ); ?>
 								</label>
 							</th>
 							<td>
-								<p style="margin-top:0;"><code><?php echo esc_html( $id ); ?></code></p>
-								<p class="description" style="margin-top:0;"><?php echo esc_html( $def['description'] ); ?></p>
-								<?php if ( ! $available ) : ?>
-									<p class="description" style="margin-top:0;">
-										<em><?php echo esc_html( $this->disabled_hint( $def['engine'] ) ); ?></em>
-									</p>
-								<?php endif; ?>
+								<span id="<?php echo esc_attr( $desc_id ); ?>">
+									<p style="margin-top:0;"><code><?php echo esc_html( $id ); ?></code></p>
+									<p class="description" style="margin-top:0;"><?php echo esc_html( $def['description'] ); ?></p>
+									<?php if ( ! $available ) : ?>
+										<p class="description" style="margin-top:0;">
+											<em><?php echo esc_html( $this->disabled_hint( $def['engine'] ) ); ?></em>
+										</p>
+									<?php endif; ?>
+								</span>
 							</td>
 						</tr>
 					<?php endforeach; ?>

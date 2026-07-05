@@ -43,7 +43,7 @@
 		}
 	}
 
-	function refresh( id ) {
+	function refresh( id, button ) {
 		// Media modal / grid: re-fetch the Backbone model so the alt, title,
 		// caption, and description fields re-render with the saved values.
 		if ( window.wp && window.wp.media && window.wp.media.attachment ) {
@@ -53,9 +53,17 @@
 			}
 		}
 		// Edit Media screen: the fields (including the TinyMCE description)
-		// were saved server-side; reload to show them.
+		// were saved server-side; reload to show them. Defer the reload so the
+		// role="status" live region announcing the pending reload is spoken to
+		// screen-reader users before the page navigates away (a same-task
+		// navigation is never announced).
 		if ( document.body.classList.contains( 'post-type-attachment' ) && document.getElementById( 'post' ) ) {
-			window.location.reload();
+			if ( button ) {
+				status( button, cfg.i18n.savedReload );
+			}
+			window.setTimeout( function () {
+				window.location.reload();
+			}, 1500 );
 		}
 	}
 
@@ -71,7 +79,7 @@
 		api( '/image-text/generate', { id: id, save: true } )
 			.then( function () {
 				status( generate, cfg.i18n.saved );
-				refresh( id );
+				refresh( id, generate );
 				generate.disabled = false;
 			} )
 			.catch( function ( err ) {

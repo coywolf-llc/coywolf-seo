@@ -80,17 +80,20 @@ final class Coywolf_SEO_OKF_Generator extends Coywolf_SEO_Labs_Bundle_Generator 
 			return new WP_Error( 'okf_fs', __( 'The filesystem is not writable, so the OKF bundle could not be generated.', 'coywolf-seo' ) );
 		}
 
-		$base = $this->bundle_path();
+		$final = $this->bundle_path();
 
 		// Preserve the change history across rebuilds (log.md is reserved).
 		$prior_log = '';
-		if ( is_readable( $base . '/log.md' ) ) {
-			$prior_log = (string) $fs->get_contents( $base . '/log.md' );
+		if ( is_readable( $final . '/log.md' ) ) {
+			$prior_log = (string) $fs->get_contents( $final . '/log.md' );
 		}
 
-		// Rebuild from a clean tree so stale concepts (deleted posts) are gone.
+		// Build into a sibling temp tree and swap it in only after a fully
+		// successful build, so a mid-build OOM/timeout leaves the previous bundle
+		// serving instead of an empty directory that 404s every /okf/ request.
+		$base = $final . '-new';
 		if ( is_dir( $base ) ) {
-			$fs->delete( $base, true );
+			$fs->delete( $base, true ); // Clean up a prior aborted build.
 		}
 		if ( ! wp_mkdir_p( $base ) ) {
 			return new WP_Error( 'okf_mkdir', __( 'The OKF bundle directory could not be created.', 'coywolf-seo' ) );
@@ -149,6 +152,17 @@ final class Coywolf_SEO_OKF_Generator extends Coywolf_SEO_Labs_Bundle_Generator 
 
 		// log.md change history (reserved): prepend today's rebuild entry.
 		$this->write_file( $base . '/log.md', $this->render_log( $prior_log, $counts ) );
+
+		// The new tree is complete — atomically swap it in: drop the old bundle,
+		// then move the temp tree into place. Only now does bundle_exists() see the
+		// fresh index.md.
+		if ( is_dir( $final ) ) {
+			$fs->delete( $final, true );
+		}
+		if ( ! $fs->move( $base, $final, true ) ) {
+			$fs->delete( $base, true );
+			return new WP_Error( 'okf_swap', __( 'The OKF bundle could not be finalised.', 'coywolf-seo' ) );
+		}
 
 		return array(
 			'counts' => $counts,
@@ -297,53 +311,69 @@ final class Coywolf_SEO_OKF_Generator extends Coywolf_SEO_Labs_Bundle_Generator 
 			}
 			list( $dir, $type_label ) = $this->post_type_dir_and_label( $post_type );
 
-			$posts = get_posts(
-				array(
-					'post_type'        => $post_type,
-					'post_status'      => 'publish',
-					'numberposts'      => -1,
-					'has_password'     => false,
-					'orderby'          => 'date',
-					'order'            => 'DESC',
-					'suppress_filters' => true,
-				)
-			);
-
-			foreach ( $posts as $post ) {
-				if ( ! $this->is_post_visible( $post ) ) {
-					continue;
-				}
-				$slug = $this->unique_slug( $used, $dir, $post->post_name ? $post->post_name : sanitize_title( $post->post_title ), (string) $post->ID );
-
-				$entities = Coywolf_SEO_AI::stored_entities( $post->ID );
-
-				$model['posts'][ $post->ID ] = array(
-					'id'          => $post->ID,
-					'title'       => get_the_title( $post ),
-					'description' => $this->post_description( $post ),
-					'resource'    => (string) get_permalink( $post ),
-					'timestamp'   => (string) get_post_modified_time( 'c', true, $post ),
-					'type_label'  => $type_label,
-					'dir'         => $dir,
-					'slug'        => $slug,
-					'path'        => $dir . '/' . $slug . '.md',
-					'author_id'   => (int) $post->post_author,
-					'term_keys'   => array(),
-					'entities'    => $entities,
-					'tags'        => array(),
+			// Page the query so peak memory does not scale with total site size:
+			// hydrate one batch of full posts at a time and drop the object caches
+			// each batch so a large site cannot OOM the cron rebuild.
+			$paged = 1;
+			do {
+				$posts = get_posts(
+					array(
+						'post_type'              => $post_type,
+						'post_status'            => 'publish',
+						'has_password'           => false,
+						'orderby'                => 'date',
+						'order'                  => 'DESC',
+						'suppress_filters'       => true,
+						'posts_per_page'         => 200,
+						'paged'                  => $paged,
+						'no_found_rows'          => true,
+						'update_post_term_cache' => false,
+					)
 				);
 
-				// Authors derived from included posts (users with published content).
-				$this->register_author( $model, $used, (int) $post->post_author );
+				foreach ( $posts as $post ) {
+					if ( ! $this->is_post_visible( $post ) ) {
+						continue;
+					}
+					$slug = $this->unique_slug( $used, $dir, $post->post_name ? $post->post_name : sanitize_title( $post->post_title ), (string) $post->ID );
 
-				// Topics: the post's terms in public taxonomies.
-				$this->register_post_terms( $model, $used, $post );
+					$entities = Coywolf_SEO_AI::stored_entities( $post->ID );
 
-				// Entities: dedupe by Wikidata QID, record about/mentions back-links.
-				foreach ( $entities as $entity ) {
-					$this->register_entity( $model, $used, $entity, $post->ID );
+					$model['posts'][ $post->ID ] = array(
+						'id'          => $post->ID,
+						'title'       => get_the_title( $post ),
+						'description' => $this->post_description( $post ),
+						'resource'    => (string) get_permalink( $post ),
+						'timestamp'   => (string) get_post_modified_time( 'c', true, $post ),
+						'type_label'  => $type_label,
+						'dir'         => $dir,
+						'slug'        => $slug,
+						'path'        => $dir . '/' . $slug . '.md',
+						'author_id'   => (int) $post->post_author,
+						'term_keys'   => array(),
+						'entities'    => $entities,
+						'tags'        => array(),
+					);
+
+					// Authors derived from included posts (users with published content).
+					$this->register_author( $model, $used, (int) $post->post_author );
+
+					// Topics: the post's terms in public taxonomies.
+					$this->register_post_terms( $model, $used, $post );
+
+					// Entities: dedupe by Wikidata QID, record about/mentions back-links.
+					foreach ( $entities as $entity ) {
+						$this->register_entity( $model, $used, $entity, $post->ID );
+					}
 				}
-			}
+				$batch = count( $posts );
+				// Release this batch's full WP_Post objects + primed caches so the
+				// non-persistent object cache does not accumulate every post.
+				foreach ( $posts as $post ) {
+					clean_post_cache( $post->ID );
+				}
+				++$paged;
+			} while ( 200 === $batch );
 		}
 
 		return $model;

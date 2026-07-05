@@ -410,9 +410,32 @@ final class Coywolf_SEO_AI_Google extends Coywolf_SEO_AI_Provider {
 			'JOB_STATE_CANCELLED',
 			'JOB_STATE_EXPIRED',
 		);
+
+		// A failed/cancelled/expired operation (or one carrying a top-level
+		// error) ends with no inlined responses; surface it so the run pauses
+		// instead of collecting an empty result set and wiping stored analyses.
+		$failed_states = array(
+			'BATCH_STATE_FAILED',
+			'BATCH_STATE_CANCELLED',
+			'BATCH_STATE_EXPIRED',
+			'JOB_STATE_FAILED',
+			'JOB_STATE_CANCELLED',
+			'JOB_STATE_EXPIRED',
+		);
+		$error         = '';
+		if ( isset( $response['error']['message'] ) && '' !== (string) $response['error']['message'] ) {
+			$error = (string) $response['error']['message'];
+		}
+		$failed = '' !== $error || in_array( $state, $failed_states, true );
+		if ( $failed && '' === $error ) {
+			$error = '' !== $state ? $state : __( 'The batch operation failed.', 'coywolf-seo' );
+		}
+
 		return array(
 			'ended'          => ! empty( $response['done'] ) || in_array( $state, $terminal, true ),
 			'results_handle' => (string) $handle,
+			'failed'         => $failed,
+			'error'          => $error,
 		);
 	}
 

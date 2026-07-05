@@ -26,6 +26,19 @@
 	function smooth( links ) {
 		links.forEach( function ( link ) {
 			link.addEventListener( 'click', function ( event ) {
+				// Let the browser handle modified or non-primary clicks
+				// (Cmd/Ctrl/Shift/Alt+click, middle button) natively, e.g.
+				// open-in-new-tab, matching core/Gutenberg link handlers.
+				if (
+					event.defaultPrevented ||
+					event.button !== 0 ||
+					event.metaKey ||
+					event.ctrlKey ||
+					event.shiftKey ||
+					event.altKey
+				) {
+					return;
+				}
 				var target = targetOf( link );
 				if ( ! target ) {
 					return;

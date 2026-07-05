@@ -174,7 +174,7 @@ final class Coywolf_SEO_Link_Manager {
 		wp_enqueue_script(
 			'coywolf-seo-link-manager',
 			COYWOLF_SEO_URL . 'js/link-manager.js',
-			array(),
+			array( 'wp-a11y' ),
 			Coywolf_SEO::VERSION,
 			true
 		);
@@ -204,6 +204,7 @@ final class Coywolf_SEO_Link_Manager {
 					'external'              => __( 'External', 'coywolf-seo' ),
 					'noLinks'               => __( 'No links found yet. Click “Analyze all links” to build the inventory.', 'coywolf-seo' ),
 					'noResponse'            => __( 'No response', 'coywolf-seo' ),
+					'pending'               => __( 'Not checked yet', 'coywolf-seo' ),
 					'removeEverywhere'      => __( 'Remove this link from every post and page it appears on? The link text is kept.', 'coywolf-seo' ),
 					/* translators: %s: final destination URL. */
 					'replaceEverywhere'     => __( 'Replace this link with its redirect destination (%s) on every post and page?', 'coywolf-seo' ),
@@ -295,6 +296,9 @@ final class Coywolf_SEO_Link_Manager {
 					/* translators: %s: number of redirected links. */
 					'confirmReplaceBulkMsg' => __( 'Replace %s redirected link(s) with their final destination URLs?', 'coywolf-seo' ),
 					'noRedirects'           => __( 'None of the selected rows have a redirect destination to replace.', 'coywolf-seo' ),
+					/* translators: %s: link URL. */
+					'selectLink'            => __( 'Select %s', 'coywolf-seo' ),
+					'newTab'                => __( '(opens in a new tab)', 'coywolf-seo' ),
 				),
 			)
 		);
@@ -354,6 +358,7 @@ final class Coywolf_SEO_Link_Manager {
 			</div>
 
 			<div class="coywolf-seo-lm-results-header" id="coywolf-seo-lm-results-header" style="display:none;">
+				<?php // Completion is announced via wp.a11y.speak() (reliable even while hidden); no role="status" here, to avoid a double announcement. ?>
 				<p id="coywolf-seo-lm-summary" class="coywolf-seo-lm-summary" style="display:none;"></p>
 				<p class="search-box coywolf-seo-lm-search-box" id="coywolf-seo-lm-search-box" style="display:none;">
 					<label class="screen-reader-text" for="coywolf-seo-lm-search">
@@ -415,22 +420,22 @@ final class Coywolf_SEO_Link_Manager {
 				<br class="clear" />
 			</div>
 
-			<table class="wp-list-table widefat striped coywolf-seo-lm-table" id="coywolf-seo-lm-results" style="display:none;">
+			<table class="wp-list-table widefat striped coywolf-seo-lm-table" id="coywolf-seo-lm-results" style="display:none;" aria-label="<?php echo esc_attr__( 'Links', 'coywolf-seo' ); ?>">
 				<thead>
 					<tr>
 						<td class="manage-column column-cb check-column">
 							<label class="screen-reader-text" for="coywolf-seo-lm-cb-all"><?php echo esc_html__( 'Select all', 'coywolf-seo' ); ?></label>
 							<input type="checkbox" id="coywolf-seo-lm-cb-all" />
 						</td>
-						<th class="manage-column column-url"><?php echo esc_html__( 'URL', 'coywolf-seo' ); ?></th>
-						<th class="manage-column column-code sortable desc" id="coywolf-seo-lm-th-code">
+						<th scope="col" class="manage-column column-url"><?php echo esc_html__( 'URL', 'coywolf-seo' ); ?></th>
+						<th scope="col" class="manage-column column-code sortable desc" id="coywolf-seo-lm-th-code">
 							<a href="#"><span><?php echo esc_html__( 'Response', 'coywolf-seo' ); ?></span><span class="sorting-indicator"></span></a>
 						</th>
-						<th class="manage-column column-type sortable desc" id="coywolf-seo-lm-th-type">
+						<th scope="col" class="manage-column column-type sortable desc" id="coywolf-seo-lm-th-type">
 							<a href="#"><span><?php echo esc_html__( 'Type', 'coywolf-seo' ); ?></span><span class="sorting-indicator"></span></a>
 						</th>
-						<th class="manage-column column-posts"><?php echo esc_html__( 'Posts', 'coywolf-seo' ); ?></th>
-						<th class="manage-column column-pages"><?php echo esc_html__( 'Pages', 'coywolf-seo' ); ?></th>
+						<th scope="col" class="manage-column column-posts"><?php echo esc_html__( 'Posts', 'coywolf-seo' ); ?></th>
+						<th scope="col" class="manage-column column-pages"><?php echo esc_html__( 'Pages', 'coywolf-seo' ); ?></th>
 					</tr>
 				</thead>
 				<tbody></tbody>
@@ -469,8 +474,8 @@ final class Coywolf_SEO_Link_Manager {
 					<?php echo esc_html__( 'Wildcard pattern', 'coywolf-seo' ); ?>
 				</label>
 				<input type="text" id="coywolf-seo-lm-wildcard-input" class="large-text code"
-					autocomplete="off" spellcheck="false" />
-				<p class="coywolf-seo-lm-modal-error" id="coywolf-seo-lm-wildcard-error" style="display:none;"></p>
+					autocomplete="off" spellcheck="false" aria-describedby="coywolf-seo-lm-wildcard-error" />
+				<p class="coywolf-seo-lm-modal-error" id="coywolf-seo-lm-wildcard-error" role="alert" style="display:none;"></p>
 				<div class="coywolf-seo-lm-modal-actions">
 					<button type="button" class="button" id="coywolf-seo-lm-wildcard-cancel">
 						<?php echo esc_html__( 'Cancel', 'coywolf-seo' ); ?>
@@ -490,7 +495,7 @@ final class Coywolf_SEO_Link_Manager {
 				<p id="coywolf-seo-lm-confirm-msg"><?php echo esc_html__( 'Are you sure you want to remove the link?', 'coywolf-seo' ); ?></p>
 				<div id="coywolf-seo-lm-confirm-detail" class="coywolf-seo-lm-confirm-detail" style="display:none;"></div>
 				<p class="description" id="coywolf-seo-lm-confirm-help"></p>
-				<p class="coywolf-seo-lm-modal-error" id="coywolf-seo-lm-confirm-error" style="display:none;"></p>
+				<p class="coywolf-seo-lm-modal-error" id="coywolf-seo-lm-confirm-error" role="alert" style="display:none;"></p>
 				<div class="coywolf-seo-lm-modal-actions">
 					<button type="button" class="button" id="coywolf-seo-lm-confirm-cancel">
 						<?php echo esc_html__( 'Cancel', 'coywolf-seo' ); ?>
@@ -1468,8 +1473,18 @@ final class Coywolf_SEO_Link_Manager {
 		$safe = array();
 
 		// SSRF guard on the initial URL: never request internal hosts.
+		//
+		// url_safety() returns 'ok' (resolved to a public address), 'unsafe'
+		// (resolves to a non-public address, or a disallowed scheme/port), or
+		// 'unresolved' (no A/AAAA record could be obtained here). Only 'ok'
+		// URLs go on the raw parallel path; 'unresolved' hosts are checked
+		// sequentially through wp_safe_remote_* (check_url()) so WordPress core's
+		// own host validation still applies at request time — the raw parallel
+		// transport does no such validation, so fetching an 'unresolved' host
+		// there would be strictly weaker than the sequential fallback.
 		foreach ( $urls as $url ) {
-			if ( 'unsafe' === $this->url_safety( $url ) ) {
+			$safety = $this->url_safety( $url );
+			if ( 'unsafe' === $safety ) {
 				$out[ $url ] = array(
 					'broken'        => true,
 					'blocked'       => false,
@@ -1480,6 +1495,8 @@ final class Coywolf_SEO_Link_Manager {
 					'redirect_code' => 0,
 					'final_url'     => '',
 				);
+			} elseif ( 'unresolved' === $safety ) {
+				$out[ $url ] = $this->check_url( $url );
 			} else {
 				$safe[] = $url;
 			}
@@ -1557,6 +1574,17 @@ final class Coywolf_SEO_Link_Manager {
 	 * @return array<string,array> Map of url => { code:int, error:?string }.
 	 */
 	private function multi_request( $urls, $method ) {
+		// SSRF note: callers pass only URLs whose host url_safety() resolved to a
+		// public IP ('ok'); 'unresolved'/'unsafe' hosts are handled on the
+		// sequential wp_safe_* path, never here. The concurrent transport
+		// re-resolves DNS at request time, so a low-TTL rebind between the
+		// vetting lookup and the request could still reach an internal address —
+		// a check-time-vs-request-time window that WordPress core's own
+		// wp_safe_remote_*() shares (core does not pin the vetted IP either).
+		// Pinning would require reaching into the Requests transport internals
+		// (per-URL CURLOPT_RESOLVE) and is deferred as an accepted, core-matching
+		// limitation rather than risk the parallel transport; the redirect guard
+		// still re-validates every hop.
 		$out     = array();
 		$class   = $this->requests_class();
 		$is_head = ( 'HEAD' === $method );
@@ -3651,6 +3679,7 @@ final class Coywolf_SEO_Link_Manager {
 					<th scope="row"><?php esc_html_e( 'Relationship', 'coywolf-seo' ); ?></th>
 					<td>
 						<fieldset class="coywolf-seo-lm-rel">
+							<legend class="screen-reader-text"><?php esc_html_e( 'Relationship', 'coywolf-seo' ); ?></legend>
 							<?php foreach ( $managed as $tok ) : ?>
 								<label><input type="checkbox" name="rel[]" value="<?php echo esc_attr( $tok ); ?>" <?php checked( isset( $rel_union[ $tok ] ) ); ?> /> <code><?php echo esc_html( $tok ); ?></code></label>
 							<?php endforeach; ?>
@@ -3664,12 +3693,12 @@ final class Coywolf_SEO_Link_Manager {
 			<tr>
 			<th scope="row"><?php esc_html_e( 'Occurrences', 'coywolf-seo' ); ?></th>
 			<td>
-			<table class="wp-list-table widefat striped coywolf-seo-lm-occ">
+			<table class="wp-list-table widefat striped coywolf-seo-lm-occ" aria-label="<?php echo esc_attr__( 'Link occurrences', 'coywolf-seo' ); ?>">
 				<thead>
 					<tr>
-						<th class="column-anchor"><?php esc_html_e( 'Anchor text', 'coywolf-seo' ); ?></th>
-						<th class="column-post"><?php esc_html_e( 'Post/Page', 'coywolf-seo' ); ?></th>
-						<th class="column-remove"><?php esc_html_e( 'Remove', 'coywolf-seo' ); ?></th>
+						<th scope="col" class="column-anchor"><?php esc_html_e( 'Anchor text', 'coywolf-seo' ); ?></th>
+						<th scope="col" class="column-post"><?php esc_html_e( 'Post/Page', 'coywolf-seo' ); ?></th>
+						<th scope="col" class="column-remove"><?php esc_html_e( 'Remove', 'coywolf-seo' ); ?></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -3688,7 +3717,7 @@ final class Coywolf_SEO_Link_Manager {
 						?>
 						<tr>
 							<td class="column-anchor">
-								<input type="text" class="regular-text" name="anchor[<?php echo esc_attr( $oid ); ?>]" value="<?php echo esc_attr( $occ['anchor'] ); ?>" <?php disabled( $is_image ); ?> />
+								<input type="text" class="regular-text" name="anchor[<?php echo esc_attr( $oid ); ?>]" value="<?php echo esc_attr( $occ['anchor'] ); ?>" aria-label="<?php echo esc_attr( sprintf( /* translators: %s: post or page title. */ __( 'Anchor text in %s', 'coywolf-seo' ), $title ) ); ?>" <?php disabled( $is_image ); ?> />
 							</td>
 							<td class="column-post">
 								<?php if ( $edit_link ) : ?>
@@ -3713,7 +3742,7 @@ final class Coywolf_SEO_Link_Manager {
 									</div>
 								<?php endif; ?>
 							</td>
-							<td class="column-remove"><input type="checkbox" name="remove[<?php echo esc_attr( $oid ); ?>]" value="1" /></td>
+							<td class="column-remove"><input type="checkbox" name="remove[<?php echo esc_attr( $oid ); ?>]" value="1" aria-label="<?php echo esc_attr( sprintf( /* translators: %s: post or page title. */ __( 'Remove this link from %s', 'coywolf-seo' ), $title ) ); ?>" /></td>
 						</tr>
 					<?php endforeach; ?>
 				<?php endif; ?>

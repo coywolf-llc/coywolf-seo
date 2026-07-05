@@ -218,6 +218,19 @@ abstract class Coywolf_SEO_Labs_Feature {
 	abstract public function add_rewrite_rules();
 
 	/**
+	 * The regex patterns this feature registers via add_rewrite_rules(), so a
+	 * disable transition can remove them from the in-memory rule set before
+	 * flushing (otherwise flush_rewrite_rules() re-persists the still-registered
+	 * rules and the disabled routes keep serving the homepage with HTTP 200).
+	 * Must match the first argument of every add_rewrite_rule() call exactly.
+	 *
+	 * @return string[]
+	 */
+	protected function rewrite_patterns() {
+		return array();
+	}
+
+	/**
 	 * Serve a request to the read endpoint (or 404).
 	 */
 	abstract public function maybe_serve();
@@ -412,8 +425,34 @@ abstract class Coywolf_SEO_Labs_Feature {
 			// persists them (init already ran by admin-post time).
 			if ( $endpoint_after ) {
 				$this->add_rewrite_rules();
+			} else {
+				// Disable: init() already registered the rules earlier this
+				// request (under the old, enabled state), so remove them from the
+				// in-memory set before flushing — otherwise flush_rewrite_rules()
+				// re-persists them and the routes keep serving the homepage.
+				$this->unregister_rewrite_patterns( $this->rewrite_patterns() );
 			}
 			flush_rewrite_rules();
+		}
+	}
+
+	/**
+	 * Remove the given regex patterns from the in-memory rewrite rule set so a
+	 * subsequent flush_rewrite_rules() drops them from the persisted rules.
+	 *
+	 * @param string[] $patterns Regex patterns registered via add_rewrite_rule().
+	 * @return void
+	 */
+	protected function unregister_rewrite_patterns( array $patterns ) {
+		if ( empty( $patterns ) ) {
+			return;
+		}
+		global $wp_rewrite;
+		if ( ! $wp_rewrite || ! is_array( $wp_rewrite->extra_rules_top ) ) {
+			return;
+		}
+		foreach ( $patterns as $pattern ) {
+			unset( $wp_rewrite->extra_rules_top[ $pattern ] );
 		}
 	}
 

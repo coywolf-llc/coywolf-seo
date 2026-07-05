@@ -549,7 +549,7 @@ final class Coywolf_SEO_Admin {
 				return;
 			}
 			wp_enqueue_style( 'coywolf-seo-admin', COYWOLF_SEO_URL . 'css/admin.css', array(), Coywolf_SEO::VERSION );
-			wp_enqueue_script( 'coywolf-seo-admin', COYWOLF_SEO_URL . 'js/admin.js', array( 'jquery' ), Coywolf_SEO::VERSION, true );
+			wp_enqueue_script( 'coywolf-seo-admin', COYWOLF_SEO_URL . 'js/admin.js', array( 'jquery', 'wp-a11y' ), Coywolf_SEO::VERSION, true );
 			wp_localize_script( 'coywolf-seo-admin', 'coywolf_seo_admin', array( 'robotsRestore' => $coywolf_seo_rr ) );
 			return;
 		}
@@ -561,7 +561,7 @@ final class Coywolf_SEO_Admin {
 				wp_enqueue_script(
 					'coywolf-seo-admin',
 					COYWOLF_SEO_URL . 'js/admin.js',
-					array( 'jquery', 'jquery-ui-sortable' ),
+					array( 'jquery', 'jquery-ui-sortable', 'wp-a11y' ),
 					Coywolf_SEO::VERSION,
 					true
 				);
@@ -592,7 +592,7 @@ final class Coywolf_SEO_Admin {
 		wp_enqueue_script(
 			'coywolf-seo-admin',
 			COYWOLF_SEO_URL . 'js/admin.js',
-			array( 'jquery', 'jquery-ui-sortable' ),
+			array( 'jquery', 'jquery-ui-sortable', 'wp-a11y' ),
 			Coywolf_SEO::VERSION,
 			true
 		);
@@ -608,9 +608,19 @@ final class Coywolf_SEO_Admin {
 				'i18n'            => array(
 					'selectImage'       => __( 'Select image', 'coywolf-seo' ),
 					'removeImage'       => __( 'Remove image', 'coywolf-seo' ),
+					'imageSelected'     => __( 'Image selected', 'coywolf-seo' ),
+					'imageRemoved'      => __( 'Image removed', 'coywolf-seo' ),
 					'pasteOrSelect'     => __( 'Paste an image URL or select one', 'coywolf-seo' ),
 					'removeProperty'    => __( 'Remove property', 'coywolf-seo' ),
 					'remove'            => __( 'Remove', 'coywolf-seo' ),
+					'propertyLabel'     => __( 'Property', 'coywolf-seo' ),
+					/* translators: %s: the schema property label (e.g. "sameAs"). */
+					'propValue'         => __( '%s value', 'coywolf-seo' ),
+					'propertyRemoved'   => __( 'Property removed', 'coywolf-seo' ),
+					'propertyAdded'     => __( 'Property added', 'coywolf-seo' ),
+					'chooseProperty'    => __( 'Choose a property first.', 'coywolf-seo' ),
+					'moveUp'            => __( 'Move property up', 'coywolf-seo' ),
+					'moveDown'          => __( 'Move property down', 'coywolf-seo' ),
 					'confirmDelete'     => __( 'Delete this redirect?', 'coywolf-seo' ),
 					'confirmBulkEnrich' => sprintf(
 						/* translators: %s: the active AI service name (Claude, OpenAI, Gemini). */
@@ -714,6 +724,34 @@ final class Coywolf_SEO_Admin {
 
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized field-by-field in Coywolf_SEO_Options::sanitize().
 		$raw = isset( $_POST['coywolf_seo'] ) && is_array( $_POST['coywolf_seo'] ) ? wp_unslash( $_POST['coywolf_seo'] ) : array();
+
+		// This handler is gated on the plugin capability, which can be granted to
+		// Editors. Confine it to the keys the Site Details form actually renders so
+		// a non-admin can't reach the administrator-only Settings keys (feature
+		// toggles, robots directives, API keys, IndexNow, access_role, …) that
+		// pass through the shared sanitize() — those are saved only by the
+		// manage_options-gated save_settings() handler.
+		$raw = array_intersect_key(
+			$raw,
+			array_flip(
+				array(
+					'site_name',
+					'tagline',
+					'append_site_name',
+					'og_image_id',
+					'entity_type',
+					'person_user_id',
+					'homepage_title',
+					'homepage_description',
+					'post_page_type',
+					'post_article_type',
+					'page_page_type',
+					'page_article_type',
+					'cat_hide_prefix',
+					'org_rows',
+				)
+			)
+		);
 
 		// Checkboxes are absent when unchecked: force their presence so
 		// sanitize() records the off state instead of skipping the key.
@@ -889,16 +927,20 @@ final class Coywolf_SEO_Admin {
 			<tr class="coywolf-seo-prop-row">
 				<td class="coywolf-seo-drag-cell"><span class="coywolf-seo-drag-handle dashicons dashicons-sort" aria-hidden="true"></span></td>
 				<td>
-					<select name="coywolf_seo[<?php echo esc_attr( $field ); ?>][<?php echo esc_attr( (string) $i ); ?>][prop]" class="coywolf-seo-prop-select">
+					<select name="coywolf_seo[<?php echo esc_attr( $field ); ?>][<?php echo esc_attr( (string) $i ); ?>][prop]" class="coywolf-seo-prop-select" aria-label="<?php esc_attr_e( 'Property', 'coywolf-seo' ); ?>">
 						<?php foreach ( $catalog as $name => $label ) : ?>
 							<option value="<?php echo esc_attr( $name ); ?>" <?php selected( $prop, $name ); ?>><?php echo esc_html( $label ); ?></option>
 						<?php endforeach; ?>
 					</select>
 				</td>
 				<td class="coywolf-seo-prop-value">
-					<?php self::render_property_value_cell( 'coywolf_seo[' . $field . '][' . $i . '][value]', $prop, isset( $row['value'] ) ? $row['value'] : '' ); ?>
+					<?php self::render_property_value_cell( 'coywolf_seo[' . $field . '][' . $i . '][value]', $prop, isset( $row['value'] ) ? $row['value'] : '', isset( $catalog[ $prop ] ) ? (string) $catalog[ $prop ] : $prop ); ?>
 				</td>
-				<td><button type="button" class="button coywolf-seo-remove-row" aria-label="<?php esc_attr_e( 'Remove property', 'coywolf-seo' ); ?>"><?php esc_html_e( 'Remove', 'coywolf-seo' ); ?></button></td>
+				<td>
+					<button type="button" class="button coywolf-seo-move-up" aria-label="<?php esc_attr_e( 'Move property up', 'coywolf-seo' ); ?>"><span aria-hidden="true">&uarr;</span></button>
+					<button type="button" class="button coywolf-seo-move-down" aria-label="<?php esc_attr_e( 'Move property down', 'coywolf-seo' ); ?>"><span aria-hidden="true">&darr;</span></button>
+					<button type="button" class="button coywolf-seo-remove-row" aria-label="<?php esc_attr_e( 'Remove property', 'coywolf-seo' ); ?>"><?php esc_html_e( 'Remove', 'coywolf-seo' ); ?></button>
+				</td>
 			</tr>
 			<?php
 		}
@@ -912,10 +954,17 @@ final class Coywolf_SEO_Admin {
 	 * @param string $name_base Input name base ( ...[i][value] ).
 	 * @param string $prop      Property name.
 	 * @param mixed  $value     Saved value (string, or array for structured).
+	 * @param string $label     Human label of the property, for the input's
+	 *                          accessible name ( "%s value" ). Defaults to $prop.
 	 */
-	public static function render_property_value_cell( $name_base, $prop, $value ) {
+	public static function render_property_value_cell( $name_base, $prop, $value, $label = '' ) {
 		$inputs = Coywolf_SEO_Options::property_inputs();
 		$meta   = isset( $inputs[ $prop ] ) ? $inputs[ $prop ] : array( 'input' => 'text' );
+		if ( '' === $label ) {
+			$label = $prop;
+		}
+		/* translators: %s: the schema property label (e.g. "sameAs"). */
+		$value_aria = sprintf( __( '%s value', 'coywolf-seo' ), $label );
 
 		if ( isset( $meta['fields'] ) ) {
 			if ( ! is_array( $value ) ) {
@@ -958,7 +1007,7 @@ final class Coywolf_SEO_Admin {
 			$mode = $preview_url ? 'preview' : 'url';
 			?>
 			<span class="coywolf-seo-image-field" data-mode="<?php echo esc_attr( $mode ); ?>">
-				<input type="url" class="regular-text coywolf-seo-image-url" name="<?php echo esc_attr( $name_base ); ?>" value="<?php echo esc_attr( $value ); ?>" placeholder="<?php esc_attr_e( 'Paste an image URL or select one', 'coywolf-seo' ); ?>" />
+				<input type="url" class="regular-text coywolf-seo-image-url" name="<?php echo esc_attr( $name_base ); ?>" value="<?php echo esc_attr( $value ); ?>" placeholder="<?php esc_attr_e( 'Paste an image URL or select one', 'coywolf-seo' ); ?>" aria-label="<?php echo esc_attr( $value_aria ); ?>" />
 				<button type="button" class="button coywolf-seo-media-btn"><?php esc_html_e( 'Select image', 'coywolf-seo' ); ?></button>
 				<span class="coywolf-seo-image-preview">
 					<?php if ( $preview_url ) : ?>
@@ -972,10 +1021,11 @@ final class Coywolf_SEO_Admin {
 		}
 
 		printf(
-			'<input type="%s" class="regular-text" name="%s" value="%s" />',
+			'<input type="%s" class="regular-text" name="%s" value="%s" aria-label="%s" />',
 			esc_attr( $type ),
 			esc_attr( $name_base ),
-			esc_attr( $value )
+			esc_attr( $value ),
+			esc_attr( $value_aria )
 		);
 	}
 
@@ -1087,6 +1137,7 @@ final class Coywolf_SEO_Admin {
 						<th scope="row"><?php esc_html_e( 'Organization or Person', 'coywolf-seo' ); ?></th>
 						<td>
 							<fieldset>
+								<legend class="screen-reader-text"><?php esc_html_e( 'Organization or Person', 'coywolf-seo' ); ?></legend>
 								<label>
 									<input type="radio" name="coywolf_seo[entity_type]" value="organization" <?php checked( $o['entity_type'], 'organization' ); ?> class="coywolf-seo-entity-toggle" />
 									<?php esc_html_e( 'Organization', 'coywolf-seo' ); ?>
@@ -1116,7 +1167,7 @@ final class Coywolf_SEO_Admin {
 					<tr class="coywolf-seo-org-row" <?php echo ( 'organization' === $o['entity_type'] ) ? '' : 'style="display:none"'; ?>>
 						<th scope="row"><?php esc_html_e( 'Organization properties', 'coywolf-seo' ); ?></th>
 						<td>
-							<table class="coywolf-seo-props" id="coywolf-seo-org-props" data-field="org_rows" data-next-index="<?php echo esc_attr( (string) count( $rows ) ); ?>">
+							<table class="coywolf-seo-props" id="coywolf-seo-org-props" data-field="org_rows" data-next-index="<?php echo esc_attr( (string) count( $rows ) ); ?>" role="presentation">
 								<tbody>
 									<?php self::render_property_rows( 'org_rows', $rows, $org_props ); ?>
 								</tbody>
@@ -1127,7 +1178,8 @@ final class Coywolf_SEO_Admin {
 									<option value="<?php echo esc_attr( $prop ); ?>"><?php echo esc_html( $label ); ?></option>
 								<?php endforeach; ?>
 							</select>
-							<p class="description"><?php esc_html_e( 'Schema.org Organization properties — selecting a property adds it, and each value input matches the property type. Add a property more than once (sameAs, for example) to output multiple values. Empty rows are not saved; removing @id falls back to the default.', 'coywolf-seo' ); ?></p>
+							<button type="button" class="button coywolf-seo-add-btn" data-target="coywolf-seo-org-props"><?php esc_html_e( 'Add', 'coywolf-seo' ); ?></button>
+							<p class="description"><?php esc_html_e( 'Schema.org Organization properties — choose a property and select Add; each value input matches the property type. Add a property more than once (sameAs, for example) to output multiple values. Empty rows are not saved; removing @id falls back to the default.', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
 					<?php endif; // End Organization / Person controls. ?>
@@ -1296,6 +1348,7 @@ final class Coywolf_SEO_Admin {
 					<input type="number" min="1" step="1" class="small-text" id="coywolf-seo-llms-entity-min" name="coywolf_seo[llms_entity_min]" value="<?php echo esc_attr( (string) (int) $o['llms_entity_min'] ); ?>" />
 					<p class="description"><?php esc_html_e( 'An entity earns its own section only when it is the primary subject of at least this many published articles. Lower-coverage entities stay in the .md frontmatter only.', 'coywolf-seo' ); ?></p>
 					<fieldset style="margin-top:.5rem;">
+						<legend class="screen-reader-text"><?php esc_html_e( 'Entity topic index placement', 'coywolf-seo' ); ?></legend>
 						<label><input type="radio" name="coywolf_seo[llms_entity_placement]" value="optional" <?php checked( 'main' !== $o['llms_entity_placement'] ); ?> /> <?php esc_html_e( 'Place the topic index under "Optional" (agents can skip it)', 'coywolf-seo' ); ?></label><br />
 						<label><input type="radio" name="coywolf_seo[llms_entity_placement]" value="main" <?php checked( 'main' === $o['llms_entity_placement'] ); ?> /> <?php esc_html_e( 'Place the topic index in the main body', 'coywolf-seo' ); ?></label>
 					</fieldset>
@@ -1392,6 +1445,7 @@ final class Coywolf_SEO_Admin {
 						<th scope="row"><?php esc_html_e( 'Robots', 'coywolf-seo' ); ?></th>
 						<td>
 							<fieldset>
+								<legend class="screen-reader-text"><?php esc_html_e( 'Robots meta directives', 'coywolf-seo' ); ?></legend>
 								<label><input type="checkbox" name="coywolf_seo[robots_index]" value="1" <?php checked( $o['robots_index'] ); ?> /> <code>index</code></label><br />
 								<label><input type="checkbox" name="coywolf_seo[robots_follow]" value="1" <?php checked( $o['robots_follow'] ); ?> /> <code>follow</code></label><br />
 								<label><input type="checkbox" name="coywolf_seo[robots_max_image]" value="1" <?php checked( $o['robots_max_image'] ); ?> /> <code>max-image-preview:large</code></label><br />
@@ -1469,9 +1523,9 @@ final class Coywolf_SEO_Admin {
 							$coywolf_seo_wpconfig   = $coywolf_seo_provider->wpconfig_help();
 							?>
 						<tr class="coywolf-seo-ai-svc" data-service="<?php echo esc_attr( $coywolf_seo_sid ); ?>"<?php echo $coywolf_seo_row_hidden; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static markup. ?>>
-							<th scope="row"><?php /* translators: %s: AI service label. */ printf( esc_html__( '%s API key', 'coywolf-seo' ), esc_html( $coywolf_seo_provider->label() ) ); ?></th>
+							<th scope="row"><label for="coywolf-seo-ai-key-<?php echo esc_attr( $coywolf_seo_sid ); ?>"><?php /* translators: %s: AI service label. */ printf( esc_html__( '%s API key', 'coywolf-seo' ), esc_html( $coywolf_seo_provider->label() ) ); ?></label></th>
 							<td>
-								<input type="password" class="regular-text" name="coywolf_seo[<?php echo esc_attr( $coywolf_seo_key_option ); ?>]" value="" autocomplete="off" placeholder="<?php echo esc_attr( $coywolf_seo_key_status['saved'] ? __( 'Saved — enter a new key to replace it', 'coywolf-seo' ) : __( 'Enter your API key', 'coywolf-seo' ) ); ?>" />
+								<input type="password" id="coywolf-seo-ai-key-<?php echo esc_attr( $coywolf_seo_sid ); ?>" class="regular-text" name="coywolf_seo[<?php echo esc_attr( $coywolf_seo_key_option ); ?>]" value="" autocomplete="off" placeholder="<?php echo esc_attr( $coywolf_seo_key_status['saved'] ? __( 'Saved — enter a new key to replace it', 'coywolf-seo' ) : __( 'Enter your API key', 'coywolf-seo' ) ); ?>" />
 								<?php if ( $coywolf_seo_key_status['saved'] ) : ?>
 									<a class="button-link button-link-delete" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=coywolf_seo_remove_ai_key&service=' . rawurlencode( $coywolf_seo_sid ) ), 'coywolf_seo_remove_ai_key' ) ); ?>"><?php esc_html_e( 'Remove', 'coywolf-seo' ); ?></a>
 								<?php endif; ?>
@@ -1503,7 +1557,7 @@ final class Coywolf_SEO_Admin {
 							</td>
 						</tr>
 						<tr class="coywolf-seo-ai-svc" data-service="<?php echo esc_attr( $coywolf_seo_sid ); ?>"<?php echo $coywolf_seo_row_hidden; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static markup. ?>>
-							<th scope="row"><?php esc_html_e( 'Model', 'coywolf-seo' ); ?></th>
+							<th scope="row"><label for="coywolf-seo-ai-model-<?php echo esc_attr( $coywolf_seo_sid ); ?>"><?php esc_html_e( 'Model', 'coywolf-seo' ); ?></label></th>
 							<td>
 								<?php
 								if ( $coywolf_seo_is_active ) {
@@ -1517,7 +1571,7 @@ final class Coywolf_SEO_Admin {
 								$coywolf_seo_model_saved = (string) $o[ $coywolf_seo_provider->model_option() ];
 								$coywolf_seo_model_known = '' === $coywolf_seo_model_saved;
 								?>
-								<select name="coywolf_seo[<?php echo esc_attr( $coywolf_seo_provider->model_option() ); ?>]">
+								<select id="coywolf-seo-ai-model-<?php echo esc_attr( $coywolf_seo_sid ); ?>" class="coywolf-seo-ai-model" name="coywolf_seo[<?php echo esc_attr( $coywolf_seo_provider->model_option() ); ?>]">
 									<option value=""><?php /* translators: %s: default model id. */ printf( esc_html__( 'Default (%s)', 'coywolf-seo' ), esc_html( $coywolf_seo_provider->default_model() ) ); ?></option>
 									<?php foreach ( $coywolf_seo_models as $coywolf_seo_model ) : ?>
 										<?php $coywolf_seo_model_known = $coywolf_seo_model_known || $coywolf_seo_model['id'] === $coywolf_seo_model_saved; ?>
@@ -1686,6 +1740,7 @@ final class Coywolf_SEO_Admin {
 						<th scope="row"><?php esc_html_e( 'Native XML sitemap', 'coywolf-seo' ); ?></th>
 						<td>
 							<fieldset>
+								<legend class="screen-reader-text"><?php esc_html_e( 'Native XML sitemap exclusions', 'coywolf-seo' ); ?></legend>
 								<label><input type="checkbox" name="coywolf_seo[sitemap_exclude_posts]" value="1" <?php checked( $o['sitemap_exclude_posts'] ); ?> /> <?php esc_html_e( 'Exclude the Posts sitemap', 'coywolf-seo' ); ?></label><br />
 								<label><input type="checkbox" name="coywolf_seo[sitemap_exclude_pages]" value="1" <?php checked( $o['sitemap_exclude_pages'] ); ?> /> <?php esc_html_e( 'Exclude the Pages sitemap', 'coywolf-seo' ); ?></label><br />
 								<label><input type="checkbox" name="coywolf_seo[sitemap_exclude_categories]" value="1" <?php checked( $o['sitemap_exclude_categories'] ); ?> /> <?php esc_html_e( 'Exclude the Categories sitemap', 'coywolf-seo' ); ?></label><br />
@@ -1734,12 +1789,15 @@ final class Coywolf_SEO_Admin {
 								<option value="exclude" <?php selected( $o['news_cat_mode'], 'exclude' ); ?>><?php esc_html_e( 'All except these categories', 'coywolf-seo' ); ?></option>
 							</select>
 							<div id="coywolf-seo-news-cats" class="coywolf-seo-cat-list" <?php echo ( 'all' === $o['news_cat_mode'] ) ? 'style="display:none"' : ''; ?>>
-								<?php foreach ( get_categories( array( 'hide_empty' => false ) ) as $cat ) : ?>
-									<label>
-										<input type="checkbox" name="coywolf_seo[news_cats][]" value="<?php echo esc_attr( (string) $cat->term_id ); ?>" <?php checked( in_array( $cat->term_id, array_map( 'intval', (array) $o['news_cats'] ), true ) ); ?> />
-										<?php echo esc_html( $cat->name ); ?>
-									</label><br />
-								<?php endforeach; ?>
+								<fieldset>
+									<legend class="screen-reader-text"><?php esc_html_e( 'News sitemap categories', 'coywolf-seo' ); ?></legend>
+									<?php foreach ( get_categories( array( 'hide_empty' => false ) ) as $cat ) : ?>
+										<label>
+											<input type="checkbox" name="coywolf_seo[news_cats][]" value="<?php echo esc_attr( (string) $cat->term_id ); ?>" <?php checked( in_array( $cat->term_id, array_map( 'intval', (array) $o['news_cats'] ), true ) ); ?> />
+											<?php echo esc_html( $cat->name ); ?>
+										</label><br />
+									<?php endforeach; ?>
+								</fieldset>
 							</div>
 							<p class="description"><?php esc_html_e( 'Applies to posts; pages have no categories.', 'coywolf-seo' ); ?></p>
 						</td>
@@ -1886,9 +1944,8 @@ final class Coywolf_SEO_Admin {
 					</tr>
 					</tbody>
 			</table>
-			<?php endif; // End Enrich all content. ?>
-
 			</div>
+			<?php endif; // End Enrich all content. ?>
 
 			<div class="coywolf-seo-panel">
 			<h2 id="coywolf-seo-section-imageids"><?php esc_html_e( 'Fix missing image IDs', 'coywolf-seo' ); ?></h2>

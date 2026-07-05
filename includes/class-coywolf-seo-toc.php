@@ -283,9 +283,18 @@ class Coywolf_SEO_TOC {
 		// Existing ids anywhere in the document; generated slugs must not
 		// collide with them.
 		$taken = array();
-		if ( preg_match_all( '/\sid\s*=\s*("([^"]*)"|\'([^\']*)\')/i', $content, $id_matches ) ) {
+		if ( preg_match_all( '/\sid\s*=\s*("([^"]*)"|\'([^\']*)\'|([^\s>"\'=`]+))/i', $content, $id_matches ) ) {
 			foreach ( $id_matches[2] as $i => $double_quoted ) {
-				$taken[ '' !== $double_quoted ? $double_quoted : $id_matches[3][ $i ] ] = true;
+				if ( '' !== $double_quoted ) {
+					$existing_id = $double_quoted;
+				} elseif ( '' !== $id_matches[3][ $i ] ) {
+					$existing_id = $id_matches[3][ $i ];
+				} else {
+					$existing_id = $id_matches[4][ $i ];
+				}
+				if ( '' !== $existing_id ) {
+					$taken[ $existing_id ] = true;
+				}
 			}
 		}
 
@@ -313,8 +322,14 @@ class Coywolf_SEO_TOC {
 			}
 
 			$id = '';
-			if ( preg_match( '/\sid\s*=\s*("([^"]*)"|\'([^\']*)\')/i', $attrs, $id_match ) ) {
-				$id = '' !== $id_match[2] ? $id_match[2] : $id_match[3];
+			if ( preg_match( '/\sid\s*=\s*("([^"]*)"|\'([^\']*)\'|([^\s>"\'=`]+))/i', $attrs, $id_match ) ) {
+				if ( '' !== $id_match[2] ) {
+					$id = $id_match[2];
+				} elseif ( isset( $id_match[3] ) && '' !== $id_match[3] ) {
+					$id = $id_match[3];
+				} elseif ( isset( $id_match[4] ) ) {
+					$id = $id_match[4];
+				}
 			}
 
 			$new_attrs = $attrs;
@@ -438,7 +453,12 @@ class Coywolf_SEO_TOC {
 		if ( $attrs['collapsible'] ) {
 			$html .= '<details class="coywolf-seo-toc-details"' . ( $attrs['initiallyCollapsed'] ? '' : ' open' ) . '>';
 			$html .= '<summary class="coywolf-seo-toc-summary">';
-			$html .= $attrs['showTitle'] ? $title : '<span class="coywolf-seo-toc-title">' . esc_html( $attrs['title'] ) . '</span>';
+			// Never place a real heading element inside <summary>: the disclosure
+			// button flattens descendant heading semantics, hiding the TOC from
+			// heading navigation. Use a span carrying the title id so the nav's
+			// aria-labelledby still resolves.
+			$html .= '<span' . ( $attrs['showTitle'] ? ' id="' . esc_attr( $title_id ) . '"' : '' )
+				. ' class="coywolf-seo-toc-title">' . esc_html( $attrs['title'] ) . '</span>';
 			$html .= '</summary>';
 			$html .= $list;
 			$html .= '</details>';

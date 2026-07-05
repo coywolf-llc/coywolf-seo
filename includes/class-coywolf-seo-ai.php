@@ -297,9 +297,14 @@ final class Coywolf_SEO_AI {
 		if ( ! empty( $state['batch_id'] ) ) {
 			$this->batch()->cancel( (string) $state['batch_id'] );
 		}
-		// Tokens already billed stay in the lifetime telemetry.
+		// Tokens already billed stay in the lifetime telemetry — but only record
+		// them when cancelling a run that was actually cut short. A finished
+		// ('done') run already recorded its usage in the finalize stage, so
+		// re-recording here (e.g. a Cancel submitted from a stale paused tab
+		// after the run completed elsewhere) would double-count the aggregate.
+		$in_progress      = isset( $state['status'] ) && in_array( $state['status'], array( 'running', 'paused' ), true );
 		$cancel_successes = max( 0, (int) ( $state['done'] ?? 0 ) - (int) ( $state['failed'] ?? 0 ) );
-		if ( $cancel_successes > 0 && ( (int) ( $state['usage_in'] ?? 0 ) > 0 || (int) ( $state['usage_out'] ?? 0 ) > 0 ) ) {
+		if ( $in_progress && $cancel_successes > 0 && ( (int) ( $state['usage_in'] ?? 0 ) > 0 || (int) ( $state['usage_out'] ?? 0 ) > 0 ) ) {
 			Coywolf_SEO_AI_Batch::record_usage( (int) $state['usage_in'], (int) $state['usage_out'], $cancel_successes );
 		}
 		delete_metadata( 'post', 0, self::BULK_META, '', true );
@@ -702,6 +707,28 @@ final class Coywolf_SEO_AI {
 		}
 		if ( empty( $poll['ended'] ) ) {
 			return false; // Still processing at Anthropic.
+		}
+
+		// A batch that ended in a failed/expired/cancelled state carries no (or
+		// only partial) results. Collecting it would classify every post as "not
+		// part of this batch", then finalize would overwrite each post's stored
+		// entities/description with empty values. Pause instead: this preserves
+		// BULK_META and the stored analyses, and surfaces the reason in the UI.
+		// Revert to this stage's *_submit step and drop the dead batch id so
+		// Resume resubmits the batch rather than re-polling the failed one.
+		if ( ! empty( $poll['failed'] ) ) {
+			$state['stage']    = str_replace( '_wait', '_submit', (string) $state['stage'] );
+			$state['batch_id'] = '';
+			// The submit stage already drained stage_queue to an empty array on
+			// the way in; null it so the submit step reseeds the whole stage
+			// from the pipeline on Resume instead of seeing an empty queue and
+			// skipping straight to the next stage with no data collected.
+			$state['stage_queue'] = null;
+			$this->bulk_pause_with(
+				$state,
+				'' !== (string) $poll['error'] ? (string) $poll['error'] : __( 'The provider reported the batch as failed or expired.', 'coywolf-seo' )
+			);
+			return false;
 		}
 
 		$results = $batch->results( (string) $poll['results_url'] );

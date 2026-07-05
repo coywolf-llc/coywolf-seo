@@ -634,6 +634,18 @@ final class Coywolf_SEO_Image_Text {
 			return $this->get_batch();
 		}
 
+		// A batch the provider reports as failed/expired has ended but has no
+		// usable results — surface the real reason instead of a generic
+		// results-fetch error, so Resume/cancel is an informed choice.
+		if ( ! empty( $poll['failed'] ) ) {
+			$state['status']  = 'error';
+			$state['message'] = '' !== (string) ( $poll['error'] ?? '' )
+				? (string) $poll['error']
+				: __( 'The AI service reported the batch as failed or expired.', 'coywolf-seo' );
+			$this->bulk_persist( $state );
+			return $this->get_batch();
+		}
+
 		$results = $batch->results( (string) $poll['results_url'] );
 		if ( is_wp_error( $results ) ) {
 			$state['status']  = 'error';
@@ -742,7 +754,18 @@ final class Coywolf_SEO_Image_Text {
 		$attachment_id = (int) $attachment_id;
 		$context       = '';
 		if ( (int) $prefer_post_id > 0 ) {
-			$context = $this->build_image_context( (int) $prefer_post_id, $attachment_id );
+			// Only honor a caller-supplied post as context when the requester may
+			// read it — otherwise an attachment editor could pull title/heading/
+			// body text out of another user's draft, pending, private, or
+			// password-protected post (which embeds their image) and have it sent
+			// off-site to the AI provider. Published, non-password posts are fine.
+			$prefer = get_post( (int) $prefer_post_id );
+			if ( $prefer && (
+				( 'publish' === $prefer->post_status && '' === (string) $prefer->post_password )
+				|| current_user_can( 'read_post', $prefer->ID )
+			) ) {
+				$context = $this->build_image_context( (int) $prefer_post_id, $attachment_id );
+			}
 		}
 		if ( '' === $context ) {
 			$post_id = $this->primary_post_for_image( $attachment_id );
@@ -1348,7 +1371,7 @@ final class Coywolf_SEO_Image_Text {
 		wp_enqueue_script(
 			'coywolf-seo-it-editor',
 			COYWOLF_SEO_URL . 'js/image-text-editor.js',
-			array( 'wp-hooks', 'wp-compose', 'wp-element', 'wp-block-editor', 'wp-components', 'wp-data', 'wp-api-fetch', 'wp-i18n' ),
+			array( 'wp-hooks', 'wp-compose', 'wp-element', 'wp-block-editor', 'wp-components', 'wp-data', 'wp-api-fetch', 'wp-i18n', 'wp-a11y' ),
 			Coywolf_SEO::VERSION,
 			true
 		);
@@ -1506,7 +1529,7 @@ final class Coywolf_SEO_Image_Text {
 					</select>
 				</p>
 
-				<div class="notice notice-info inline coywolf-seo-it-estimate" id="coywolf-seo-it-ai-estimate"
+				<div class="notice notice-info inline coywolf-seo-it-estimate" id="coywolf-seo-it-ai-estimate" aria-live="polite"
 					data-count="<?php echo (int) $initial_count; ?>"
 					data-count-text="<?php echo esc_attr( number_format_i18n( $initial_count ) ); ?>"
 					data-count-all="<?php echo (int) $initial_count_all; ?>"
@@ -1533,10 +1556,10 @@ final class Coywolf_SEO_Image_Text {
 					<p class="description"><?php esc_html_e( 'This AI service processes image text in real time (the discounted Batch API is not available for it), so each file is analyzed immediately at the standard rate. The run continues in the background — you can leave this page and come back any time to check progress.', 'coywolf-seo' ); ?></p>
 				<?php endif; ?>
 
-				<div class="coywolf-seo-it-progress hidden" id="coywolf-seo-it-ai-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="coywolf-seo-it-progress-bar"></div><span class="coywolf-seo-it-progress-text" aria-live="polite"></span></div>
+				<div class="coywolf-seo-it-progress hidden" id="coywolf-seo-it-ai-progress"><div class="coywolf-seo-it-progress-track" role="progressbar" aria-label="<?php esc_attr_e( 'AI image analysis progress', 'coywolf-seo' ); ?>" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="height:100%;"><div class="coywolf-seo-it-progress-bar"></div></div><span class="coywolf-seo-it-progress-text" aria-live="polite"></span></div>
 				<p class="coywolf-seo-it-current hidden" id="coywolf-seo-it-ai-current" aria-live="polite"></p>
 				<p class="description coywolf-seo-it-bgnote hidden" id="coywolf-seo-it-ai-bgnote" aria-live="polite"></p>
-				<div class="notice notice-error inline hidden" id="coywolf-seo-it-ai-message"><p></p></div>
+				<div class="notice notice-error inline hidden" id="coywolf-seo-it-ai-message" role="alert"><p></p></div>
 				<details class="hidden" id="coywolf-seo-it-ai-errors">
 					<summary aria-live="polite"></summary>
 					<ul></ul>
@@ -1785,9 +1808,10 @@ final class Coywolf_SEO_Image_Text {
 					'restRoot' => esc_url_raw( rest_url( 'coywolf-seo/v1' ) ),
 					'nonce'    => wp_create_nonce( 'wp_rest' ),
 					'i18n'     => array(
-						'working' => __( 'Analyzing…', 'coywolf-seo' ),
-						'done'    => __( 'Done.', 'coywolf-seo' ),
-						'saved'   => __( 'Image text saved.', 'coywolf-seo' ),
+						'working'     => __( 'Analyzing…', 'coywolf-seo' ),
+						'done'        => __( 'Done.', 'coywolf-seo' ),
+						'saved'       => __( 'Image text saved.', 'coywolf-seo' ),
+						'savedReload' => __( 'Image text saved — reloading…', 'coywolf-seo' ),
 					),
 				)
 			) . ';',

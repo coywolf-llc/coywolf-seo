@@ -57,6 +57,13 @@ final class Coywolf_SEO_ARD extends Coywolf_SEO_Labs_Feature {
 	const CONFIG_OPTION = 'coywolf_seo_ard_config';
 
 	/**
+	 * Prefix for the short-lived per-user transient that preserves the raw
+	 * custom-entries JSON draft across an invalid-JSON redirect (the current user
+	 * id is appended).
+	 */
+	const ENTRIES_DRAFT_TRANSIENT = 'coywolf_seo_ard_entries_draft_';
+
+	/**
 	 * Construct with the generator and the advertiser.
 	 */
 	public function __construct() {
@@ -128,6 +135,16 @@ final class Coywolf_SEO_ARD extends Coywolf_SEO_Labs_Feature {
 	 */
 	public function add_rewrite_rules() {
 		add_rewrite_rule( '^\.well-known/ai-catalog\.json$', 'index.php?' . self::QUERY_VAR . '=catalog', 'top' );
+	}
+
+	/**
+	 * The regex patterns add_rewrite_rules() registers, so a disable transition
+	 * can drop them from the in-memory rule set before flushing.
+	 *
+	 * @return string[]
+	 */
+	protected function rewrite_patterns() {
+		return array( '^\.well-known/ai-catalog\.json$' );
 	}
 
 	/**
@@ -215,7 +232,11 @@ final class Coywolf_SEO_ARD extends Coywolf_SEO_Labs_Feature {
 		if ( '' !== $entries_json ) {
 			$decoded = json_decode( $entries_json, true );
 			if ( ! is_array( $decoded ) ) {
-				$this->redirect( 'ard-config-error' );
+				// Preserve the user's typed draft so they can fix it rather than
+				// retype the whole array (render_panel reloads it below), and land
+				// them at the field.
+				set_transient( self::ENTRIES_DRAFT_TRANSIENT . get_current_user_id(), $entries_json, 5 * MINUTE_IN_SECONDS );
+				$this->redirect_to_entries( 'ard-config-error' );
 			}
 			foreach ( $decoded as $e ) {
 				$clean = $this->sanitize_entry( is_array( $e ) ? $e : array() );
@@ -245,6 +266,27 @@ final class Coywolf_SEO_ARD extends Coywolf_SEO_Labs_Feature {
 		}
 
 		$this->redirect( 'ard-config-saved' );
+	}
+
+	/**
+	 * Redirect back to the Labs page with a status message key AND a fragment that
+	 * lands the browser on the custom-entries field, so a keyboard/screen-reader
+	 * user is taken straight to the input to fix rather than hunting a notice at
+	 * the top of the multi-panel page.
+	 *
+	 * @param string $msg Message key read by the Labs page notice.
+	 * @return void
+	 */
+	private function redirect_to_entries( $msg ) {
+		$url = add_query_arg(
+			array(
+				'page'                 => Coywolf_SEO_Labs::SLUG,
+				'coywolf-seo-labs-msg' => $msg,
+			),
+			admin_url( 'admin.php' )
+		);
+		wp_safe_redirect( $url . '#coywolf-seo-ard-entries' );
+		exit;
 	}
 
 	/**
@@ -347,6 +389,18 @@ final class Coywolf_SEO_ARD extends Coywolf_SEO_Labs_Feature {
 		$entries_json = ! empty( $config['entries'] )
 			? (string) wp_json_encode( $config['entries'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE )
 			: '';
+
+		// If the last save rejected invalid custom-entries JSON, refill the field
+		// with the user's draft (not the stored config) so their edit is not lost,
+		// and flag the field as invalid for assistive tech.
+		$entries_error = false;
+		$draft_key     = self::ENTRIES_DRAFT_TRANSIENT . get_current_user_id();
+		$draft         = get_transient( $draft_key );
+		if ( false !== $draft ) {
+			delete_transient( $draft_key );
+			$entries_json  = (string) $draft;
+			$entries_error = true;
+		}
 		?>
 		<div class="coywolf-seo-labs-feature coywolf-seo-panel">
 			<h2><?php echo esc_html( $this->title() ); ?></h2>
@@ -444,7 +498,12 @@ final class Coywolf_SEO_ARD extends Coywolf_SEO_Labs_Feature {
 						<tr>
 							<th scope="row"><label for="coywolf-seo-ard-entries"><?php esc_html_e( 'Custom entries (JSON)', 'coywolf-seo' ); ?></label></th>
 							<td>
-								<textarea id="coywolf-seo-ard-entries" name="entries_json" rows="8" class="large-text code" placeholder='[{"displayName":"My Agent","type":"application/a2a-agent-card+json","url":"https://example.com/agent.json","description":"…","representativeQueries":["…"]}]'><?php echo esc_textarea( $entries_json ); ?></textarea>
+								<textarea id="coywolf-seo-ard-entries" name="entries_json" rows="8" class="large-text code" placeholder='[{"displayName":"My Agent","type":"application/a2a-agent-card+json","url":"https://example.com/agent.json","description":"…","representativeQueries":["…"]}]'<?php echo $entries_error ? ' aria-invalid="true" aria-describedby="coywolf-seo-ard-entries-error"' : ''; ?>><?php echo esc_textarea( $entries_json ); ?></textarea>
+								<?php if ( $entries_error ) : ?>
+									<p id="coywolf-seo-ard-entries-error" class="description" role="alert" style="color:#b32d2e;">
+										<?php esc_html_e( 'That was not a valid JSON array, so nothing was saved. Your input is kept below — fix the JSON (a trailing comma or a smart quote is a common cause) and save again.', 'coywolf-seo' ); ?>
+									</p>
+								<?php endif; ?>
 								<p class="description"><?php esc_html_e( 'Optional. A JSON array of additional catalog entries. Each needs at least displayName, type (an IANA media type), and url; description and representativeQueries are optional. Invalid JSON is rejected without saving.', 'coywolf-seo' ); ?></p>
 							</td>
 						</tr>

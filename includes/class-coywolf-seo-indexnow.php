@@ -67,7 +67,11 @@ final class Coywolf_SEO_IndexNow {
 	 * @return bool
 	 */
 	private function enabled() {
-		return (bool) Coywolf_SEO_Options::get( 'indexnow_enabled' ) && '' !== $this->key();
+		return (bool) Coywolf_SEO_Options::get( 'indexnow_enabled' )
+			&& '' !== $this->key()
+			// Respect Settings → Reading → "Discourage search engines": a hidden
+			// site must not submit URLs to a search engine's IndexNow endpoint.
+			&& (bool) get_option( 'blog_public', 1 );
 	}
 
 	/**

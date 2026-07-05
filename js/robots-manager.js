@@ -12,6 +12,30 @@
 	var types = cfg.types || {};
 	var i18n = cfg.i18n || {};
 
+	// Politely announce a message to screen readers via wp.a11y.speak when
+	// available (the script depends on wp-a11y); a no-op otherwise.
+	function announce( msg, mode ) {
+		if ( window.wp && window.wp.a11y && typeof window.wp.a11y.speak === 'function' && msg ) {
+			window.wp.a11y.speak( msg, mode || 'polite' );
+		}
+	}
+
+	// Remove a list row while keeping keyboard focus in a sensible place: move
+	// to the next (or previous) row's remove control, or fall back to the adder
+	// input, so focus never drops to <body>. Announces the removal politely.
+	function removeRow( li, removeSelector, fallbackInput, announced ) {
+		var list = li.parentNode;
+		var next = li.nextElementSibling || li.previousElementSibling;
+		list.removeChild( li );
+		var target = next ? next.querySelector( removeSelector ) : fallbackInput;
+		if ( target ) {
+			target.focus();
+		}
+		if ( announced ) {
+			announce( ( i18n.removedItem || 'Removed %s' ).replace( '%s', announced ) );
+		}
+	}
+
 	// Feather-style icons (same set the Coywolf Code Block Enhancer uses), so the
 	// Robots.txt copy button matches that plugin's copy button.
 	var copyIcon =
@@ -244,9 +268,11 @@
 					lbl.appendChild( document.createTextNode( ' ' + f.label ) );
 					wrap.appendChild( lbl );
 				} else if ( f.type === 'select' ) {
-					wrap.appendChild( labelEl( f.label ) );
+					var selId = 'coywolf-seo-robots-field-' + f.key;
+					wrap.appendChild( labelEl( f.label, selId ) );
 					var sel = document.createElement( 'select' );
 					sel.name = f.key;
+					sel.id = selId;
 					Object.keys( f.options || {} ).forEach( function ( ov ) {
 						var opt = document.createElement( 'option' );
 						opt.value = ov;
@@ -258,10 +284,12 @@
 					} );
 					wrap.appendChild( sel );
 				} else {
-					wrap.appendChild( labelEl( f.label ) );
+					var inputId = 'coywolf-seo-robots-field-' + f.key;
+					wrap.appendChild( labelEl( f.label, inputId ) );
 					var input = document.createElement( 'input' );
 					input.type = 'text';
 					input.name = f.key;
+					input.id = inputId;
 					input.className = 'regular-text code';
 					input.value = val;
 					if ( f.placeholder ) {
@@ -273,10 +301,13 @@
 			} );
 		}
 
-		function labelEl( text ) {
+		function labelEl( text, forId ) {
 			var l = document.createElement( 'label' );
 			l.className = 'coywolf-seo-robots-field-label';
 			l.textContent = text;
+			if ( forId ) {
+				l.htmlFor = forId;
+			}
 			return l;
 		}
 
@@ -368,8 +399,9 @@
 			rm.type = 'button';
 			rm.className = 'button-link coywolf-seo-robots-custom-remove';
 			rm.textContent = i18n.remove || 'Remove';
+			rm.setAttribute( 'aria-label', ( i18n.removeItem || 'Remove %s' ).replace( '%s', token ) );
 			rm.addEventListener( 'click', function () {
-				li.parentNode.removeChild( li );
+				removeRow( li, '.coywolf-seo-robots-custom-remove', input, token );
 			} );
 			li.appendChild( code );
 			li.appendChild( document.createTextNode( ' ' ) );
@@ -397,7 +429,9 @@
 			btn.addEventListener( 'click', function () {
 				var li = btn.closest( 'li' );
 				if ( li ) {
-					li.parentNode.removeChild( li );
+					var code = li.querySelector( 'code' );
+					var token = code ? code.textContent : '';
+					removeRow( li, '.coywolf-seo-robots-custom-remove', input, token );
 				}
 			} );
 		} );
@@ -434,8 +468,9 @@
 			rm.type = 'button';
 			rm.className = 'button-link coywolf-seo-robots-sitemap-remove';
 			rm.textContent = i18n.remove || 'Remove';
+			rm.setAttribute( 'aria-label', ( i18n.removeItem || 'Remove %s' ).replace( '%s', url ) );
 			rm.addEventListener( 'click', function () {
-				li.parentNode.removeChild( li );
+				removeRow( li, '.coywolf-seo-robots-sitemap-remove', input, url );
 			} );
 			li.appendChild( code );
 			li.appendChild( document.createTextNode( ' ' ) );
@@ -461,7 +496,9 @@
 			btn.addEventListener( 'click', function () {
 				var li = btn.closest( 'li' );
 				if ( li ) {
-					li.parentNode.removeChild( li );
+					var code = li.querySelector( 'code' );
+					var url = code ? code.textContent : '';
+					removeRow( li, '.coywolf-seo-robots-sitemap-remove', input, url );
 				}
 			} );
 		} );
@@ -531,6 +568,7 @@
 			out.style.display = '';
 			out.className = 'coywolf-seo-robots-test-result coywolf-seo-robots-test-pending';
 			out.textContent = i18n.testing || 'Testing…';
+			announce( i18n.testing || 'Testing…' );
 
 			var body = new URLSearchParams();
 			body.append( 'action', 'coywolf_seo_robots_test' );
@@ -587,6 +625,7 @@
 				out.appendChild( document.createElement( 'br' ) );
 				out.appendChild( small );
 			}
+			announce( detail ? msg + ' ' + detail : msg );
 		}
 	}
 
@@ -614,6 +653,7 @@
 				out.appendChild( document.createElement( 'br' ) );
 				out.appendChild( small );
 			}
+			announce( detail ? msg + ' ' + detail : msg );
 		}
 
 		btn.addEventListener( 'click', function () {
@@ -625,6 +665,7 @@
 			out.style.display = '';
 			out.className = 'coywolf-seo-robots-test-result coywolf-seo-robots-test-pending';
 			out.textContent = i18n.testing || 'Testing…';
+			announce( i18n.testing || 'Testing…' );
 
 			var body = new URLSearchParams();
 			body.append( 'action', 'coywolf_seo_robots_test_file' );

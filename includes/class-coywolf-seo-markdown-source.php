@@ -177,11 +177,20 @@ final class Coywolf_SEO_Markdown_Source {
 		$data = $this->markdown_for( $post );
 
 		header( 'Content-Type: text/markdown; charset=utf-8' );
-		header( 'Cache-Control: public, max-age=3600' );
 		header( 'X-Markdown-Tokens: ' . (int) $data['tokens'] );
 		if ( $negotiated ) {
+			// Accept-negotiated response on the post's CANONICAL HTML URL: never
+			// let a shared/URL-keyed cache store this Markdown variant under the
+			// canonical URL (many CDNs and page caches ignore `Vary: Accept`),
+			// which would serve raw Markdown to every visitor. Keep Vary as
+			// defense-in-depth for standards-compliant caches.
+			header( 'Cache-Control: private, no-store' );
 			header( 'Content-Location: ' . esc_url_raw( $this->md_url( $post ) ) );
 			header( 'Vary: Accept' );
+		} else {
+			// The dedicated `index.html.md` route lives on its own URL, so a
+			// public cache entry there is safe.
+			header( 'Cache-Control: public, max-age=3600' );
 		}
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markdown body served as text/markdown, not HTML.
 		echo $data['md'];

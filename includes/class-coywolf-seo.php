@@ -594,6 +594,12 @@ final class Coywolf_SEO {
 		wp_unschedule_hook( Coywolf_SEO_AI::CRON_HOOK );
 		wp_unschedule_hook( Coywolf_SEO_AI::BULK_HOOK );
 		wp_unschedule_hook( Coywolf_SEO_Image_Text::BULK_HOOK );
+		// Labs background rebuilds. Referenced by literal name (the Labs classes
+		// are absent on the WordPress.org build, so we must not reference their
+		// constants here); no-ops when nothing is scheduled.
+		wp_unschedule_hook( 'coywolf_seo_okf_rebuild' );
+		wp_unschedule_hook( 'coywolf_seo_ard_rebuild' );
+		wp_unschedule_hook( 'coywolf_seo_entitymap_rebuild' );
 		// Unwrap the managed robots.txt block so the file survives as a plain,
 		// unmanaged robots.txt (physical mode); virtual mode just stops serving.
 		Coywolf_SEO_Robots::on_deactivate();

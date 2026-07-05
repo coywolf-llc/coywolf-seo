@@ -83,16 +83,15 @@ final class Coywolf_SEO_Head {
 	public function canonical_url() {
 		if ( is_front_page() ) {
 			$paged = (int) get_query_var( 'paged' );
-			return ( $paged > 1 ) ? get_pagenum_link( $paged ) : home_url( '/' );
+			$home  = home_url( '/' );
+			return ( $paged > 1 ) ? $this->paged_link( $home, $paged ) : $home;
 		}
 		if ( is_home() ) {
 			// The blog posts index (when a static front page is set).
-			$paged = (int) get_query_var( 'paged' );
-			if ( $paged > 1 ) {
-				return get_pagenum_link( $paged );
-			}
+			$paged      = (int) get_query_var( 'paged' );
 			$posts_page = (int) get_option( 'page_for_posts' );
-			return $posts_page ? (string) get_permalink( $posts_page ) : home_url( '/' );
+			$base       = $posts_page ? (string) get_permalink( $posts_page ) : home_url( '/' );
+			return ( $paged > 1 ) ? $this->paged_link( $base, $paged ) : $base;
 		}
 		if ( is_singular() ) {
 			$meta = Coywolf_SEO_Options::post_meta( get_queried_object_id() );
@@ -109,14 +108,26 @@ final class Coywolf_SEO_Head {
 			}
 			$paged = (int) get_query_var( 'paged' );
 			if ( $paged > 1 ) {
-				global $wp_rewrite;
-				$link = $wp_rewrite->using_permalinks()
-					? trailingslashit( $link ) . user_trailingslashit( $wp_rewrite->pagination_base . '/' . $paged, 'paged' )
-					: add_query_arg( 'paged', $paged, $link );
+				$link = $this->paged_link( $link, $paged );
 			}
 			return $link;
 		}
 		return '';
+	}
+
+	/**
+	 * Compose a paged URL from a clean base link, without inheriting the
+	 * current request's foreign query string (as get_pagenum_link() would).
+	 *
+	 * @param string $link  Base archive URL.
+	 * @param int    $paged Page number (> 1).
+	 * @return string
+	 */
+	private function paged_link( $link, $paged ) {
+		global $wp_rewrite;
+		return $wp_rewrite->using_permalinks()
+			? trailingslashit( $link ) . user_trailingslashit( $wp_rewrite->pagination_base . '/' . $paged, 'paged' )
+			: add_query_arg( 'paged', $paged, $link );
 	}
 
 	/**
