@@ -200,6 +200,15 @@ final class Coywolf_SEO_Robots_Matcher {
 		if ( '' === $broad || '' === $specific ) {
 			return false;
 		}
+		// Normalize both sides so equivalent percent-encodings compare equal
+		// (raw UTF-8 vs %xx, lower- vs upper-case hex) before the fast-path
+		// prefix check. escape_pattern() only rewrites %xx hex case and
+		// percent-encodes high-bit bytes — it never introduces '*' or '$', so
+		// the wildcard detection below stays valid, and it is idempotent, so
+		// the matches() calls in the wildcard branch (which escape again) are
+		// unaffected.
+		$broad    = self::escape_pattern( $broad );
+		$specific = self::escape_pattern( $specific );
 		// Fast path: a literal, non-anchored prefix covers by prefix match.
 		if ( false === strpos( $broad, '*' ) && false === strpos( $broad, '$' ) ) {
 			return 0 === strpos( $specific, $broad );

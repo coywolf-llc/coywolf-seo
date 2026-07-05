@@ -80,6 +80,12 @@ final class Coywolf_SEO_Redirects_Admin {
 			<h2><?php esc_html_e( 'A URL changed — create a redirect?', 'coywolf-seo' ); ?></h2>
 			<p class="description"><?php esc_html_e( 'The old address would now 404. Add a 301 redirect so existing links and search rankings carry over to the new URL.', 'coywolf-seo' ); ?></p>
 			<table class="coywolf-seo-decision-table">
+				<thead class="screen-reader-text">
+					<tr>
+						<th scope="col"><?php esc_html_e( 'Page', 'coywolf-seo' ); ?></th>
+						<th scope="col"><?php esc_html_e( 'Actions', 'coywolf-seo' ); ?></th>
+					</tr>
+				</thead>
 				<tbody>
 					<?php foreach ( $rows as $row ) : ?>
 						<tr>
@@ -87,6 +93,7 @@ final class Coywolf_SEO_Redirects_Admin {
 								<strong><?php echo esc_html( $row->post_title ); ?></strong>
 								<code><?php echo esc_html( $row->old_path ); ?></code>
 								<span class="coywolf-seo-arrow" aria-hidden="true">&rarr;</span>
+								<span class="screen-reader-text"><?php esc_html_e( 'moved to', 'coywolf-seo' ); ?></span>
 								<code><?php echo esc_html( $row->new_path ); ?></code>
 							</td>
 							<td class="coywolf-seo-cell-actions">
@@ -169,6 +176,12 @@ final class Coywolf_SEO_Redirects_Admin {
 		<div class="notice coywolf-seo-pending coywolf-seo-deletion-notice">
 			<h2><?php esc_html_e( 'What should happen to the deleted URL?', 'coywolf-seo' ); ?></h2>
 			<table class="coywolf-seo-decision-table">
+				<thead class="screen-reader-text">
+					<tr>
+						<th scope="col"><?php esc_html_e( 'Page', 'coywolf-seo' ); ?></th>
+						<th scope="col"><?php esc_html_e( 'Actions', 'coywolf-seo' ); ?></th>
+					</tr>
+				</thead>
 				<tbody>
 					<?php foreach ( $rows as $row ) : ?>
 						<tr>
@@ -217,7 +230,7 @@ final class Coywolf_SEO_Redirects_Admin {
 			<?php if ( '' !== $return_to ) : ?>
 				<input type="hidden" name="return_to" value="<?php echo esc_attr( $return_to ); ?>" />
 			<?php endif; ?>
-			<input type="url" name="redirect[target]" class="regular-text" placeholder="<?php esc_attr_e( 'Redirect to…', 'coywolf-seo' ); ?>" required />
+			<input type="url" name="redirect[target]" class="regular-text" placeholder="<?php esc_attr_e( 'Redirect to…', 'coywolf-seo' ); ?>" aria-label="<?php echo esc_attr( sprintf( /* translators: %s: deleted URL path */ __( 'Redirect %s to URL', 'coywolf-seo' ), $row->path ) ); ?>" required />
 			<button type="submit" class="button button-primary"><?php esc_html_e( 'Redirect', 'coywolf-seo' ); ?></button>
 		</form>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form">
@@ -246,7 +259,10 @@ final class Coywolf_SEO_Redirects_Admin {
 		$result = $this->redirects->save_rule( $raw, $id );
 
 		if ( is_wp_error( $result ) ) {
-			$this->back( array( 'redirect-error' => rawurlencode( $result->get_error_message() ) ) );
+			// Errors are only rendered on the Redirects page, so don't honor
+			// return_to here — otherwise the message lands on a screen (e.g.
+			// edit.php) that shows nothing and the failure is silent.
+			$this->back( array( 'redirect-error' => rawurlencode( $result->get_error_message() ) ), false );
 		}
 
 		// A decided deleted-content row is resolved by the new rule.
@@ -359,14 +375,17 @@ final class Coywolf_SEO_Redirects_Admin {
 	/**
 	 * Back to the Redirects page with state.
 	 *
-	 * @param array $args Query args.
+	 * @param array $args            Query args.
+	 * @param bool  $honor_return_to Whether to honor a posted return_to URL.
+	 *                               Pass false for errors, which are only
+	 *                               rendered on the Redirects page.
 	 */
-	private function back( array $args ) {
+	private function back( array $args, $honor_return_to = true ) {
 		$destination = admin_url( 'admin.php?page=' . Coywolf_SEO_Redirects::SLUG );
 		// Actions taken from the post-deletion notice return to the list
 		// screen they came from (admin URLs only).
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified in guard() before any handler calls back().
-		if ( isset( $_POST['return_to'] ) ) {
+		if ( $honor_return_to && isset( $_POST['return_to'] ) ) {
 			// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- validated against admin_url below.
 			$requested = wp_validate_redirect( esc_url_raw( wp_unslash( $_POST['return_to'] ) ), '' );
 			if ( '' !== $requested ) {
@@ -480,7 +499,7 @@ final class Coywolf_SEO_Redirects_Admin {
 			<h1><?php esc_html_e( 'Redirects', 'coywolf-seo' ); ?></h1>
 
 			<?php if ( '' !== $error_flag ) : ?>
-				<div class="notice notice-error is-dismissible"><p><?php echo esc_html( $error_flag ); ?></p></div>
+				<div class="notice notice-error is-dismissible" role="alert"><p><?php echo esc_html( $error_flag ); ?></p></div>
 			<?php elseif ( $imported >= 0 ) : ?>
 				<div class="notice notice-success is-dismissible">
 					<p>
@@ -518,6 +537,12 @@ final class Coywolf_SEO_Redirects_Admin {
 					</h2>
 					<p class="description"><?php esc_html_e( 'These published posts and pages were deleted. Tell search engines the content is gone (410), or send visitors somewhere useful.', 'coywolf-seo' ); ?></p>
 					<table class="widefat striped">
+						<thead class="screen-reader-text">
+							<tr>
+								<th scope="col"><?php esc_html_e( 'Page', 'coywolf-seo' ); ?></th>
+								<th scope="col"><?php esc_html_e( 'Actions', 'coywolf-seo' ); ?></th>
+							</tr>
+						</thead>
 						<tbody>
 							<?php foreach ( $pending as $row ) : ?>
 								<tr>
@@ -549,6 +574,12 @@ final class Coywolf_SEO_Redirects_Admin {
 					</h2>
 					<p class="description"><?php esc_html_e( 'These published posts and pages changed URL. Create a 301 redirect so the old address still reaches the new one.', 'coywolf-seo' ); ?></p>
 					<table class="widefat striped">
+						<thead class="screen-reader-text">
+							<tr>
+								<th scope="col"><?php esc_html_e( 'Page', 'coywolf-seo' ); ?></th>
+								<th scope="col"><?php esc_html_e( 'Actions', 'coywolf-seo' ); ?></th>
+							</tr>
+						</thead>
 						<tbody>
 							<?php foreach ( $pending_moves as $row ) : ?>
 								<tr>
@@ -556,6 +587,7 @@ final class Coywolf_SEO_Redirects_Admin {
 										<strong><?php echo esc_html( $row->post_title ); ?></strong><br />
 										<code><?php echo esc_html( $row->old_path ); ?></code>
 										<span class="coywolf-seo-arrow" aria-hidden="true">&rarr;</span>
+										<span class="screen-reader-text"><?php esc_html_e( 'moved to', 'coywolf-seo' ); ?></span>
 										<code><?php echo esc_html( $row->new_path ); ?></code>
 										<span class="description"><?php echo esc_html( gmdate( 'M j, Y', strtotime( $row->moved ) ) ); ?></span>
 									</td>
@@ -575,9 +607,9 @@ final class Coywolf_SEO_Redirects_Admin {
 					<input type="hidden" name="action" value="coywolf_seo_redirect_save" />
 					<?php wp_nonce_field( 'coywolf_seo_redirect_save' ); ?>
 					<div class="coywolf-seo-quick-row">
-						<input type="text" name="redirect[source]" id="coywolf-seo-qa-source" class="regular-text" placeholder="<?php esc_attr_e( '/old-path/', 'coywolf-seo' ); ?>" value="<?php echo esc_attr( $prefill ); ?>" required />
+						<input type="text" name="redirect[source]" id="coywolf-seo-qa-source" class="regular-text" placeholder="<?php esc_attr_e( '/old-path/', 'coywolf-seo' ); ?>" value="<?php echo esc_attr( $prefill ); ?>" aria-label="<?php esc_attr_e( 'Source path', 'coywolf-seo' ); ?>" required />
 						<span class="coywolf-seo-arrow" aria-hidden="true">&rarr;</span>
-						<input type="text" name="redirect[target]" id="coywolf-seo-qa-target" class="regular-text" placeholder="<?php esc_attr_e( '/new-path/ or https://…', 'coywolf-seo' ); ?>" />
+						<input type="text" name="redirect[target]" id="coywolf-seo-qa-target" class="regular-text" placeholder="<?php esc_attr_e( '/new-path/ or https://…', 'coywolf-seo' ); ?>" aria-label="<?php esc_attr_e( 'Target path or URL', 'coywolf-seo' ); ?>" />
 						<select name="redirect[type]" aria-label="<?php esc_attr_e( 'Redirect type', 'coywolf-seo' ); ?>">
 							<?php foreach ( $types as $code => $label ) : ?>
 								<option value="<?php echo esc_attr( (string) $code ); ?>"><?php echo esc_html( $label ); ?></option>
@@ -713,14 +745,14 @@ final class Coywolf_SEO_Redirects_Admin {
 					<?php endif; ?>
 					<?php foreach ( $rules as $rule ) : ?>
 						<tr class="<?php echo $rule->enabled ? '' : 'coywolf-seo-disabled'; ?>" id="coywolf-seo-rule-<?php echo esc_attr( (string) $rule->id ); ?>">
-							<td><input type="checkbox" class="coywolf-seo-cb" name="rule_ids[]" value="<?php echo esc_attr( (string) $rule->id ); ?>" form="coywolf-seo-bulk" aria-label="<?php esc_attr_e( 'Select rule', 'coywolf-seo' ); ?>" /></td>
+							<td><input type="checkbox" class="coywolf-seo-cb" name="rule_ids[]" value="<?php echo esc_attr( (string) $rule->id ); ?>" form="coywolf-seo-bulk" aria-label="<?php echo esc_attr( sprintf( /* translators: %s: redirect source path */ __( 'Select rule %s', 'coywolf-seo' ), $rule->source ) ); ?>" /></td>
 							<td>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form">
 									<input type="hidden" name="action" value="coywolf_seo_redirect_row" />
 									<?php wp_nonce_field( 'coywolf_seo_redirect_row' ); ?>
 									<input type="hidden" name="row_action" value="<?php echo $rule->enabled ? 'disable' : 'enable'; ?>" />
 									<input type="hidden" name="row_id" value="<?php echo esc_attr( (string) $rule->id ); ?>" />
-									<button type="submit" class="button-link coywolf-seo-toggle coywolf-seo-toggle-<?php echo $rule->enabled ? 'on' : 'off'; ?>" title="<?php echo esc_attr( $rule->enabled ? __( 'Disable', 'coywolf-seo' ) : __( 'Enable', 'coywolf-seo' ) ); ?>"><?php echo $rule->enabled ? '&#9679;' : '&#9675;'; ?></button>
+									<button type="submit" class="button-link coywolf-seo-toggle coywolf-seo-toggle-<?php echo $rule->enabled ? 'on' : 'off'; ?>" aria-pressed="<?php echo $rule->enabled ? 'true' : 'false'; ?>" aria-label="<?php echo esc_attr( sprintf( $rule->enabled ? /* translators: %s: redirect source path */ __( 'Disable rule %s', 'coywolf-seo' ) : /* translators: %s: redirect source path */ __( 'Enable rule %s', 'coywolf-seo' ), $rule->source ) ); ?>" title="<?php echo esc_attr( $rule->enabled ? __( 'Disable', 'coywolf-seo' ) : __( 'Enable', 'coywolf-seo' ) ); ?>"><span aria-hidden="true"><?php echo $rule->enabled ? '&#9679;' : '&#9675;'; ?></span></button>
 								</form>
 							</td>
 							<td>

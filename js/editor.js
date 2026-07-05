@@ -72,7 +72,7 @@
 			data.append( 'action', 'coywolf_seo_reanalyze' );
 			data.append( '_ajax_nonce', config.reanalyzeNonce );
 			data.append( 'post_id', config.postId );
-			setEntityStatus( '…' );
+			setEntityStatus( config.i18n.analyzing || 'Analyzing…' );
 			window
 				.fetch( config.ajaxUrl, { method: 'POST', credentials: 'same-origin', body: data } )
 				.then( function ( r ) {
@@ -82,7 +82,7 @@
 					setEntityStatus( ( json.data && json.data.message ) || '' );
 				} )
 				.catch( function () {
-					setEntityStatus( 'Request failed.' );
+					setEntityStatus( config.i18n.requestFailed || 'Request failed.' );
 				} );
 		}
 

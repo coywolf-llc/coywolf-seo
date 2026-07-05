@@ -303,6 +303,8 @@ final class Coywolf_SEO_Metabox {
 					'nofollow'    => __( 'Nofollow', 'coywolf-seo' ),
 					'canonical'   => __( 'Canonical link', 'coywolf-seo' ),
 					'reanalyze'   => __( 'Re-analyze entities', 'coywolf-seo' ),
+					'analyzing'   => __( 'Analyzing…', 'coywolf-seo' ),
+					'requestFailed' => __( 'Request failed.', 'coywolf-seo' ),
 				),
 			)
 		);
@@ -413,6 +415,8 @@ final class Coywolf_SEO_Metabox {
 				<th scope="row"><label for="coywolf-seo-canonical"><?php esc_html_e( 'Canonical link', 'coywolf-seo' ); ?></label></th>
 				<td>
 					<input type="url" class="large-text" id="coywolf-seo-canonical" name="coywolf_seo_meta[canonical]" value="<?php echo esc_attr( '' !== $meta['canonical'] ? $meta['canonical'] : get_permalink( $post ) ); ?>" />
+					<?php // The permalink the field was rendered with, so save() can tell "untouched" from "edited" even when the permalink changes in the same update (e.g. a draft published, or the slug edited) — otherwise the stale draft URL (?p=ID) gets stored as a canonical override. ?>
+					<input type="hidden" name="coywolf_seo_meta[canonical_default]" value="<?php echo esc_attr( get_permalink( $post ) ); ?>" />
 					<p class="description"><?php esc_html_e( 'The URL in use — change it to set a different canonical for this content.', 'coywolf-seo' ); ?></p>
 				</td>
 			</tr>
@@ -430,14 +434,26 @@ final class Coywolf_SEO_Metabox {
 		if ( ! isset( $_POST['coywolf_seo_meta_nonce'] ) ) {
 			return;
 		}
-		check_admin_referer( 'coywolf_seo_meta_' . $post_id, 'coywolf_seo_meta_nonce' );
 
+		// save_post fires for nested/foreign inserts within the same request
+		// (e.g. the revision saved after a classic-editor Update, or another
+		// plugin saving a different post). Bail on those quietly BEFORE the
+		// nonce check so a per-parent nonce can't wp_die() the whole request.
 		if ( ! in_array( $post->post_type, $this->post_types, true ) ) {
 			return;
 		}
 		if ( wp_is_post_autosave( $post_id ) || wp_is_post_revision( $post_id ) ) {
 			return;
 		}
+
+		// Non-fatal nonce verification: an invalid/foreign nonce means this
+		// save_post invocation isn't the one that POSTed our field, so ignore
+		// it rather than killing the request. Security is unchanged — the meta
+		// write below still requires a valid per-post nonce plus edit_post.
+		if ( ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['coywolf_seo_meta_nonce'] ) ), 'coywolf_seo_meta_' . $post_id ) ) {
+			return;
+		}
+
 		if ( ! current_user_can( 'edit_post', $post_id ) ) {
 			return;
 		}
@@ -493,8 +509,14 @@ final class Coywolf_SEO_Metabox {
 
 		$canonical = isset( $raw['canonical'] ) ? esc_url_raw( (string) $raw['canonical'] ) : '';
 		// The field shows the post's own URL; that is the default, not an
-		// override worth storing.
-		if ( (string) get_permalink( $post_id ) === $canonical ) {
+		// override worth storing. Compare against both the current permalink
+		// and the one the field was rendered with (canonical_default) so an
+		// UNTOUCHED field isn't stored when the permalink changed in the same
+		// update — e.g. publishing a draft flips ?p=ID to the pretty URL, or
+		// the slug is edited, and the submitted stale URL would otherwise
+		// survive as a bogus canonical override.
+		$canonical_default = isset( $raw['canonical_default'] ) ? esc_url_raw( (string) $raw['canonical_default'] ) : null;
+		if ( (string) get_permalink( $post_id ) === $canonical || ( null !== $canonical_default && $canonical_default === $canonical ) ) {
 			$canonical = '';
 		}
 

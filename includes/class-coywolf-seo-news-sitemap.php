@@ -121,6 +121,7 @@ final class Coywolf_SEO_News_Sitemap {
 			'order'               => 'DESC',
 			'ignore_sticky_posts' => true,
 			'no_found_rows'       => true,
+			'has_password'        => false,
 			'date_query'          => array(
 				array(
 					'column' => 'post_date_gmt',
@@ -131,16 +132,47 @@ final class Coywolf_SEO_News_Sitemap {
 
 		$mode = (string) Coywolf_SEO_Options::get( 'news_cat_mode' );
 		$cats = array_map( 'intval', (array) Coywolf_SEO_Options::get( 'news_cats' ) );
-		if ( ! empty( $cats ) && in_array( 'post', $types, true ) ) {
-			if ( 'include' === $mode ) {
-				$args['category__in'] = $cats;
-			} elseif ( 'exclude' === $mode ) {
-				$args['category__not_in'] = $cats;
+
+		if ( ! empty( $cats ) && in_array( 'post', $types, true ) && 'include' === $mode && in_array( 'page', $types, true ) ) {
+			// `category__in` renders as an INNER JOIN on term_relationships, and
+			// pages carry no category rows, so a single mixed-type query would
+			// silently drop every page. Query the two types separately — the
+			// category constraint applies only to posts — then merge, re-sort by
+			// date, and slice to the per-sitemap limit.
+			$post_args                 = $args;
+			$post_args['post_type']    = 'post';
+			$post_args['category__in'] = $cats;
+
+			$page_args              = $args;
+			$page_args['post_type'] = 'page';
+
+			$post_query = new WP_Query( $post_args );
+			$page_query = new WP_Query( $page_args );
+
+			$posts = array_merge( (array) $post_query->posts, (array) $page_query->posts );
+			usort(
+				$posts,
+				static function ( $a, $b ) {
+					return strcmp( (string) $b->post_date_gmt, (string) $a->post_date_gmt );
+				}
+			);
+			$posts = array_slice( $posts, 0, 1000 );
+		} else {
+			if ( ! empty( $cats ) && in_array( 'post', $types, true ) ) {
+				if ( 'include' === $mode ) {
+					$args['category__in'] = $cats;
+				} elseif ( 'exclude' === $mode ) {
+					$args['category__not_in'] = $cats;
+				}
 			}
+			$query = new WP_Query( $args );
+			$posts = $query->posts;
 		}
 
-		$query = new WP_Query( $args );
-		return $query->posts;
+		// Apply the plugin's shared visibility rule so the news sitemap agrees
+		// with .md/llms.txt/sitemap: published, no password, viewable type, not
+		// per-post noindex.
+		return array_values( array_filter( $posts, array( 'Coywolf_SEO_Markdown_Source', 'is_public_post' ) ) );
 	}
 
 	/**

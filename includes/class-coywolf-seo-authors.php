@@ -150,15 +150,18 @@ final class Coywolf_SEO_Authors {
 					<?php foreach ( $users as $u ) : ?>
 						<option value="<?php echo esc_attr( (string) $u->ID ); ?>" <?php selected( $user_id, (int) $u->ID ); ?>>
 							<?php
-							echo esc_html( $u->display_name );
 							if ( isset( $saved_all[ $u->ID ] ) ) {
-								echo ' ✓';
+								/* translators: %s: user display name. Marks a user whose author properties are already configured. */
+								echo esc_html( sprintf( __( '%s ✓ (configured)', 'coywolf-seo' ), $u->display_name ) );
+							} else {
+								echo esc_html( $u->display_name );
 							}
 							?>
 						</option>
 					<?php endforeach; ?>
 				</select>
-				<noscript><?php submit_button( __( 'Load', 'coywolf-seo' ), 'secondary', '', false ); ?></noscript>
+				<?php // Always render an explicit Load button so keyboard users can activate the selection deliberately, rather than relying on the select's change event (a WCAG 3.2.2 On Input context change). ?>
+				<?php submit_button( __( 'Load', 'coywolf-seo' ), 'secondary', '', false ); ?>
 			</form>
 			</div>
 
@@ -195,7 +198,7 @@ final class Coywolf_SEO_Authors {
 					<div class="coywolf-seo-panel">
 					<h2><?php echo esc_html( $user->display_name ); ?></h2>
 
-					<table class="coywolf-seo-props" id="coywolf-seo-author-props" data-field="author_rows" data-next-index="<?php echo esc_attr( (string) count( $rows ) ); ?>">
+					<table class="coywolf-seo-props" id="coywolf-seo-author-props" data-field="author_rows" data-next-index="<?php echo esc_attr( (string) count( $rows ) ); ?>" role="presentation">
 						<tbody>
 							<?php Coywolf_SEO_Admin::render_property_rows( 'author_rows', $rows, $person_props ); ?>
 						</tbody>
@@ -206,7 +209,8 @@ final class Coywolf_SEO_Authors {
 							<option value="<?php echo esc_attr( $prop ); ?>"><?php echo esc_html( $label ); ?></option>
 						<?php endforeach; ?>
 					</select>
-					<p class="description"><?php esc_html_e( 'Schema.org Person properties — selecting a property adds it, and each value input matches the property type. Add a property more than once (sameAs, for example) to output multiple values. Empty rows are not saved; removing @id falls back to the default.', 'coywolf-seo' ); ?></p>
+					<button type="button" class="button coywolf-seo-add-btn" data-target="coywolf-seo-author-props"><?php esc_html_e( 'Add', 'coywolf-seo' ); ?></button>
+					<p class="description"><?php esc_html_e( 'Schema.org Person properties — choose a property and select Add; each value input matches the property type. Add a property more than once (sameAs, for example) to output multiple values. Empty rows are not saved; removing @id falls back to the default.', 'coywolf-seo' ); ?></p>
 
 					</div>
 					<?php submit_button( __( 'Save Author', 'coywolf-seo' ) ); ?>

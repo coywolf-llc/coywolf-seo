@@ -96,6 +96,16 @@ final class Coywolf_SEO_OKF extends Coywolf_SEO_Labs_Feature {
 	}
 
 	/**
+	 * The regex patterns add_rewrite_rules() registers, so a disable transition
+	 * can drop them from the in-memory rule set before flushing.
+	 *
+	 * @return string[]
+	 */
+	protected function rewrite_patterns() {
+		return array( '^okf/?$', '^okf/(.+)$' );
+	}
+
+	/**
 	 * Serve a bundle Markdown file for an /okf/ request. Only .md files inside
 	 * the bundle directory are served; anything else (including path-traversal
 	 * attempts) 404s.
@@ -191,12 +201,18 @@ final class Coywolf_SEO_OKF extends Coywolf_SEO_Labs_Feature {
 		$adv_after       = $endpoint_after && $advertise;
 		if ( $endpoint_before !== $endpoint_after || $adv_before !== $adv_after ) {
 			// Register the rules for this request before flushing so an enable
-			// persists them (init already ran by admin-post time).
+			// persists them (init already ran by admin-post time); on a disable
+			// transition remove the still-registered rules from the in-memory set
+			// first, or the flush re-persists them and the routes keep serving.
 			if ( $endpoint_after ) {
 				$this->add_rewrite_rules();
+			} elseif ( $endpoint_before ) {
+				$this->unregister_rewrite_patterns( $this->rewrite_patterns() );
 			}
 			if ( $adv_after ) {
 				$this->advertiser->add_rewrite_rules();
+			} elseif ( $adv_before ) {
+				$this->unregister_rewrite_patterns( $this->advertiser->rewrite_patterns() );
 			}
 			flush_rewrite_rules();
 		}

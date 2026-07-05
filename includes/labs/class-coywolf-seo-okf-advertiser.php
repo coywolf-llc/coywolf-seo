@@ -99,6 +99,17 @@ final class Coywolf_SEO_OKF_Advertiser extends Coywolf_SEO_Labs_Bundle_Advertise
 	}
 
 	/**
+	 * The regex patterns add_rewrite_rules() registers, so a disable transition
+	 * can drop them from the in-memory rule set before flushing (otherwise the
+	 * flush re-persists the /.well-known/okf alias).
+	 *
+	 * @return string[]
+	 */
+	public function rewrite_patterns() {
+		return array( '^\.well-known/okf/?$' );
+	}
+
+	/**
 	 * Register the discovery query var.
 	 *
 	 * @param string[] $vars Query vars.

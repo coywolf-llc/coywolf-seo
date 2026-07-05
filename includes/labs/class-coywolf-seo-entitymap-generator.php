@@ -61,6 +61,15 @@ final class Coywolf_SEO_EntityMap_Generator extends Coywolf_SEO_Labs_Bundle_Gene
 	const MAX_CHUNK_CHARS = 600;
 
 	/**
+	 * Per-rebuild cache of each post's plain text and its sentence split, keyed by
+	 * post ID, so the same page is parsed/split once rather than once per
+	 * (entity, candidate-post) pair. Reset at the top of each rebuild().
+	 *
+	 * @var array<int,array{plain:string,sentences:string[]}>
+	 */
+	private $text_cache = array();
+
+	/**
 	 * Absolute path to the generated JSON file.
 	 *
 	 * @return string
@@ -98,6 +107,8 @@ final class Coywolf_SEO_EntityMap_Generator extends Coywolf_SEO_Labs_Bundle_Gene
 	 *                        success, WP_Error on failure.
 	 */
 	public function rebuild() {
+		$this->text_cache = array(); // Fresh per-post memo for this rebuild.
+
 		$fs = $this->filesystem();
 		if ( null === $fs ) {
 			return new WP_Error( 'entitymap_fs', __( 'The filesystem is not writable, so the EntityMap files could not be generated.', 'coywolf-seo' ) );
@@ -180,54 +191,64 @@ final class Coywolf_SEO_EntityMap_Generator extends Coywolf_SEO_Labs_Bundle_Gene
 			if ( 'attachment' === $post_type || ! is_post_type_viewable( $post_type ) ) {
 				continue;
 			}
-			$found = get_posts(
-				array(
-					'post_type'        => $post_type,
-					'post_status'      => 'publish',
-					'numberposts'      => -1,
-					'has_password'     => false,
-					'orderby'          => 'modified',
-					'order'            => 'DESC',
-					'suppress_filters' => true,
-				)
-			);
-			foreach ( $found as $post ) {
-				if ( ! $this->is_post_visible( $post ) ) {
-					continue;
-				}
-				$rows = Coywolf_SEO_AI::stored_entities( $post->ID );
-				if ( empty( $rows ) ) {
-					continue;
-				}
-				$posts[ $post->ID ] = $post;
+			// Only AI-enriched posts can contribute entities, and the query is
+			// paged, so peak memory does not scale with total site size (a large
+			// enriched site would otherwise time out / OOM the cron rebuild).
+			$paged = 1;
+			do {
+				$found = get_posts(
+					array(
+						'post_type'        => $post_type,
+						'post_status'      => 'publish',
+						'has_password'     => false,
+						'orderby'          => 'modified',
+						'order'            => 'DESC',
+						'suppress_filters' => true,
+						'meta_key'         => Coywolf_SEO_AI::META_KEY, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- restrict the rebuild to AI-enriched posts; non-enriched posts contribute nothing.
+						'posts_per_page'   => 200,
+						'paged'            => $paged,
+					)
+				);
+				foreach ( $found as $post ) {
+					if ( ! $this->is_post_visible( $post ) ) {
+						continue;
+					}
+					$rows = Coywolf_SEO_AI::stored_entities( $post->ID );
+					if ( empty( $rows ) ) {
+						continue;
+					}
+					$posts[ $post->ID ] = $post;
 
-				foreach ( $rows as $row ) {
-					$qid  = (string) $row['qid'];
-					$desc = trim( (string) $row['description'] );
-					if ( '' === $qid || '' === $desc ) {
-						continue; // Floor requires a description.
-					}
-					if ( ! isset( $entities[ $qid ] ) ) {
-						$entities[ $qid ] = array(
-							'qid'              => $qid,
-							'name'             => (string) $row['name'],
-							'type'             => (string) $row['type'],
-							'description'      => $desc,
-							'same_as'          => isset( $row['same_as'] ) && is_array( $row['same_as'] ) ? $row['same_as'] : array(),
-							'about_post_ids'   => array(),
-							'mention_post_ids' => array(),
-							// v1 generates no typed relations (MAY in the spec); the
-							// key is reserved here as the extension point.
-							'relations'        => array(),
-						);
-					}
-					if ( 'about' === $row['bucket'] ) {
-						$entities[ $qid ]['about_post_ids'][] = (int) $post->ID;
-					} else {
-						$entities[ $qid ]['mention_post_ids'][] = (int) $post->ID;
+					foreach ( $rows as $row ) {
+						$qid  = (string) $row['qid'];
+						$desc = trim( (string) $row['description'] );
+						if ( '' === $qid || '' === $desc ) {
+							continue; // Floor requires a description.
+						}
+						if ( ! isset( $entities[ $qid ] ) ) {
+							$entities[ $qid ] = array(
+								'qid'              => $qid,
+								'name'             => (string) $row['name'],
+								'type'             => (string) $row['type'],
+								'description'      => $desc,
+								'same_as'          => isset( $row['same_as'] ) && is_array( $row['same_as'] ) ? $row['same_as'] : array(),
+								'about_post_ids'   => array(),
+								'mention_post_ids' => array(),
+								// v1 generates no typed relations (MAY in the spec); the
+								// key is reserved here as the extension point.
+								'relations'        => array(),
+							);
+						}
+						if ( 'about' === $row['bucket'] ) {
+							$entities[ $qid ]['about_post_ids'][] = (int) $post->ID;
+						} else {
+							$entities[ $qid ]['mention_post_ids'][] = (int) $post->ID;
+						}
 					}
 				}
-			}
+				$batch = count( $found );
+				++$paged;
+			} while ( 200 === $batch );
 		}
 
 		return array(
@@ -413,8 +434,7 @@ final class Coywolf_SEO_EntityMap_Generator extends Coywolf_SEO_Labs_Bundle_Gene
 	 * @return array|null
 	 */
 	private function build_chunk( array $entity, $post, $publisher_name ) {
-		$plain    = Coywolf_SEO_AI::plain_text( $post );
-		$sentence = $this->first_sentence_with( $plain, $entity['name'] );
+		$sentence = $this->first_sentence_with( $this->post_sentences( $post ), $entity['name'] );
 
 		$content_type = 'evidence';
 		if ( '' === $sentence ) {
@@ -437,20 +457,41 @@ final class Coywolf_SEO_EntityMap_Generator extends Coywolf_SEO_Labs_Bundle_Gene
 	}
 
 	/**
-	 * The first sentence in the text that contains the entity name
-	 * (case-insensitive), trimmed to ≤600 chars on a word boundary. '' when none
-	 * matches.
+	 * The plain text and its sentence split for a post, computed once per rebuild
+	 * and memoized by post ID (the same page is a chunk candidate for every entity
+	 * it records, so without this the full-content parse + split runs once per
+	 * (entity, post) pair).
 	 *
-	 * @param string $text Plain page text.
-	 * @param string $name Entity name.
+	 * @param WP_Post $post Source post.
+	 * @return string[] Sentences of the post's plain text.
+	 */
+	private function post_sentences( $post ) {
+		$id = (int) $post->ID;
+		if ( ! isset( $this->text_cache[ $id ] ) ) {
+			$plain                   = Coywolf_SEO_AI::plain_text( $post );
+			$this->text_cache[ $id ] = array(
+				'plain'     => $plain,
+				'sentences' => $this->sentences( $plain ),
+			);
+		}
+		return $this->text_cache[ $id ]['sentences'];
+	}
+
+	/**
+	 * The first sentence (from a pre-split sentence list) that contains the entity
+	 * name (case-insensitive), trimmed to ≤600 chars on a word boundary. '' when
+	 * none matches.
+	 *
+	 * @param string[] $sentences Pre-split sentences of the page text.
+	 * @param string   $name      Entity name.
 	 * @return string
 	 */
-	private function first_sentence_with( $text, $name ) {
+	private function first_sentence_with( array $sentences, $name ) {
 		$name = Coywolf_SEO_Markdown_Source::decode_text( $name );
 		if ( '' === $name ) {
 			return '';
 		}
-		foreach ( $this->sentences( $text ) as $sentence ) {
+		foreach ( $sentences as $sentence ) {
 			if ( $this->contains_ci( $sentence, $name ) ) {
 				return $this->trim_passage( $sentence );
 			}
@@ -669,15 +710,18 @@ final class Coywolf_SEO_EntityMap_Generator extends Coywolf_SEO_Labs_Bundle_Gene
 	 * @return string
 	 */
 	private function render_html_chunk( array $chunk, $publisher_name ) {
+		// Separate the passage from its attribution with block children so the
+		// passage's last word does not fuse to the page title in the browser or on
+		// plain-text ingestion (e.g. "…search engine.My Page Title").
 		return '<blockquote data-publisher="' . esc_attr( $publisher_name ) . '">'
-			. esc_html( $chunk['text'] )
-			. '<cite><a href="' . esc_url( $chunk['sourceUrl'] ) . '">' . esc_html( $chunk['pageTitle'] ) . '</a> — '
+			. '<p>' . esc_html( $chunk['text'] ) . '</p>'
+			. '<footer><cite><a href="' . esc_url( $chunk['sourceUrl'] ) . '">' . esc_html( $chunk['pageTitle'] ) . '</a> — '
 			. sprintf(
 				/* translators: %s: the publisher / brand name */
 				esc_html__( 'published by %s', 'coywolf-seo' ),
 				esc_html( $publisher_name )
 			)
-			. "</cite></blockquote>\n";
+			. "</cite></footer></blockquote>\n";
 	}
 
 	/**

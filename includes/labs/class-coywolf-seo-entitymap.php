@@ -84,6 +84,16 @@ final class Coywolf_SEO_EntityMap extends Coywolf_SEO_Labs_Feature {
 	}
 
 	/**
+	 * The regex patterns add_rewrite_rules() registers, so a disable transition
+	 * can drop them from the in-memory rule set before flushing.
+	 *
+	 * @return string[]
+	 */
+	protected function rewrite_patterns() {
+		return array( '^entitymap\.json$', '^entitymap\.html$' );
+	}
+
+	/**
 	 * Serve entitymap.json / entitymap.html from disk. The JSON may carry a
 	 * noindex X-Robots-Tag; the HTML companion must NOT (it is meant to be
 	 * indexable). Anything else (including path-traversal attempts) 404s.

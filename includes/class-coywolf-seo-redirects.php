@@ -301,17 +301,17 @@ final class Coywolf_SEO_Redirects {
 			return;
 		}
 
-		$this->record_hit( (int) $rule->id );
-
 		if ( 410 === (int) $rule->type ) {
+			$this->record_hit( (int) $rule->id );
 			$this->serve_410();
 		}
 
 		$target = $this->build_target( $rule, $request );
 		if ( '' === $target || $this->is_current_url( $target, $request ) ) {
-			return; // Never loop onto ourselves.
+			return; // Never loop onto ourselves — don't count a hit for a redirect that wasn't served.
 		}
 
+		$this->record_hit( (int) $rule->id );
 		nocache_headers();
 		// phpcs:ignore WordPress.Security.SafeRedirect.wp_redirect_wp_redirect -- targets are admin-defined and validated on save; external hosts are the point.
 		wp_redirect( $target, (int) $rule->type, 'Coywolf SEO' );
@@ -458,6 +458,19 @@ final class Coywolf_SEO_Redirects {
 	 * @return bool
 	 */
 	private function is_current_url( $target, array $request ) {
+		// A target with an explicit host that differs from the current request
+		// host can never redirect onto this request (normalize() discards the
+		// host, so the path/query comparison alone would wrongly flag a
+		// same-path cross-domain redirect as a self-loop).
+		$target_host = strtolower( (string) wp_parse_url( $target, PHP_URL_HOST ) );
+		if ( '' !== $target_host ) {
+			$request_host = isset( $_SERVER['HTTP_HOST'] )
+				? strtolower( wp_unslash( $_SERVER['HTTP_HOST'] ) ) // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- host compared, not output; lowercased.
+				: strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) );
+			if ( $target_host !== $request_host ) {
+				return false;
+			}
+		}
 		$normalized = self::normalize( $target );
 		return $normalized['path'] === $request['path'] && $normalized['query'] === $request['query'];
 	}
@@ -469,7 +482,9 @@ final class Coywolf_SEO_Redirects {
 		status_header( 410 );
 		nocache_headers();
 		header( 'Content-Type: text/html; charset=utf-8' );
-		echo '<!DOCTYPE html><html><head><title>410 Gone</title></head><body><h1>410 Gone</h1><p>This content has been permanently removed.</p></body></html>';
+		echo '<!DOCTYPE html><html ';
+		language_attributes(); // Core-generated + escaped; echoes directly.
+		echo '><head><meta charset="utf-8"><title>' . esc_html__( '410 Gone', 'coywolf-seo' ) . '</title></head><body><h1>' . esc_html__( '410 Gone', 'coywolf-seo' ) . '</h1><p>' . esc_html__( 'This content has been permanently removed.', 'coywolf-seo' ) . '</p></body></html>';
 		exit;
 	}
 
@@ -682,11 +697,14 @@ final class Coywolf_SEO_Redirects {
 		// Sanitize the admin-entered source/target. A non-regex source and the
 		// target are URLs/paths, so esc_url_raw() (which preserves percent-
 		// encoding that normalize() later decodes). A regex source must keep its
-		// metacharacters, so sanitize_text_field() — the request subject it runs
-		// against is already decoded and lowercased, so dropping percent-octets
-		// and tags can't change what it matches.
+		// metacharacters verbatim: sanitize_text_field() would kses-rewrite '<'
+		// (breaking lookbehinds and named groups) and strip percent-octets and
+		// tag-like spans, silently altering — or invalidating — a valid PCRE
+		// pattern. Instead drop only invalid UTF-8 and control characters and
+		// trim; the preg_match validity gate below and escaped admin output keep
+		// it safe. The pattern's syntax is validated by preg_match() later.
 		$source = $regex
-			? sanitize_text_field( (string) ( $data['source'] ?? '' ) )
+			? trim( preg_replace( '/[\x00-\x1f\x7f]+/', '', wp_check_invalid_utf8( (string) ( $data['source'] ?? '' ) ) ) )
 			: esc_url_raw( trim( (string) ( $data['source'] ?? '' ) ) );
 		$target = esc_url_raw( trim( (string) ( $data['target'] ?? '' ) ) );
 		$type   = (int) ( $data['type'] ?? 301 );
@@ -716,10 +734,17 @@ final class Coywolf_SEO_Redirects {
 			$normalized = self::normalize( $source );
 			$match_path = substr( $normalized['path'], 0, 191 );
 
-			// A redirect onto itself would loop.
+			// A redirect onto itself would loop — but only when the target
+			// resolves to this same site. A target with an explicit foreign
+			// host (the classic same-path domain-move rule) can never loop
+			// onto the current request, so normalize()'s host-blind path/query
+			// comparison must not reject it.
 			if ( 410 !== $type ) {
+				$target_host = strtolower( (string) wp_parse_url( $target, PHP_URL_HOST ) );
+				$site_host   = strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) );
+				$same_site   = ( '' === $target_host || $target_host === $site_host );
 				$target_normalized = self::normalize( $target );
-				if ( $target_normalized['path'] === $normalized['path'] && $target_normalized['query'] === $normalized['query'] ) {
+				if ( $same_site && $target_normalized['path'] === $normalized['path'] && $target_normalized['query'] === $normalized['query'] ) {
 					return new WP_Error( 'coywolf_seo_redirect_loop', __( 'The source and target are the same URL — that would redirect to itself.', 'coywolf-seo' ) );
 				}
 			}

@@ -22,6 +22,8 @@ delete_option( 'coywolf_seo_authors' );
 // Per-post SEO meta and AI-detected entities.
 delete_post_meta_by_key( '_coywolf_seo' );
 delete_post_meta_by_key( '_coywolf_seo_entities' );
+// Origin marker written by the Duplicate module on each duplicated post.
+delete_post_meta_by_key( '_coywolf_seo_duplicate_of' );
 
 // LLMs.txt: cached body, scheduled rebuild, and the per-post Markdown cache.
 delete_option( 'coywolf_seo_llms_cache' );
@@ -107,23 +109,42 @@ foreach (
 }
 wp_unschedule_hook( 'coywolf_seo_robots_update_bots_event' );
 
-// Labs — Open Knowledge Format (OKF) export: settings, the last-build summary,
-// the scheduled background rebuild, and the generated bundle directory under
-// uploads. Referenced by name only (the Labs classes are stripped from the
-// WordPress.org build, so this file must not depend on them).
-delete_option( 'coywolf_seo_okf' );
-delete_option( 'coywolf_seo_okf_build' );
+// Labs — Open Knowledge Format (OKF) export, AI-Readiness Diagnostics (ARD),
+// EntityMap, AI Discovery, and the MCP allow-list: settings, last-build
+// summaries, the scheduled background rebuilds, and the generated bundle
+// directories under uploads. Referenced by name only (the Labs classes are
+// stripped from the WordPress.org build, so this file must not depend on them).
+foreach (
+	array(
+		'coywolf_seo_okf',
+		'coywolf_seo_okf_build',
+		'coywolf_seo_ard',
+		'coywolf_seo_ard_build',
+		'coywolf_seo_ard_config',
+		'coywolf_seo_ard_catalog',
+		'coywolf_seo_entitymap',
+		'coywolf_seo_entitymap_build',
+		'coywolf_seo_ai_discovery',
+		'coywolf_seo_mcp_allowed_abilities',
+	) as $coywolf_seo_labs_option
+) {
+	delete_option( $coywolf_seo_labs_option );
+}
 wp_unschedule_hook( 'coywolf_seo_okf_rebuild' );
+wp_unschedule_hook( 'coywolf_seo_ard_rebuild' );
+wp_unschedule_hook( 'coywolf_seo_entitymap_rebuild' );
 $coywolf_seo_uploads = wp_upload_dir();
 if ( empty( $coywolf_seo_uploads['error'] ) && ! empty( $coywolf_seo_uploads['basedir'] ) ) {
-	$coywolf_seo_okf_dir = trailingslashit( $coywolf_seo_uploads['basedir'] ) . 'coywolf-okf';
-	if ( is_dir( $coywolf_seo_okf_dir ) ) {
-		if ( ! function_exists( 'WP_Filesystem' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/file.php';
-		}
-		if ( WP_Filesystem() ) {
-			global $wp_filesystem;
-			$wp_filesystem->delete( $coywolf_seo_okf_dir, true );
+	foreach ( array( 'coywolf-okf', 'coywolf-entitymap' ) as $coywolf_seo_labs_dir_name ) {
+		$coywolf_seo_labs_dir = trailingslashit( $coywolf_seo_uploads['basedir'] ) . $coywolf_seo_labs_dir_name;
+		if ( is_dir( $coywolf_seo_labs_dir ) ) {
+			if ( ! function_exists( 'WP_Filesystem' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/file.php';
+			}
+			if ( WP_Filesystem() ) {
+				global $wp_filesystem;
+				$wp_filesystem->delete( $coywolf_seo_labs_dir, true );
+			}
 		}
 	}
 }

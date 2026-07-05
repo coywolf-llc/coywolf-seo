@@ -505,9 +505,24 @@ final class Coywolf_SEO_AI_OpenAI extends Coywolf_SEO_AI_Provider {
 		$output_file_id = isset( $body['output_file_id'] ) ? (string) $body['output_file_id'] : '';
 		$ended          = in_array( $status, array( 'completed', 'failed', 'expired', 'cancelled' ), true );
 
+		// A batch that failed, expired, or was cancelled ends with no (or only
+		// partial) output; surface it so the run pauses instead of collecting an
+		// empty result set and wiping every post's stored analysis.
+		$failed = in_array( $status, array( 'failed', 'expired', 'cancelled' ), true );
+		$error  = '';
+		if ( $failed ) {
+			if ( isset( $body['errors']['data'][0]['message'] ) && '' !== (string) $body['errors']['data'][0]['message'] ) {
+				$error = (string) $body['errors']['data'][0]['message'];
+			} else {
+				$error = $status;
+			}
+		}
+
 		return array(
 			'ended'          => $ended,
 			'results_handle' => $output_file_id,
+			'failed'         => $failed,
+			'error'          => $error,
 		);
 	}
 

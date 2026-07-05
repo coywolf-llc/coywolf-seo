@@ -120,7 +120,7 @@ final class Coywolf_SEO_AI_Batch {
 	 * Poll a batch.
 	 *
 	 * @param string $batch_id Batch ID.
-	 * @return array|WP_Error { ended: bool, results_url: string }
+	 * @return array|WP_Error { ended: bool, results_url: string, failed: bool, error: string }
 	 */
 	public function poll( $batch_id ) {
 		$r = $this->provider->batch_poll( $this->key, $batch_id );
@@ -128,10 +128,14 @@ final class Coywolf_SEO_AI_Batch {
 			return $r;
 		}
 		// Map the provider's results_handle to the results_url key the bulk
-		// state machine has always read, so it stays untouched.
+		// state machine has always read, so it stays untouched. Providers that
+		// can end a batch in a failed/expired/cancelled state also flag it here
+		// so the run pauses rather than collecting an empty result set.
 		return array(
 			'ended'       => ! empty( $r['ended'] ),
 			'results_url' => isset( $r['results_handle'] ) ? (string) $r['results_handle'] : '',
+			'failed'      => ! empty( $r['failed'] ),
+			'error'       => isset( $r['error'] ) ? (string) $r['error'] : '',
 		);
 	}
 

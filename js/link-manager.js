@@ -29,6 +29,10 @@
 	var viewMode = 'all'; // 'all' (non-ignored) | 'ignored'
 	var bulkPlaceholder = 'Bulk actions'; // captured from the localized markup at wire time
 
+	// Element that had focus when a modal opened, so focus can be restored to it
+	// on close (per modal). Keyed by the modal's element id.
+	var modalTrigger = {};
+
 	function $( id ) {
 		return document.getElementById( id );
 	}
@@ -63,6 +67,14 @@
 
 	function show( el ) { if ( el ) { el.style.display = ''; } }
 	function hide( el ) { if ( el ) { el.style.display = 'none'; } }
+
+	// Announce a message to screen readers via WordPress's built-in polite
+	// (or assertive) live region. No-op if wp.a11y is unavailable.
+	function announce( msg, mode ) {
+		if ( msg && window.wp && wp.a11y && wp.a11y.speak ) {
+			wp.a11y.speak( String( msg ), 'assertive' === mode ? 'assertive' : 'polite' );
+		}
+	}
 
 	function format( str, args ) {
 		var i = 0;
@@ -105,7 +117,8 @@
 		var title = truncated ? ' title="' + escapeHtml( url ) + '"' : '';
 		return '<a class="' + cls + '" href="' + escapeHtml( safeHref( url ) ) +
 			'" target="_blank" rel="noopener nofollow"' + title + '>' + escapeHtml( text ) +
-			' <span class="dashicons dashicons-external coywolf-seo-lm-extlink" aria-hidden="true"></span></a>';
+			' <span class="dashicons dashicons-external coywolf-seo-lm-extlink" aria-hidden="true"></span>' +
+			'<span class="screen-reader-text"> ' + escapeHtml( i18n.newTab || '(opens in a new tab)' ) + '</span></a>';
 	}
 
 	/* ---------------------------------------------------------------------
@@ -279,8 +292,10 @@
 		th.classList.remove( 'sorted', 'asc', 'desc' );
 		if ( sortKey === key ) {
 			th.classList.add( 'sorted', sortDir );
+			th.setAttribute( 'aria-sort', 'asc' === sortDir ? 'ascending' : 'descending' );
 		} else {
 			th.classList.add( 'desc' );
+			th.removeAttribute( 'aria-sort' );
 		}
 	}
 
@@ -372,12 +387,18 @@
 
 		var typeLabel = 'internal' === r.type ? i18n.internal : i18n.external;
 
+		var badgeSr = badge.title && badge.title !== badge.text
+			? '<span class="screen-reader-text"> — ' + escapeHtml( badge.title ) + '</span>'
+			: '';
+
 		return '<tr data-id="' + escapeHtml( String( r.id ) ) + '">' +
-			'<th scope="row" class="check-column"><input type="checkbox" class="coywolf-seo-lm-cb" value="' +
+			'<th scope="row" class="check-column"><input type="checkbox" class="coywolf-seo-lm-cb" aria-label="' +
+				escapeHtml( format( i18n.selectLink || 'Select %s', [ r.url ] ) ) + '" value="' +
 				escapeHtml( String( r.id ) ) + '"' + checked + ' /></th>' +
 			'<td class="column-url has-row-actions">' + urlHtml + '</td>' +
 			'<td class="column-code"><span class="coywolf-seo-lm-code ' + badge.cls +
-				'" title="' + escapeHtml( badge.title ) + '" tabindex="0">' + escapeHtml( badge.text ) + '</span></td>' +
+				'" title="' + escapeHtml( badge.title ) + '" data-title="' + escapeHtml( badge.title ) +
+				'" tabindex="0">' + escapeHtml( badge.text ) + badgeSr + '</span></td>' +
 			'<td class="column-type"><span class="coywolf-seo-lm-type coywolf-seo-lm-type--' +
 				escapeHtml( r.type ) + '">' + escapeHtml( typeLabel ) + '</span></td>' +
 			'<td class="column-posts">' + countCell( r.posts, r.postsUrl ) + '</td>' +
@@ -504,6 +525,7 @@
 			hide( els.results );
 			els.empty.textContent = analyzed ? i18n.noneShown : i18n.noLinks;
 			show( els.empty );
+			announce( els.empty.textContent );
 			syncResultsHeader();
 			return;
 		}
@@ -521,6 +543,7 @@
 			hide( els.toolbarBottom );
 			els.empty.textContent = 'ignored' === viewMode ? i18n.noIgnoredLinks : ( analyzed ? i18n.noneShown : i18n.noLinks );
 			show( els.empty );
+			announce( els.empty.textContent );
 			if ( 'ignored' === viewMode ) {
 				tbody.innerHTML = '';
 				show( els.results );
@@ -544,6 +567,8 @@
 		reconcileSelection( filtered );
 		var page = paginate( filtered, currentPage );
 		currentPage = page.page;
+
+		announce( filtered.length ? format( i18n.nItems, [ filtered.length.toLocaleString() ] ) : i18n.noneShown );
 
 		if ( ! filtered.length ) {
 			tbody.innerHTML = '';
@@ -641,6 +666,7 @@
 					] );
 					els.summary.textContent = lastSummary;
 					show( els.summary );
+					announce( lastSummary );
 					syncResultsHeader();
 				} );
 			}
@@ -661,10 +687,16 @@
 		lastSummary = '';
 		selection = {};
 		els.statusText.textContent = i18n.starting;
+		announce( i18n.starting );
 		els.bar.classList.add( 'is-indeterminate' );
 		els.bar.style.width = '';
 		els.percent.textContent = '';
 		show( els.progress );
+		// The Analyze button (which had focus) is now hidden; move focus to the
+		// Cancel control so it does not fall to <body>.
+		if ( els.cancel ) {
+			window.setTimeout( function () { els.cancel.focus(); }, 0 );
+		}
 		// Hide the (old) inventory table while (re-)analysis runs — it is being
 		// replaced. The poll's completion/cancel path reloads and re-shows it.
 		hide( els.results );
@@ -677,23 +709,28 @@
 		request( 'coywolf_seo_lm_start' ).then( function ( res ) {
 			if ( ! res || ! res.success ) {
 				els.statusText.textContent = i18n.error;
+				announce( i18n.error, 'assertive' );
 				show( els.analyze );
 				els.analyze.disabled = false;
+				els.analyze.focus();
 				return;
 			}
 			applyProgress( res.data );
 			startPolling();
 		} ).catch( function () {
 			els.statusText.textContent = i18n.error;
+			announce( i18n.error, 'assertive' );
 			hide( els.progress );
 			show( els.analyze );
 			els.analyze.disabled = false;
+			els.analyze.focus();
 		} );
 	}
 
 	function onCancel() {
 		els.cancel.disabled = true;
 		els.statusText.textContent = i18n.cancelling;
+		announce( i18n.cancelling );
 		request( 'coywolf_seo_lm_cancel' ).finally( function () {
 			els.cancel.disabled = false;
 		} );
@@ -773,10 +810,64 @@
 	}
 
 	/* ---------------------------------------------------------------------
+	 * Modal focus management (shared by all three dialogs).
+	 * ------------------------------------------------------------------- */
+
+	// Visible, focusable controls inside a modal box.
+	function modalFocusables( modal ) {
+		var box = modal.querySelector( '.coywolf-seo-lm-modal-box' ) || modal;
+		var nodes = box.querySelectorAll( 'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href]' );
+		return Array.prototype.filter.call( nodes, function ( el ) {
+			return el.offsetWidth > 0 || el.offsetHeight > 0 || el === document.activeElement;
+		} );
+	}
+
+	// Record the element that opened a modal so focus can return to it on close.
+	function rememberTrigger( modal ) {
+		if ( modal ) { modalTrigger[ modal.id ] = document.activeElement; }
+	}
+
+	// Restore focus to the modal's trigger (or a fallback if it is gone).
+	function restoreTrigger( modal, fallback ) {
+		var t = modal ? modalTrigger[ modal.id ] : null;
+		if ( modal ) { delete modalTrigger[ modal.id ]; }
+		if ( t && document.contains( t ) && 'function' === typeof t.focus ) {
+			t.focus();
+		} else if ( fallback && document.contains( fallback ) && 'function' === typeof fallback.focus ) {
+			fallback.focus();
+		}
+	}
+
+	// Keep Tab focus inside the modal (WAI-ARIA dialog pattern). Returns true if
+	// it handled the event.
+	function trapTab( modal, e ) {
+		if ( 'Tab' !== e.key ) { return false; }
+		var f = modalFocusables( modal );
+		if ( ! f.length ) { return false; }
+		var first = f[ 0 ];
+		var last = f[ f.length - 1 ];
+		var active = document.activeElement;
+		var inside = modal.contains( active );
+		if ( e.shiftKey ) {
+			if ( ! inside || active === first ) {
+				e.preventDefault();
+				last.focus();
+				return true;
+			}
+		} else if ( ! inside || active === last ) {
+			e.preventDefault();
+			first.focus();
+			return true;
+		}
+		return false;
+	}
+
+	/* ---------------------------------------------------------------------
 	 * Wildcard ignore modal.
 	 * ------------------------------------------------------------------- */
 
 	function openWildcardModal( url ) {
+		rememberTrigger( els.wcModal );
 		els.wcInput.value = url || '';
 		hideWildcardError();
 		els.wcSave.disabled = false;
@@ -794,6 +885,7 @@
 	function closeWildcardModal() {
 		hide( els.wcModal );
 		document.removeEventListener( 'keydown', onWildcardKeydown );
+		restoreTrigger( els.wcModal );
 	}
 
 	function onWildcardKeydown( e ) {
@@ -801,11 +893,21 @@
 		else if ( 'Enter' === e.key && document.activeElement === els.wcInput ) {
 			e.preventDefault();
 			onWildcardSave();
+		} else if ( 'Tab' === e.key ) {
+			trapTab( els.wcModal, e );
 		}
 	}
 
-	function showWildcardError( msg ) { els.wcError.textContent = msg; show( els.wcError ); }
-	function hideWildcardError() { els.wcError.textContent = ''; hide( els.wcError ); }
+	function showWildcardError( msg ) {
+		els.wcError.textContent = msg;
+		show( els.wcError );
+		if ( els.wcInput ) { els.wcInput.setAttribute( 'aria-invalid', 'true' ); }
+	}
+	function hideWildcardError() {
+		els.wcError.textContent = '';
+		hide( els.wcError );
+		if ( els.wcInput ) { els.wcInput.removeAttribute( 'aria-invalid' ); }
+	}
 
 	function onWildcardSave() {
 		var value = ( els.wcInput.value || '' ).trim();
@@ -865,6 +967,7 @@
 	}
 
 	function prepConfirm() {
+		rememberTrigger( els.confirm );
 		var isReplace = 'replace' === confirmState.kind;
 		els.confirmTitle.textContent = isReplace ? i18n.replaceTitle : i18n.confirmTitle;
 		els.confirmHelp.textContent  = isReplace ? i18n.replaceHelp  : i18n.confirmHelp;
@@ -884,9 +987,15 @@
 		confirmState = { kind: 'remove', link: null };
 		clearConfirmDetail();
 		document.removeEventListener( 'keydown', onConfirmKeydown );
+		// After a confirmed Remove the trigger row is deleted, so fall back to the
+		// search field (or the analyze button) rather than dropping focus to body.
+		restoreTrigger( els.confirm, els.search || els.analyze );
 	}
 
-	function onConfirmKeydown( e ) { if ( 'Escape' === e.key ) { closeConfirm(); } }
+	function onConfirmKeydown( e ) {
+		if ( 'Escape' === e.key ) { closeConfirm(); }
+		else if ( 'Tab' === e.key ) { trapTab( els.confirm, e ); }
+	}
 	function showConfirmError( msg ) { els.confirmError.textContent = msg; show( els.confirmError ); }
 	function hideConfirmError() { els.confirmError.textContent = ''; hide( els.confirmError ); }
 
@@ -906,12 +1015,15 @@
 		request( action, { link_id: s.link.id } ).then( function ( res ) {
 			els.confirmRemove.textContent = primaryLabel;
 			if ( res && res.success ) {
-				closeConfirm();
+				// Mutate the view first so the trigger row is already gone when
+				// closeConfirm() restores focus — it then falls back to a stable
+				// target (the search field) instead of the removed row.
 				if ( isReplace ) {
 					loadLinks(); // URL changed; counts/merge may shift — refetch.
 				} else {
 					removeLinksFromView( [ s.link.id ] );
 				}
+				closeConfirm();
 			} else {
 				els.confirmRemove.disabled = false;
 				els.confirmCancel.disabled = false;
@@ -1153,14 +1265,17 @@
 		function closeModal() {
 			modal.style.display = 'none';
 			document.removeEventListener( 'keydown', onKey );
+			restoreTrigger( modal, removeBtn );
 		}
 		function onKey( e ) {
 			if ( 'Escape' === e.key ) { closeModal(); }
+			else if ( 'Tab' === e.key ) { trapTab( modal, e ); }
 		}
 
 		// Open the styled confirmation; the modal's own Remove button is a real
 		// submit (name=coywolf_seo_lm_remove) so confirming removes the link.
 		removeBtn.addEventListener( 'click', function () {
+			rememberTrigger( modal );
 			modal.style.display = '';
 			document.addEventListener( 'keydown', onKey );
 			if ( cancel ) {

@@ -63,6 +63,14 @@
 	function MobileAltControl( props ) {
 		var mobileId = props.attributes[ ATTR ] || 0;
 
+		// Per-block id so the help text can be programmatically associated with
+		// the control's buttons via aria-describedby.
+		var descId = 'coywolf-seo-mobile-alt-desc-' + props.clientId;
+
+		// Ref on the Add/Replace button so focus can be moved there after the
+		// Remove button unmounts itself (it only renders while mobileId is set).
+		var addButtonRef = wp.element.useRef( null );
+
 		// The id is the source of truth; resolve the picked image only to show
 		// a preview thumbnail in the editor (its URL is never stored).
 		var media = useSelect( function ( select ) {
@@ -77,6 +85,12 @@
 
 		function onRemove() {
 			props.setAttributes( { coywolfMobileImageId: undefined } );
+			// The Remove button unmounts on this state change; move focus to the
+			// Add/Replace button (its DOM node persists, only its label flips)
+			// so focus does not fall back to <body>.
+			if ( addButtonRef.current ) {
+				addButtonRef.current.focus();
+			}
 		}
 
 		var preview = null;
@@ -117,6 +131,8 @@
 									variant: 'secondary',
 									__next40pxDefaultSize: true,
 									className: 'coywolf-seo-mobile-alt__button',
+									ref: addButtonRef,
+									'aria-describedby': descId,
 									onClick: renderProps.open
 								},
 								mobileId
@@ -141,9 +157,9 @@
 			),
 			el(
 				'p',
-				{ className: 'coywolf-seo-mobile-alt__desc' },
+				{ className: 'coywolf-seo-mobile-alt__desc', id: descId },
 				__(
-					'Add an alternative image for mobile devices (e.g., different dimensions or content) to improve the UX.',
+					'Add an alternative version of this image for small screens (e.g., a tighter crop or portrait re-composition of the same content) to improve the UX. The desktop image’s alternative text is reused, so keep the content the same.',
 					'coywolf-seo'
 				)
 			)

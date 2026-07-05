@@ -148,8 +148,11 @@
 	word-break: break-all;
 }
 
-/* Response badge — short text, full detail on hover via title attribute. */
+/* Response badge — short text, full detail on hover via title attribute and,
+   for keyboard users (who get no native title tooltip on focus), via a CSS
+   tooltip driven by the data-title attribute. */
 .coywolf-seo-lm-code {
+	position: relative;
 	display: inline-block;
 	padding: 2px 8px;
 	border-radius: 3px;
@@ -158,6 +161,24 @@
 	line-height: 1.6;
 	white-space: nowrap;
 	cursor: help;
+}
+
+.coywolf-seo-lm-code:focus-visible::after {
+	content: attr(data-title);
+	position: absolute;
+	left: 0;
+	top: calc(100% + 4px);
+	z-index: 10;
+	max-width: 320px;
+	white-space: normal;
+	padding: 6px 8px;
+	font-size: 12px;
+	font-weight: 400;
+	line-height: 1.4;
+	color: #fff;
+	background: #1d2327;
+	border-radius: 3px;
+	box-shadow: 0 2px 8px rgba( 0, 0, 0, 0.25 );
 }
 
 .coywolf-seo-lm-code--4xx {
@@ -466,7 +487,7 @@
 
 .coywolf-seo-lm-code--none {
 	background: #f6f7f7;
-	color: #787c82;
+	color: #50575e;
 	border: 1px solid #dcdcde;
 	cursor: default;
 }
@@ -493,7 +514,7 @@
 }
 
 .coywolf-seo-lm-zero {
-	color: #a7aaad;
+	color: #646970;
 }
 
 /* Inventory column widths. */
@@ -544,8 +565,16 @@ table.coywolf-seo-lm-occ .row-actions {
 }
 
 table.coywolf-seo-lm-occ tr:hover .row-actions,
-table.coywolf-seo-lm-occ .row-actions:focus-within {
+table.coywolf-seo-lm-occ tr:focus-within .row-actions {
 	visibility: visible;
+}
+
+/* Touch / keyboard: don't hide the per-occurrence actions when hover is
+   unavailable, matching the main table. */
+@media (hover: none) {
+	table.coywolf-seo-lm-occ .row-actions {
+		visibility: visible;
+	}
 }
 
 /* Bold the primary URL in the All Links table; let long URLs wrap rather than

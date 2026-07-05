@@ -111,7 +111,7 @@ final class Coywolf_SEO_Category_Base {
 		}
 
 		// Old prefixed URLs: mark them for the 301 below.
-		$out[ $this->base() . '/(.+?)/?$' ] = 'index.php?' . self::REDIRECT_VAR . '=$matches[1]';
+		$out[ preg_quote( $this->base(), '#' ) . '/(.+?)/?$' ] = 'index.php?' . self::REDIRECT_VAR . '=$matches[1]';
 
 		return $out;
 	}
@@ -154,6 +154,15 @@ final class Coywolf_SEO_Category_Base {
 	 */
 	public function redirect_old_urls() {
 		if ( ! $this->enabled() ) {
+			return;
+		}
+		// REDIRECT_VAR is a public query var, so core populates it from $_GET
+		// on any URL. Only act when the request genuinely matched our old-URL
+		// rewrite rule (built in rewrite_rules() with the same pattern), never
+		// when the var is injected via ?coywolf_seo_cat_redirect= on an
+		// unrelated path.
+		$redirect_rule = preg_quote( $this->base(), '#' ) . '/(.+?)/?$';
+		if ( ( isset( $GLOBALS['wp'] ) ? (string) $GLOBALS['wp']->matched_rule : '' ) !== $redirect_rule ) {
 			return;
 		}
 		$path = get_query_var( self::REDIRECT_VAR );

@@ -121,7 +121,8 @@ final class Coywolf_SEO_Terms {
 			<p><?php esc_html_e( 'Used for the page title and the Open Graph title. Leave blank to use the name.', 'coywolf-seo' ); ?></p>
 		</div>
 		<div class="form-field" id="coywolf-seo-term-og-row">
-			<label for="coywolf-seo-term-og-select"><?php esc_html_e( 'Open Graph image', 'coywolf-seo' ); ?></label>
+			<?php // Not associated with the Select-image button (no `for`): the button keeps its own accessible name, and the heading text isn't clickable. Mirrors the edit form's plain heading. ?>
+			<label><?php esc_html_e( 'Open Graph image', 'coywolf-seo' ); ?></label>
 			<?php $this->render_og_picker( 0 ); ?>
 		</div>
 		<?php
@@ -158,9 +159,19 @@ final class Coywolf_SEO_Terms {
 	 */
 	private function render_og_picker( $image_id ) {
 		$src = $image_id ? wp_get_attachment_image_url( $image_id, 'medium' ) : '';
+		// The preview is informative (it shows which OG image is set), so give
+		// it a meaningful alt from the attachment when one is saved; the JS
+		// updates this alt on select/remove.
+		$alt = '';
+		if ( $image_id ) {
+			$alt = (string) get_post_meta( $image_id, '_wp_attachment_image_alt', true );
+			if ( '' === $alt ) {
+				$alt = (string) get_the_title( $image_id );
+			}
+		}
 		?>
 		<input type="hidden" id="coywolf-seo-term-og-id" name="coywolf_seo_term_og_id" value="<?php echo esc_attr( (string) $image_id ); ?>" />
-		<img id="coywolf-seo-term-og-preview" src="<?php echo esc_url( (string) $src ); ?>" alt="" style="max-width:300px;height:auto;display:<?php echo $src ? 'block' : 'none'; ?>;margin-bottom:8px;border:1px solid #dcdcde;border-radius:2px;" />
+		<img id="coywolf-seo-term-og-preview" src="<?php echo esc_url( (string) $src ); ?>" alt="<?php echo esc_attr( $alt ); ?>" style="max-width:300px;height:auto;display:<?php echo $src ? 'block' : 'none'; ?>;margin-bottom:8px;border:1px solid #dcdcde;border-radius:2px;" />
 		<button type="button" class="button" id="coywolf-seo-term-og-select"><?php esc_html_e( 'Select image', 'coywolf-seo' ); ?></button>
 		<button type="button" class="button-link button-link-delete" id="coywolf-seo-term-og-remove" style="<?php echo $image_id ? '' : 'display:none'; ?>"><?php esc_html_e( 'Remove', 'coywolf-seo' ); ?></button>
 		<p class="description"><?php esc_html_e( 'Shown when this archive is shared. Recommended size: 1200 × 675 pixels. Falls back to the default Open Graph image.', 'coywolf-seo' ); ?></p>

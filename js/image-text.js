@@ -45,11 +45,12 @@
 		}
 		var bar = box.querySelector( '.coywolf-seo-it-progress-bar' );
 		var label = box.querySelector( '.coywolf-seo-it-progress-text' );
+		var track = box.querySelector( '[role="progressbar"]' ) || box;
 		var pct = total > 0 ? Math.min( 100, Math.round( ( done / total ) * 100 ) ) : 0;
 		if ( bar ) {
 			bar.style.width = pct + '%';
 		}
-		box.setAttribute( 'aria-valuenow', pct );
+		track.setAttribute( 'aria-valuenow', pct );
 		if ( label ) {
 			label.textContent = text;
 		}
@@ -315,11 +316,23 @@
 		renderEstimate();
 
 		var aiButtons = function ( running, error ) {
+			// Remember whether one of these controls had focus before we toggle
+			// visibility, so we can move focus to the newly revealed button rather
+			// than letting it drop to <body> when the focused button is hidden.
+			var active = document.activeElement;
+			var hadFocus = active === aiStart || active === aiReanalyze ||
+				active === aiStop || active === aiResume;
 			show( aiStart, ! running && ! error );
 			show( aiReanalyze, ! running && ! error );
 			show( aiStop, running );
 			show( aiResume, ! running && error );
 			aiControls( ! running && ! error );
+			if ( hadFocus ) {
+				var target = running ? aiStop : ( error ? aiResume : aiStart );
+				if ( target && target.classList && ! target.classList.contains( 'hidden' ) ) {
+					target.focus();
+				}
+			}
 		};
 
 		var renderAI = function ( state ) {

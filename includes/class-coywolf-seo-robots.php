@@ -340,7 +340,7 @@ final class Coywolf_SEO_Robots {
 		wp_enqueue_script(
 			'coywolf-seo-robots',
 			COYWOLF_SEO_URL . 'js/robots-manager.js',
-			array(),
+			array( 'wp-a11y' ),
 			Coywolf_SEO::VERSION,
 			true
 		);
@@ -356,6 +356,10 @@ final class Coywolf_SEO_Robots {
 				'testing'         => __( 'Testing…', 'coywolf-seo' ),
 				'error'           => __( 'Could not run the test. Please try again.', 'coywolf-seo' ),
 				'remove'          => __( 'Remove', 'coywolf-seo' ),
+				/* translators: %s: the custom bot token or sitemap URL the button removes. */
+				'removeItem'      => __( 'Remove %s', 'coywolf-seo' ),
+				/* translators: %s: the custom bot token or sitemap URL that was removed. */
+				'removedItem'     => __( 'Removed %s', 'coywolf-seo' ),
 				'selectAll'       => __( 'Select all', 'coywolf-seo' ),
 				'deselectAll'     => __( 'Deselect all', 'coywolf-seo' ),
 				'addBotEmpty'     => __( 'Enter a user-agent token first.', 'coywolf-seo' ),
@@ -475,6 +479,7 @@ final class Coywolf_SEO_Robots {
 					</div>
 
 					<table class="wp-list-table widefat fixed striped coywolf-seo-robots-table">
+						<caption class="screen-reader-text"><?php echo esc_html__( 'Robots.txt rules', 'coywolf-seo' ); ?></caption>
 						<thead>
 							<tr>
 								<td class="manage-column column-cb check-column"><input type="checkbox" id="coywolf-seo-robots-cb-all" aria-label="<?php echo esc_attr__( 'Select all rules', 'coywolf-seo' ); ?>" /></td>
@@ -612,7 +617,7 @@ final class Coywolf_SEO_Robots {
 				<p>
 					<button type="button" class="button" id="coywolf-seo-robots-file-test-btn"><?php echo esc_html__( 'Test URL', 'coywolf-seo' ); ?></button>
 				</p>
-				<div id="coywolf-seo-robots-file-result" class="coywolf-seo-robots-test-result" style="display:none;"></div>
+				<div id="coywolf-seo-robots-file-result" class="coywolf-seo-robots-test-result" role="status" style="display:none;"></div>
 			</div>
 			</div>
 		</div>
@@ -756,7 +761,7 @@ final class Coywolf_SEO_Robots {
 
 
 						<tr id="coywolf-seo-robots-testrow">
-							<th scope="row"><?php echo esc_html__( 'Testing Tool', 'coywolf-seo' ); ?></th>
+							<th scope="row"><label for="coywolf-seo-robots-test-url"><?php echo esc_html__( 'Testing Tool', 'coywolf-seo' ); ?></label></th>
 							<td>
 								<p class="description">
 									<?php echo esc_html__( 'Enter a URL or path to check whether this rule (as configured above) would block or allow it — before you save.', 'coywolf-seo' ); ?>
@@ -768,7 +773,7 @@ final class Coywolf_SEO_Robots {
 										<?php echo esc_html__( 'Test URL', 'coywolf-seo' ); ?>
 									</button>
 								</p>
-								<p id="coywolf-seo-robots-test-result" class="coywolf-seo-robots-test-result" style="display:none;"></p>
+								<p id="coywolf-seo-robots-test-result" class="coywolf-seo-robots-test-result" role="status" style="display:none;"></p>
 							</td>
 						</tr>
 					</table>
@@ -872,7 +877,8 @@ final class Coywolf_SEO_Robots {
 						<li>
 							<code><?php echo esc_html( $token ); ?></code>
 							<input type="hidden" name="agents[]" value="<?php echo esc_attr( $token ); ?>" />
-							<button type="button" class="button-link coywolf-seo-robots-custom-remove"><?php echo esc_html__( 'Remove', 'coywolf-seo' ); ?></button>
+							<?php /* translators: %s: the custom bot token this button removes. */ ?>
+							<button type="button" class="button-link coywolf-seo-robots-custom-remove" aria-label="<?php echo esc_attr( sprintf( __( 'Remove %s', 'coywolf-seo' ), $token ) ); ?>"><?php echo esc_html__( 'Remove', 'coywolf-seo' ); ?></button>
 						</li>
 					<?php endforeach; ?>
 				</ul>
@@ -941,6 +947,7 @@ final class Coywolf_SEO_Robots {
 		<div class="coywolf-seo-robots-custom coywolf-seo-robots-sitemaps">
 			<p>
 				<input type="text" id="coywolf-seo-robots-sitemap-input" class="regular-text code"
+					aria-label="<?php echo esc_attr__( 'Sitemap URL to add', 'coywolf-seo' ); ?>"
 					placeholder="<?php echo esc_attr( home_url( '/wp-sitemap.xml' ) ); ?>" />
 				<button type="button" class="button" id="coywolf-seo-robots-sitemap-add"><?php echo esc_html__( 'Add sitemap', 'coywolf-seo' ); ?></button>
 			</p>
@@ -949,7 +956,8 @@ final class Coywolf_SEO_Robots {
 					<li>
 						<code><?php echo esc_html( $url ); ?></code>
 						<input type="hidden" name="sitemaps[]" value="<?php echo esc_attr( $url ); ?>" />
-						<button type="button" class="button-link coywolf-seo-robots-sitemap-remove"><?php echo esc_html__( 'Remove', 'coywolf-seo' ); ?></button>
+						<?php /* translators: %s: the sitemap URL this button removes. */ ?>
+						<button type="button" class="button-link coywolf-seo-robots-sitemap-remove" aria-label="<?php echo esc_attr( sprintf( __( 'Remove %s', 'coywolf-seo' ), $url ) ); ?>"><?php echo esc_html__( 'Remove', 'coywolf-seo' ); ?></button>
 					</li>
 				<?php endforeach; ?>
 			</ul>
@@ -979,6 +987,7 @@ final class Coywolf_SEO_Robots {
 						<th scope="row"><?php echo esc_html__( 'Mode', 'coywolf-seo' ); ?></th>
 						<td>
 							<fieldset>
+								<legend class="screen-reader-text"><?php esc_html_e( 'Mode', 'coywolf-seo' ); ?></legend>
 								<label>
 									<input type="radio" name="mode" value="virtual" <?php checked( $mode, 'virtual' ); ?> />
 									<?php echo esc_html__( 'Virtual — let WordPress serve robots.txt and inject the managed rules.', 'coywolf-seo' ); ?>
@@ -1102,7 +1111,7 @@ final class Coywolf_SEO_Robots {
 						<form method="post" enctype="multipart/form-data" class="coywolf-seo-robots-import-form">
 							<?php wp_nonce_field( 'coywolf_seo_robots_import' ); ?>
 							<input type="hidden" name="coywolf_seo_robots_action" value="import" />
-							<input type="file" name="coywolf_seo_robots_import_file" accept="application/json,.json" required />
+							<input type="file" name="coywolf_seo_robots_import_file" id="coywolf-seo-robots-import-file" accept="application/json,.json" required aria-label="<?php echo esc_attr__( 'Robots.txt rules import file (JSON)', 'coywolf-seo' ); ?>" />
 							<button type="submit" class="button"
 								onclick="return confirm('<?php echo esc_js( __( 'Importing replaces ALL current rules with the ones in this file. Continue?', 'coywolf-seo' ) ); ?>');">
 								<?php echo esc_html__( 'Import rules', 'coywolf-seo' ); ?>
@@ -1496,6 +1505,12 @@ final class Coywolf_SEO_Robots {
 	 */
 	private function handle_resolve_import() {
 		check_admin_referer( 'coywolf_seo_robots_resolve_import' );
+		// The serving mode is administrator-only (see save_settings_fields()), so
+		// resolving the clash — which flips the mode and rewrites/deletes the
+		// site-root robots.txt — must be too, even for CAPABILITY holders.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			$this->redirect_with( self::PAGE_LIST, array( 'coywolf_seo_robots_error' => 'cap' ) );
+		}
 		update_option( self::OPT_MODE, 'physical' );
 		$this->import_existing();
 		update_option( self::OPT_IMPORTED, '1', false );
@@ -1509,6 +1524,10 @@ final class Coywolf_SEO_Robots {
 	 */
 	private function handle_resolve_overwrite() {
 		check_admin_referer( 'coywolf_seo_robots_resolve_overwrite' );
+		// Administrator-only: switching mode and writing the site-root robots.txt.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			$this->redirect_with( self::PAGE_LIST, array( 'coywolf_seo_robots_error' => 'cap' ) );
+		}
 		update_option( self::OPT_MODE, 'physical' );
 		$res = $this->write_physical();
 		if ( is_wp_error( $res ) ) {
@@ -1530,6 +1549,10 @@ final class Coywolf_SEO_Robots {
 	 */
 	private function handle_resolve_delete() {
 		check_admin_referer( 'coywolf_seo_robots_resolve_delete' );
+		// Administrator-only: switching mode and deleting the site-root robots.txt.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			$this->redirect_with( self::PAGE_LIST, array( 'coywolf_seo_robots_error' => 'cap' ) );
+		}
 
 		// Switching away from the physical file — drop to virtual so it isn't
 		// recreated, and keep the current rules.
@@ -1582,12 +1605,21 @@ final class Coywolf_SEO_Robots {
 	 * three one-click resolutions.
 	 */
 	private function render_physical_conflict_notice() {
+		// Resolving the clash flips the administrator-only serving mode and
+		// rewrites/deletes the site-root robots.txt, so only offer the resolve
+		// forms to administrators; other CAPABILITY holders just get the warning.
+		$can_resolve = current_user_can( 'manage_options' );
 		?>
 		<div class="notice notice-warning coywolf-seo-robots-physical-warning">
 			<p>
 				<strong><?php echo esc_html__( 'A physical robots.txt file exists in your site root.', 'coywolf-seo' ); ?></strong>
-				<?php echo esc_html__( 'WordPress serves that file, so the virtual rules below are NOT being used. Choose how to resolve this:', 'coywolf-seo' ); ?>
+				<?php
+				echo $can_resolve
+					? esc_html__( 'WordPress serves that file, so the virtual rules below are NOT being used. Choose how to resolve this:', 'coywolf-seo' )
+					: esc_html__( 'WordPress serves that file, so the virtual rules below are NOT being used. An administrator must resolve this clash.', 'coywolf-seo' );
+				?>
 			</p>
+			<?php if ( $can_resolve ) : ?>
 			<div class="coywolf-seo-robots-resolve-actions">
 				<form method="post">
 					<?php wp_nonce_field( 'coywolf_seo_robots_resolve_import' ); ?>
@@ -1614,6 +1646,7 @@ final class Coywolf_SEO_Robots {
 					</button>
 				</form>
 			</div>
+			<?php endif; ?>
 		</div>
 		<?php
 	}
@@ -3063,6 +3096,8 @@ final class Coywolf_SEO_Robots {
 				$text = __( 'Please choose a JSON file (up to 1 MB) to import.', 'coywolf-seo' );
 			} elseif ( 'import_invalid' === $err ) {
 				$text = __( 'That file is not a valid Robots.txt Manager export.', 'coywolf-seo' );
+			} elseif ( 'cap' === $err ) {
+				$text = __( 'Only an administrator can resolve this. Please ask a site administrator.', 'coywolf-seo' );
 			} else {
 				$text = __( 'Something went wrong.', 'coywolf-seo' );
 			}

@@ -41,6 +41,14 @@
 	var apiFetch = wp.apiFetch;
 	var __ = wp.i18n.__;
 
+	// Announce a result to screen readers (wp-a11y is a script dependency).
+	// Success/status is polite; failures are assertive so they are heard promptly.
+	function announce( message, assertive ) {
+		if ( wp.a11y && wp.a11y.speak ) {
+			wp.a11y.speak( message, assertive ? 'assertive' : 'polite' );
+		}
+	}
+
 	function ImageTextPanel( props ) {
 		var attributes = props.attributes;
 		var setAttributes = props.setAttributes;
@@ -118,6 +126,17 @@
 			};
 		}, [] );
 
+		// Reset the attachment-scoped local state whenever the block's attachment
+		// changes (e.g. core's "Replace"). Otherwise titleValue/descValue below
+		// keep preferring the previous image's edited/generated text over the
+		// freshly fetched media record, and a subsequent "Save to Media Library"
+		// would overwrite the NEW attachment with the old image's title/description.
+		useEffect( function () {
+			setTitle( null );
+			setDescription( null );
+			setNotice( '' );
+		}, [ id ] );
+
 		var titleValue = null !== title ? title : ( media && media.title ? media.title.raw : '' );
 		var descValue = null !== description ? description : ( media && media.description ? media.description.raw : '' );
 
@@ -141,10 +160,14 @@
 					setAttributes( { alt: res.alt_text, caption: res.caption } );
 					setTitle( res.title );
 					setDescription( res.description );
-					setNotice( __( 'Generated and saved to the Media Library.', 'coywolf-seo' ) );
+					var message = __( 'Generated and saved to the Media Library.', 'coywolf-seo' );
+					setNotice( message );
+					announce( message );
 				} )
 				.catch( function ( err ) {
-					setNotice( err && err.message ? err.message : __( 'The request failed.', 'coywolf-seo' ) );
+					var message = err && err.message ? err.message : __( 'The request failed.', 'coywolf-seo' );
+					setNotice( message );
+					announce( message, true );
 				} )
 				.then( function () {
 					setBusy( false );
@@ -160,10 +183,14 @@
 				data: { title: titleValue, description: descValue },
 			} )
 				.then( function () {
-					setNotice( __( 'Saved to the Media Library.', 'coywolf-seo' ) );
+					var message = __( 'Saved to the Media Library.', 'coywolf-seo' );
+					setNotice( message );
+					announce( message );
 				} )
 				.catch( function ( err ) {
-					setNotice( err && err.message ? err.message : __( 'The request failed.', 'coywolf-seo' ) );
+					var message = err && err.message ? err.message : __( 'The request failed.', 'coywolf-seo' );
+					setNotice( message );
+					announce( message, true );
 				} )
 				.then( function () {
 					setBusy( false );
