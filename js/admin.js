@@ -130,7 +130,6 @@
 			var propLabel = $select.find( 'option:selected' ).text();
 
 			var $row = $( '<tr class="coywolf-seo-prop-row"></tr>' );
-			$row.append( $( '<td class="coywolf-seo-drag-cell"></td>' ).append( $( '<span class="coywolf-seo-drag-handle dashicons dashicons-sort" aria-hidden="true"></span>' ) ) );
 			$row.append( $( '<td></td>' ).append( $select ) );
 			$row.append( buildValueCell( 'coywolf_seo[' + field + '][' + index + '][value]', prop, propLabel ) );
 			var $moveUp = $( '<button/>', {
@@ -217,29 +216,8 @@
 			$btn.trigger( 'focus' );
 		} );
 
-		// Drag-to-reorder property rows (mouse/touch enhancement). The saved
-		// order is read from the DOM at submit time, so no index rewriting is
-		// needed when rows move.
-		if ( $.fn.sortable ) {
-			$( '#coywolf-seo-org-props tbody, #coywolf-seo-author-props tbody' ).sortable( {
-				items: 'tr.coywolf-seo-prop-row',
-				handle: '.coywolf-seo-drag-handle',
-				axis: 'y',
-				containment: 'parent',
-				tolerance: 'pointer',
-				placeholder: 'coywolf-seo-sortable-placeholder',
-				forcePlaceholderSize: true,
-				helper: function ( event, $tr ) {
-					// Lock cell widths so the row keeps its shape while dragging.
-					var $originals = $tr.children();
-					var $helper = $tr.clone();
-					$helper.children().each( function ( i ) {
-						$( this ).width( $originals.eq( i ).width() );
-					} );
-					return $helper;
-				}
-			} );
-		}
+		// Property rows are reordered with the keyboard-accessible Move up/down
+		// buttons (above); the saved order is read from DOM order at submit time.
 
 		// Media picker inside repeaters: writes the chosen image URL into the
 		// field's hidden-by-CSS URL input (uploads land in the Media Library

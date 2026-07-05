@@ -561,7 +561,7 @@ final class Coywolf_SEO_Admin {
 				wp_enqueue_script(
 					'coywolf-seo-admin',
 					COYWOLF_SEO_URL . 'js/admin.js',
-					array( 'jquery', 'jquery-ui-sortable', 'wp-a11y' ),
+					array( 'jquery', 'wp-a11y' ),
 					Coywolf_SEO::VERSION,
 					true
 				);
@@ -592,7 +592,7 @@ final class Coywolf_SEO_Admin {
 		wp_enqueue_script(
 			'coywolf-seo-admin',
 			COYWOLF_SEO_URL . 'js/admin.js',
-			array( 'jquery', 'jquery-ui-sortable', 'wp-a11y' ),
+			array( 'jquery', 'wp-a11y' ),
 			Coywolf_SEO::VERSION,
 			true
 		);
@@ -925,7 +925,6 @@ final class Coywolf_SEO_Admin {
 			$prop = isset( $row['prop'] ) ? (string) $row['prop'] : '';
 			?>
 			<tr class="coywolf-seo-prop-row">
-				<td class="coywolf-seo-drag-cell"><span class="coywolf-seo-drag-handle dashicons dashicons-sort" aria-hidden="true"></span></td>
 				<td>
 					<select name="coywolf_seo[<?php echo esc_attr( $field ); ?>][<?php echo esc_attr( (string) $i ); ?>][prop]" class="coywolf-seo-prop-select" aria-label="<?php esc_attr_e( 'Property', 'coywolf-seo' ); ?>">
 						<?php foreach ( $catalog as $name => $label ) : ?>
