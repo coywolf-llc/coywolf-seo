@@ -259,8 +259,11 @@ jobs:
       # stripped (bin/build-wporg.sh derives it from the SAME stage the GitHub
       # zip was built from, so the two differ only by the updater). The zip is
       # always produced as an artifact (for the initial .org submission and
-      # for local Plugin Check runs); the SVN deploy runs only once the
-      # WPORG_SVN_* secrets exist — until then it cleanly skips.
+      # for local Plugin Check runs). The actual SVN deploy is intentionally
+      # MANUAL — see .github/workflows/deploy-wporg.yml — per WP.org guideline
+      # #14 (the directory is a release repo, not a development one): per-merge
+      # releases do NOT auto-deploy to .org; deploy only when a release should
+      # actually ship to the directory.
       # ----------------------------------------------------------------------
       - name: Build WordPress.org variant
         if: steps.tagcheck.outputs.exists == 'false'
@@ -293,26 +296,7 @@ jobs:
           path: coywolf-seo-wporg.zip
           if-no-files-found: error
 
-      - name: Check for WordPress.org SVN credentials
-        if: steps.tagcheck.outputs.exists == 'false'
-        id: wporg
-        env:
-          SVN_USERNAME: ${{ secrets.WPORG_SVN_USERNAME }}
-        run: |
-          if [ -n "${SVN_USERNAME:-}" ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "No WPORG_SVN_USERNAME secret set — built the .org zip artifact; skipping SVN deploy."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Deploy to WordPress.org SVN
-        if: steps.tagcheck.outputs.exists == 'false' && steps.wporg.outputs.ready == 'true'
-        uses: 10up/action-wordpress-plugin-deploy@stable
-        env:
-          SVN_USERNAME: ${{ secrets.WPORG_SVN_USERNAME }}
-          SVN_PASSWORD: ${{ secrets.WPORG_SVN_PASSWORD }}
-          SLUG:         coywolf-seo
-          VERSION:      ${{ steps.final.outputs.version }}
-          BUILD_DIR:    ${{ runner.temp }}/wporg/coywolf-seo
-          ASSETS_DIR:   .wordpress-org
+      # NOTE: the WordPress.org SVN deploy is intentionally NOT here — it is a
+      # separate, manual workflow (.github/workflows/deploy-wporg.yml) so that
+      # per-merge releases don't push to the .org directory on every commit
+      # (WP.org guideline #14). Deploy to .org only when a release should ship.
