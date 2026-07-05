@@ -1,6 +1,6 @@
 === Coywolf SEO ===
 Contributors: jonhenshaw
-Tags: seo
+Tags: seo, open graph, schema, sitemap, redirects
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
