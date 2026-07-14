@@ -127,7 +127,7 @@ final class Coywolf_SEO_TOC_Convert {
 			return;
 		}
 		?>
-		<div class="notice notice-info coywolf-seo-import-banner">
+		<div class="notice notice-info coywolf-seo-import-banner" id="coywolf-seo-toc-convert-banner">
 			<p>
 				<strong>
 				<?php
@@ -234,9 +234,7 @@ final class Coywolf_SEO_TOC_Convert {
 	 */
 	private function start( $dry_run ) {
 		// Recount from scratch so the run total is accurate, not a cached value.
-		delete_transient( self::COUNT_TRANSIENT );
-		$this->candidate_cache = null;
-		$total                 = $this->candidate_count();
+		$total = $this->fresh_count();
 
 		$state = array(
 			'status'          => $total > 0 ? 'running' : 'done',
@@ -249,9 +247,23 @@ final class Coywolf_SEO_TOC_Convert {
 			'samples'         => array(),
 			'started'         => gmdate( 'c' ),
 			'finished'        => $total > 0 ? '' : gmdate( 'c' ),
+			// Nothing to do → none remain; a real run fills this in when it ends.
+			'remaining'       => $total > 0 ? $total : 0,
 		);
 		update_option( self::STATE_OPTION, $state, false );
 		return $state;
+	}
+
+	/**
+	 * A cache-bypassing candidate count (clears and repopulates the transient),
+	 * used at run start and completion so both reflect the real current state.
+	 *
+	 * @return int
+	 */
+	private function fresh_count() {
+		delete_transient( self::COUNT_TRANSIENT );
+		$this->candidate_cache = null;
+		return $this->candidate_count();
 	}
 
 	/**
@@ -266,8 +278,12 @@ final class Coywolf_SEO_TOC_Convert {
 		}
 		$ids = $this->next_posts( (int) $state['last_id'], self::CHUNK );
 		if ( empty( $ids ) ) {
-			$state['status']   = 'done';
-			$state['finished'] = gmdate( 'c' );
+			// remaining = the fresh count of Yoast tables still present, so the
+			// banner can hide itself the moment a real run clears them all
+			// (no page reload needed).
+			$state['status']    = 'done';
+			$state['finished']  = gmdate( 'c' );
+			$state['remaining'] = $this->fresh_count();
 			update_option( self::STATE_OPTION, $state, false );
 			return $state;
 		}
