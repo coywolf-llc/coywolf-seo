@@ -478,16 +478,6 @@ final class Coywolf_SEO {
 	}
 
 	/**
-	 * Yoast → Coywolf Table of Contents converter accessor (the Settings page
-	 * shows how many posts still use a Yoast table of contents).
-	 *
-	 * @return Coywolf_SEO_TOC_Convert
-	 */
-	public function toc_convert() {
-		return $this->toc_convert;
-	}
-
-	/**
 	 * Schema graph builder accessor (the Labs EntityMap export reuses its
 	 * publisher identity so attribution matches the schema publisher).
 	 *

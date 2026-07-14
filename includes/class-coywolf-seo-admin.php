@@ -1402,7 +1402,6 @@ final class Coywolf_SEO_Admin {
 				array( 'coywolf-seo-section-toggles', __( 'Turn off features', 'coywolf-seo' ), true ),
 				array( 'coywolf-seo-section-enrich', __( 'Enrich all content', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'ai' ) ),
 				array( 'coywolf-seo-section-imageids', __( 'Fix missing image IDs', 'coywolf-seo' ), true ),
-				array( 'coywolf-seo-section-toc-convert', __( 'Replace Yoast tables of contents', 'coywolf-seo' ), true ),
 			);
 			?>
 			<ul class="coywolf-seo-settings-toc">
@@ -1984,47 +1983,6 @@ final class Coywolf_SEO_Admin {
 							<div class="coywolf-seo-progress hidden" id="coywolf-seo-idfix-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="coywolf-seo-progress-bar"></div></div>
 							<p class="description" id="coywolf-seo-idfix-result" role="status" aria-live="polite" aria-atomic="true"></p>
 							<div id="coywolf-seo-idfix-samples" class="coywolf-seo-idfix-samples hidden"></div>
-						</div>
-					</td>
-				</tr>
-				</tbody>
-			</table>
-			</div>
-
-			<div class="coywolf-seo-panel">
-			<h2 id="coywolf-seo-section-toc-convert"><?php esc_html_e( 'Replace Yoast tables of contents', 'coywolf-seo' ); ?></h2>
-			<table class="form-table" role="presentation">
-				<tbody>
-				<tr>
-					<td colspan="2">
-						<?php $coywolf_seo_toc_count = Coywolf_SEO::instance()->toc_convert()->candidate_count(); ?>
-						<p class="description">
-							<?php esc_html_e( 'If you switched from Yoast SEO, this finds every post and page that uses the Yoast SEO table of contents block and replaces it with the Coywolf SEO one, keeping the title, its heading level, and the range of heading levels the table lists. The Coywolf table is dynamic — it rebuilds from the page’s headings at view time — so the list never goes stale. It is safe to re-run, but it edits post content, so run Preview first.', 'coywolf-seo' ); ?>
-						</p>
-						<?php if ( $coywolf_seo_toc_count > 0 ) : ?>
-							<p class="description">
-								<strong>
-								<?php
-								printf(
-									/* translators: %d: number of posts and pages using a Yoast table of contents. */
-									esc_html( _n( '%d post or page currently uses a Yoast SEO table of contents.', '%d posts and pages currently use a Yoast SEO table of contents.', $coywolf_seo_toc_count, 'coywolf-seo' ) ),
-									(int) $coywolf_seo_toc_count
-								);
-								?>
-								</strong>
-							</p>
-						<?php else : ?>
-							<p class="description"><?php esc_html_e( 'No Yoast SEO tables of contents were found.', 'coywolf-seo' ); ?></p>
-						<?php endif; ?>
-						<div id="coywolf-seo-toc-convert">
-							<p>
-								<button type="button" class="button" id="coywolf-seo-toc-convert-preview"><?php esc_html_e( 'Preview', 'coywolf-seo' ); ?></button>
-								<button type="button" class="button button-primary" id="coywolf-seo-toc-convert-run"><?php esc_html_e( 'Replace tables of contents', 'coywolf-seo' ); ?></button>
-								<button type="button" class="button hidden" id="coywolf-seo-toc-convert-stop"><?php esc_html_e( 'Stop', 'coywolf-seo' ); ?></button>
-							</p>
-							<div class="coywolf-seo-progress hidden" id="coywolf-seo-toc-convert-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="coywolf-seo-progress-bar"></div></div>
-							<p class="description" id="coywolf-seo-toc-convert-result" role="status" aria-live="polite" aria-atomic="true"></p>
-							<div id="coywolf-seo-toc-convert-samples" class="coywolf-seo-idfix-samples hidden"></div>
 						</div>
 					</td>
 				</tr>
