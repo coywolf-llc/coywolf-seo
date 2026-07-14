@@ -705,6 +705,13 @@
 	z-index: 100000;
 }
 
+/* A pre-rendered modal starts with .hidden; this beats the display:flex above
+   (equal specificity would otherwise let flex win on source order and show the
+   modal on load). Removing .hidden in JS restores the flex layout. */
+.coywolf-seo-modal.hidden {
+	display: none;
+}
+
 .coywolf-seo-modal-box {
 	background: #fff;
 	border-radius: 4px;
@@ -716,6 +723,14 @@
 
 .coywolf-seo-modal-box h2 {
 	margin-top: 0;
+}
+
+/* The Yoast-TOC conversion tool needs more room than a confirm dialog, and its
+   sample list can grow — give it a wider, scrollable box. */
+.coywolf-seo-toc-convert-modal .coywolf-seo-modal-box {
+	max-width: 640px;
+	max-height: 85vh;
+	overflow-y: auto;
 }
 
 .coywolf-seo-modal-actions {

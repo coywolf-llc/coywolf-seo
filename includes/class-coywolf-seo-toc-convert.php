@@ -104,10 +104,15 @@ final class Coywolf_SEO_TOC_Convert {
 	/**
 	 * Offer the conversion when Yoast tables of contents are present. Scoped to
 	 * this plugin's own screens (like the redirect-import banner) so it never
-	 * nags site-wide, and hidden once dismissed or once none remain.
+	 * nags site-wide, and hidden once dismissed or once none remain. "Review and
+	 * replace" opens a modal holding the Preview/Replace tool.
+	 *
+	 * Gated to users who can actually run the tool (manage_options), the same
+	 * capability the AJAX endpoint enforces — so the banner is never shown to
+	 * someone who would then be denied inside the modal.
 	 */
 	public function maybe_show_banner() {
-		if ( ! current_user_can( Coywolf_SEO_Admin::CAPABILITY ) ) {
+		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
@@ -121,8 +126,6 @@ final class Coywolf_SEO_TOC_Convert {
 		if ( $count < 1 ) {
 			return;
 		}
-
-		$url = admin_url( 'admin.php?page=' . Coywolf_SEO_Admin::SLUG_SETTINGS ) . '#coywolf-seo-section-toc-convert';
 		?>
 		<div class="notice notice-info coywolf-seo-import-banner">
 			<p>
@@ -137,13 +140,34 @@ final class Coywolf_SEO_TOC_Convert {
 				</strong>
 			</p>
 			<p>
-				<a href="<?php echo esc_url( $url ); ?>" class="button button-primary"><?php esc_html_e( 'Review and replace', 'coywolf-seo' ); ?></a>
+				<button type="button" class="button button-primary" id="coywolf-seo-toc-convert-open"><?php esc_html_e( 'Review and replace', 'coywolf-seo' ); ?></button>
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="coywolf-seo-inline-form">
 					<input type="hidden" name="action" value="coywolf_seo_dismiss_toc_convert" />
 					<?php wp_nonce_field( 'coywolf_seo_dismiss_toc_convert' ); ?>
 					<button type="submit" class="button-link"><?php esc_html_e( 'Dismiss', 'coywolf-seo' ); ?></button>
 				</form>
 			</p>
+		</div>
+
+		<?php // The Preview/Replace tool, in a modal opened from the banner (hidden until then). ?>
+		<div class="coywolf-seo-modal coywolf-seo-toc-convert-modal hidden" id="coywolf-seo-toc-convert-modal" role="dialog" aria-modal="true" aria-labelledby="coywolf-seo-toc-convert-title" aria-describedby="coywolf-seo-toc-convert-desc">
+			<div class="coywolf-seo-modal-box">
+				<h2 id="coywolf-seo-toc-convert-title"><?php esc_html_e( 'Replace Yoast tables of contents', 'coywolf-seo' ); ?></h2>
+				<p class="description" id="coywolf-seo-toc-convert-desc"><?php esc_html_e( 'This finds every post and page that uses the Yoast SEO table of contents block and replaces it with the Coywolf SEO one, keeping the title, its heading level, the range of heading levels, and the bulleted list style. The Coywolf table is dynamic, so its list never goes stale. It is safe to re-run, but it edits post content, so run Preview first.', 'coywolf-seo' ); ?></p>
+				<div id="coywolf-seo-toc-convert">
+					<p>
+						<button type="button" class="button" id="coywolf-seo-toc-convert-preview"><?php esc_html_e( 'Preview', 'coywolf-seo' ); ?></button>
+						<button type="button" class="button button-primary" id="coywolf-seo-toc-convert-run"><?php esc_html_e( 'Replace tables of contents', 'coywolf-seo' ); ?></button>
+						<button type="button" class="button hidden" id="coywolf-seo-toc-convert-stop"><?php esc_html_e( 'Stop', 'coywolf-seo' ); ?></button>
+					</p>
+					<div class="coywolf-seo-progress hidden" id="coywolf-seo-toc-convert-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="coywolf-seo-progress-bar"></div></div>
+					<p class="description" id="coywolf-seo-toc-convert-result" role="status" aria-live="polite" aria-atomic="true"></p>
+					<div id="coywolf-seo-toc-convert-samples" class="coywolf-seo-idfix-samples hidden"></div>
+				</div>
+				<p class="coywolf-seo-modal-actions">
+					<button type="button" class="button" id="coywolf-seo-toc-convert-close"><?php esc_html_e( 'Close', 'coywolf-seo' ); ?></button>
+				</p>
+			</div>
 		</div>
 		<?php
 	}
@@ -213,6 +237,7 @@ final class Coywolf_SEO_TOC_Convert {
 		delete_transient( self::COUNT_TRANSIENT );
 		$this->candidate_cache = null;
 		$total                 = $this->candidate_count();
+
 		$state = array(
 			'status'          => $total > 0 ? 'running' : 'done',
 			'dry_run'         => (bool) $dry_run,

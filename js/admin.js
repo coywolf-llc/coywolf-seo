@@ -950,8 +950,9 @@
 		$stop.on( 'click', function () { running = false; post( { op: 'cancel' } ); buttons( false ); } );
 	} );
 	/* ------------------------------------------------------------------ *
-	 * Settings: "Replace Yoast tables of contents" operation. Runs in chunks
-	 * via admin-ajax; Preview is a dry run, Replace applies the changes.
+	 * "Replace Yoast tables of contents": a Preview/Replace tool in a modal
+	 * opened from the after-activation banner. Runs in chunks via admin-ajax;
+	 * Preview is a dry run, Replace applies the changes.
 	 * ------------------------------------------------------------------ */
 	$( function () {
 		var $tool = $( '#coywolf-seo-toc-convert' );
@@ -965,6 +966,63 @@
 		var $result = $( '#coywolf-seo-toc-convert-result' );
 		var $samples = $( '#coywolf-seo-toc-convert-samples' );
 		var running = false;
+
+		// Modal open/close + focus handling. The tool markup lives in a hidden
+		// modal; the banner's "Review and replace" button opens it.
+		var $modal = $( '#coywolf-seo-toc-convert-modal' );
+		var $openBtn = $( '#coywolf-seo-toc-convert-open' );
+		var $closeBtn = $( '#coywolf-seo-toc-convert-close' );
+		var lastFocus = null;
+
+		function focusable() {
+			return $modal.find( 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])' )
+				.filter( ':visible' ).filter( function () { return ! this.disabled; } );
+		}
+		function onModalKeydown( event ) {
+			if ( 'Escape' === event.key ) {
+				closeModal();
+				return;
+			}
+			if ( 'Tab' !== event.key ) {
+				return;
+			}
+			// Keep focus inside the dialog.
+			var items = focusable();
+			if ( ! items.length ) {
+				return;
+			}
+			var first = items[ 0 ];
+			var last = items[ items.length - 1 ];
+			if ( event.shiftKey && document.activeElement === first ) {
+				event.preventDefault();
+				last.focus();
+			} else if ( ! event.shiftKey && document.activeElement === last ) {
+				event.preventDefault();
+				first.focus();
+			}
+		}
+		function openModal() {
+			lastFocus = document.activeElement;
+			$modal.removeClass( 'hidden' );
+			var items = focusable();
+			( items.length ? $( items[ 0 ] ) : $modal ).trigger( 'focus' );
+			$( document ).on( 'keydown.coywolfSeoTocModal', onModalKeydown );
+		}
+		function closeModal() {
+			$modal.addClass( 'hidden' );
+			$( document ).off( 'keydown.coywolfSeoTocModal' );
+			if ( lastFocus && lastFocus.focus ) {
+				lastFocus.focus();
+			}
+		}
+		$openBtn.on( 'click', openModal );
+		$closeBtn.on( 'click', closeModal );
+		// A click on the overlay (outside the box) closes it.
+		$modal.on( 'click', function ( event ) {
+			if ( event.target === $modal[ 0 ] ) {
+				closeModal();
+			}
+		} );
 
 		function post( data ) {
 			return $.post( config.ajaxUrl, $.extend( { action: 'coywolf_seo_toc_convert', _ajax_nonce: config.tocConvertNonce }, data ) );
