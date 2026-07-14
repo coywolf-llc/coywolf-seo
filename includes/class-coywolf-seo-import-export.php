@@ -187,6 +187,7 @@ final class Coywolf_SEO_Import_Export {
 		<div class="wrap coywolf-seo-wrap">
 		<h1><?php esc_html_e( 'Import/Export', 'coywolf-seo' ); ?></h1>
 		<div class="coywolf-seo-panel">
+		<h2><?php esc_html_e( 'Plugin settings', 'coywolf-seo' ); ?></h2>
 		<table class="form-table" role="presentation">
 			<tr>
 				<th scope="row"><?php esc_html_e( 'Export', 'coywolf-seo' ); ?></th>

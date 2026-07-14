@@ -64,6 +64,11 @@
   "confidence": "high",
   "source": "https://www.bing.com/webmaster/help/which-crawlers-does-bing-use-8c184ec0"
  },
+ "adsensor-2": {
+  "token": "AdSensorBot",
+  "confidence": "high",
+  "source": "ua"
+ },
  "adstxtcrawler": {
   "token": "AdsTxtCrawler",
   "aliases": [
@@ -76,6 +81,11 @@
   "token": "Advailo",
   "confidence": "medium",
   "source": "https://radar.cloudflare.com/bots/directory/advailo-kuma"
+ },
+ "advallybot-2": {
+  "token": "AdvallyBot",
+  "confidence": "high",
+  "source": "ua"
  },
  "adyen": {
   "token": "Adyen",
@@ -115,6 +125,16 @@
   "confidence": "high",
   "source": "ua"
  },
+ "ai-search-external": {
+  "token": "Cloudflare-AI-Search-External",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "airsoftdbbot-2": {
+  "token": "AirsoftdbBot",
+  "confidence": "high",
+  "source": "ua"
+ },
  "akismet": {
   "token": "Akismet",
   "confidence": "medium",
@@ -140,6 +160,11 @@
  },
  "alli-ai-bot": {
   "token": "AlliAI",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "alphalens-bot": {
+  "token": "alphalens-bot",
   "confidence": "high",
   "source": "ua"
  },
@@ -217,6 +242,11 @@
   "confidence": "high",
   "source": "ua"
  },
+ "amzn-searchbot": {
+  "token": "Amzn-SearchBot",
+  "confidence": "high",
+  "source": "ua"
+ },
  "anchor-browser": {
   "token": "Anchor",
   "confidence": "high",
@@ -268,10 +298,20 @@
   "confidence": "high",
   "source": "ua"
  },
+ "arrow-monitor": {
+  "token": "ArrowMonitor",
+  "confidence": "high",
+  "source": "ua"
+ },
  "artemis-web-reader": {
   "token": "artemis",
   "confidence": "medium",
   "source": "https://artemis.jamesg.blog/bot"
+ },
+ "artsdata-crawler": {
+  "token": "artsdata-crawler",
+  "confidence": "high",
+  "source": "ua"
  },
  "atlassian-bot": {
   "token": "atlassian-bot",
@@ -283,6 +323,10 @@
   "confidence": "high",
   "source": "ua"
  },
+ "audd": {
+  "excluded": true,
+  "source": "auto-excluded: no robots.txt user-agent token"
+ },
  "audisto-crawler": {
   "token": "audisto",
   "aliases": [
@@ -293,6 +337,11 @@
  },
  "authory": {
   "token": "Authory",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "automated-web-testing": {
+  "token": "GhostInspector",
   "confidence": "high",
   "source": "ua"
  },
@@ -343,6 +392,9 @@
   "token": "BestChange",
   "confidence": "medium",
   "source": "ua"
+ },
+ "better-stack-bot": {
+  "excluded": true
  },
  "better-uptime": {
   "token": "BetterUptime",
@@ -564,6 +616,19 @@
   "confidence": "high",
   "source": "https://developers.openai.com/api/docs/bots"
  },
+ "chathive-crawler": {
+  "token": "ChathiveCrawler",
+  "aliases": [
+   "OnirocoCrawler"
+  ],
+  "confidence": "medium",
+  "source": "https://developers.chathive.app/crawler/overview"
+ },
+ "check-host-cc-monitoring": {
+  "token": "check-host.cc",
+  "confidence": "high",
+  "source": "ua"
+ },
  "checkly": {
   "token": "Checkly",
   "confidence": "high",
@@ -584,10 +649,20 @@
   "confidence": "high",
   "source": "ua"
  },
+ "claude-anthropic": {
+  "token": "ClaudeBot",
+  "confidence": "high",
+  "source": "https://support.claude.com/en/articles/8896518"
+ },
  "claude-searchbot": {
   "token": "Claude-SearchBot",
   "confidence": "high",
   "source": "https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler"
+ },
+ "claude-user": {
+  "token": "Claude-User",
+  "confidence": "high",
+  "source": "https://support.claude.com/en/articles/8896518"
  },
  "cledara-saas-management-agent": {
   "token": "CledaraBot",
@@ -628,6 +703,9 @@
   "token": "Cloudflare",
   "confidence": "low",
   "source": "ua"
+ },
+ "cloudflare-customerslo-prober-2": {
+  "excluded": true
  },
  "cloudflare-diagnostics": {
   "token": "CloudflareDiagnostics",
@@ -710,6 +788,11 @@
   "confidence": "high",
   "source": "https://knownagents.com/agents/cludo-com"
  },
+ "cmu-cylab": {
+  "token": "CMU-Cylab",
+  "confidence": "high",
+  "source": "ua"
+ },
  "coccocbot": {
   "token": "coccocbot",
   "aliases": [
@@ -730,16 +813,16 @@
   "confidence": "high",
   "source": "ua"
  },
- "composer": {
-  "token": "Composer",
-  "confidence": "high",
-  "source": "https://trycomposer.ai/home"
- },
  "consentcheck": {
   "token": "ConsentCheckBot",
   "aliases": [
    "consentcheck"
   ],
+  "confidence": "high",
+  "source": "ua"
+ },
+ "content-square-speed-analysis": {
+  "token": "CSpeedTP",
   "confidence": "high",
   "source": "ua"
  },
@@ -790,6 +873,11 @@
   "confidence": "high",
   "source": "https://www.cookieyes.com/documentation/cookieyesbot"
  },
+ "coostibot": {
+  "token": "CoostiBot",
+  "confidence": "high",
+  "source": "ua"
+ },
  "cotoyogi": {
   "token": "Cotoyogi",
   "confidence": "high",
@@ -815,6 +903,11 @@
   "confidence": "low",
   "source": "https://knownagents.com/agents/crazy-egg"
  },
+ "creobot": {
+  "token": "Creobot",
+  "confidence": "high",
+  "source": "ua"
+ },
  "criteobot": {
   "token": "CriteoBot",
   "confidence": "high",
@@ -830,6 +923,11 @@
   "confidence": "medium",
   "source": "pattern"
  },
+ "cutestat-2": {
+  "token": "CuteStat",
+  "confidence": "high",
+  "source": "ua"
+ },
  "cxensebot": {
   "token": "cXensebot",
   "confidence": "high",
@@ -837,6 +935,11 @@
  },
  "cybaa-bot": {
   "token": "CybaaBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "cyclr": {
+  "token": "cyclr.com",
   "confidence": "high",
   "source": "ua"
  },
@@ -899,14 +1002,6 @@
   "confidence": "medium",
   "source": "ua"
  },
- "deck-agent": {
-  "token": "DeckAgent",
-  "aliases": [
-   "DeckAI"
-  ],
-  "confidence": "medium",
-  "source": "ua"
- },
  "deepcrawl": {
   "token": "lumar",
   "aliases": [
@@ -936,6 +1031,11 @@
   "confidence": "high",
   "source": "https://www.digicert.com/"
  },
+ "digiflazz-webhook": {
+  "token": "Digiflazz-Hookshot",
+  "confidence": "high",
+  "source": "ua"
+ },
  "direqt-anomura": {
   "token": "Anomura",
   "confidence": "high",
@@ -948,6 +1048,11 @@
  },
  "dlvr-it-feed-fetcher": {
   "token": "dlvr.it",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "dnsnifferbot": {
+  "token": "DNSnifferBot",
   "confidence": "high",
   "source": "ua"
  },
@@ -970,11 +1075,6 @@
   "token": "Dratabot",
   "confidence": "high",
   "source": "ua"
- },
- "drift-agent": {
-  "token": "DriftBot",
-  "confidence": "high",
-  "source": "https://www.getdrift.ai"
  },
  "drlinkcheck": {
   "token": "Dlc",
@@ -1024,8 +1124,23 @@
   "confidence": "high",
   "source": "ua"
  },
+ "echofeed": {
+  "token": "EchoFeed",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "element451bot": {
+  "token": "Element451Bot",
+  "confidence": "high",
+  "source": "ua"
+ },
  "elmahio-uptimebot": {
   "token": "elmahio-uptimebot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "elsa-ccn-cert": {
+  "token": "ELSA-CCNCERT-scanner",
   "confidence": "high",
   "source": "ua"
  },
@@ -1057,6 +1172,11 @@
   "confidence": "medium",
   "source": "ua"
  },
+ "eyemonituptimebot": {
+  "token": "EyeMonit",
+  "confidence": "high",
+  "source": "ua"
+ },
  "ezoicbot": {
   "token": "EzoicBot",
   "aliases": [
@@ -1082,6 +1202,11 @@
  },
  "factset-spyderbot": {
   "token": "factset_spyderbot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "fastcron": {
+  "token": "FastCron",
   "confidence": "high",
   "source": "ua"
  },
@@ -1117,6 +1242,11 @@
   "confidence": "high",
   "source": "ua"
  },
+ "feedblitz": {
+  "token": "FeedBlitz",
+  "confidence": "high",
+  "source": "ua"
+ },
  "feeder": {
   "token": "feeder.co",
   "confidence": "high",
@@ -1134,6 +1264,11 @@
  },
  "feedwind": {
   "token": "Feedwind",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "findimagebot": {
+  "token": "FindImageDownloader",
   "confidence": "high",
   "source": "ua"
  },
@@ -1171,8 +1306,17 @@
   "confidence": "high",
   "source": "ua"
  },
- "flockwp": {
-  "token": "FlockWP",
+ "flowpane": {
+  "token": "Flowpane",
+  "confidence": "high",
+  "source": "https://crawler.flowpane.com"
+ },
+ "flyingpress": {
+  "excluded": true,
+  "source": "auto-excluded: no robots.txt user-agent token"
+ },
+ "fn-legislative-and-regulatory-bot": {
+  "token": "FiscalNote",
   "confidence": "high",
   "source": "ua"
  },
@@ -1180,11 +1324,6 @@
   "token": "Foregenix",
   "confidence": "medium",
   "source": "https://ometrix.ai/en/bot/foregenix-threatviewwebscan"
- },
- "foureff": {
-  "token": "4f.at",
-  "confidence": "medium",
-  "source": "ua"
  },
  "freespoke": {
   "token": "Freespoke",
@@ -1222,13 +1361,28 @@
   "confidence": "high",
   "source": "ua"
  },
+ "geedoshopproductfinder": {
+  "token": "GeedoShopProductFinder",
+  "confidence": "high",
+  "source": "ua"
+ },
  "ghost-inspector": {
   "token": "GhostInspector",
   "confidence": "high",
   "source": "https://ghostinspector.com"
  },
+ "ghostexplore": {
+  "token": "GhostExplore",
+  "confidence": "high",
+  "source": "ua"
+ },
  "gigabot": {
   "token": "Gigabot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "github-hookshot": {
+  "token": "GitHub-Hookshot",
   "confidence": "high",
   "source": "ua"
  },
@@ -1448,15 +1602,15 @@
   "confidence": "high",
   "source": "https://datadome.co/bots/gtmetrix/"
  },
+ "gtranslate-2": {
+  "token": "GTranslate-Translation-Proxy",
+  "confidence": "high",
+  "source": "ua"
+ },
  "guestpostsbot": {
   "token": "GuestpostsBot",
   "confidence": "high",
   "source": "ua"
- },
- "haiku-searchbot": {
-  "token": "Haiku-SearchBot",
-  "confidence": "high",
-  "source": "https://www.haiku.fr/robots-doc"
  },
  "hatena": {
   "token": "Hatena",
@@ -1470,11 +1624,6 @@
   ],
   "confidence": "medium",
   "source": "https://developer.hatena.ne.jp/ja/documents/other/apis/useragents/"
- },
- "hecbot": {
-  "token": "hecBot",
-  "confidence": "high",
-  "source": "https://www.checkpoint.com/harmony/email-security/"
  },
  "hellowork-bot": {
   "token": "HelloworkJobPostingBot",
@@ -1521,6 +1670,11 @@
   "confidence": "high",
   "source": "pattern"
  },
+ "httpstatus": {
+  "token": "HttpStatus",
+  "confidence": "high",
+  "source": "ua"
+ },
  "hubspot-crawler": {
   "token": "HubSpot",
   "confidence": "medium",
@@ -1541,12 +1695,31 @@
   "confidence": "high",
   "source": "pattern"
  },
+ "hund": {
+  "token": "Bluthund",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "hunter-logos": {
+  "excluded": true,
+  "source": "auto-excluded: no robots.txt user-agent token"
+ },
+ "hydrozen-io": {
+  "token": "Hydrozen.io",
+  "confidence": "high",
+  "source": "ua"
+ },
  "hypemachine": {
   "token": "Hype",
   "aliases": [
    "Machine"
   ],
   "confidence": "medium",
+  "source": "ua"
+ },
+ "i-search-crawler": {
+  "token": "i-search-crawler",
+  "confidence": "high",
   "source": "ua"
  },
  "ias-crawler": {
@@ -1587,6 +1760,11 @@
   "confidence": "high",
   "source": "pattern"
  },
+ "inforoom-reader": {
+  "token": "InfoRoomReader",
+  "confidence": "high",
+  "source": "ua"
+ },
  "innguma-fetcher": {
   "token": "Innguma",
   "confidence": "high",
@@ -1606,6 +1784,11 @@
    "Instaparser"
   ],
   "confidence": "medium",
+  "source": "ua"
+ },
+ "instatusbot": {
+  "token": "InstatusBot",
+  "confidence": "high",
   "source": "ua"
  },
  "integromatbot": {
@@ -1628,6 +1811,11 @@
   "confidence": "high",
   "source": "ua"
  },
+ "internet-nl-2": {
+  "token": "internetnl",
+  "confidence": "high",
+  "source": "ua"
+ },
  "isdownbot": {
   "token": "IsDownBot",
   "confidence": "high",
@@ -1643,6 +1831,11 @@
  },
  "jetpack": {
   "token": "jetmon",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "jobicybot-3": {
+  "token": "JobicyBot",
   "confidence": "high",
   "source": "ua"
  },
@@ -1689,10 +1882,20 @@
   "confidence": "medium",
   "source": "https://www.kb.dk/en/find-materials/collections/netarkivet/guide-website-owners"
  },
+ "keldannewscrawler": {
+  "token": "KeldanNewsCrawler",
+  "confidence": "high",
+  "source": "ua"
+ },
  "kernel": {
   "token": "Kernel",
   "confidence": "high",
   "source": "https://www.kernel.sh/docs"
+ },
+ "kimibot": {
+  "token": "KimiBot",
+  "confidence": "high",
+  "source": "https://www.kimi.com/policies/kimi-crawlers"
  },
  "kinsta-bot": {
   "token": "kinsta-bot",
@@ -1708,14 +1911,6 @@
   "token": "KlaviyoAIBot",
   "confidence": "high",
   "source": "https://help.klaviyo.com/hc/en-us/articles/40496146232219"
- },
- "known-agent": {
-  "token": "Known",
-  "aliases": [
-   "Known-Agent"
-  ],
-  "confidence": "low",
-  "source": "https://knownagents.com/agents/known-agent"
  },
  "legalmonster": {
   "token": "LegalMonster",
@@ -1758,6 +1953,11 @@
  "link-cli": {
   "excluded": true,
   "source": "https://link.com/agents (signed agent; no robots.txt user-agent token)"
+ },
+ "linkcheckerbot": {
+  "token": "LinkCheckerBot",
+  "confidence": "high",
+  "source": "ua"
  },
  "linkcheckerpro": {
   "token": "LinkCheckerBot",
@@ -1820,6 +2020,11 @@
   "confidence": "high",
   "source": "ua"
  },
+ "mailcoach": {
+  "token": "Mailcoach",
+  "confidence": "high",
+  "source": "ua"
+ },
  "mainwp": {
   "token": "MainWP",
   "confidence": "high",
@@ -1844,6 +2049,11 @@
   "token": "Manus-User",
   "confidence": "high",
   "source": "https://knownagents.com/agents/manus-user"
+ },
+ "marfeel": {
+  "token": "mrfCompass",
+  "confidence": "high",
+  "source": "ua"
  },
  "marginaliabot": {
   "token": "search.marginalia.nu",
@@ -1925,6 +2135,11 @@
  },
  "microsoftpreview": {
   "token": "MicrosoftPreview",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "midasnetworkbot": {
+  "token": "MidasNetworkBot",
   "confidence": "high",
   "source": "ua"
  },
@@ -2041,6 +2256,11 @@
   "confidence": "high",
   "source": "ua"
  },
+ "navu": {
+  "token": "NavuBot",
+  "confidence": "medium",
+  "source": "https://navu.co"
+ },
  "neevabot": {
   "token": "Neevabot",
   "confidence": "high",
@@ -2067,6 +2287,11 @@
  "netvigie": {
   "token": "NETVIGIE",
   "confidence": "medium",
+  "source": "ua"
+ },
+ "netweak": {
+  "token": "Netweak",
+  "confidence": "high",
   "source": "ua"
  },
  "new-york-times-newsgathering": {
@@ -2163,6 +2388,11 @@
   "confidence": "high",
   "source": "https://platform.openai.com/docs/bots"
  },
+ "observer-3": {
+  "token": "obsrvr.net",
+  "confidence": "high",
+  "source": "ua"
+ },
  "ohdear": {
   "token": "OhDear.app",
   "aliases": [
@@ -2173,6 +2403,11 @@
  },
  "okx-dolphin-crawler": {
   "token": "OKX-dolphin-crawler",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "omim-litrack-2": {
+  "token": "OMIM-Litrack",
   "confidence": "high",
   "source": "ua"
  },
@@ -2207,6 +2442,11 @@
   "confidence": "high",
   "source": "https://knownagents.com/agents/onlineornot"
  },
+ "onticabot-2": {
+  "token": "OnticaBot",
+  "confidence": "high",
+  "source": "ua"
+ },
  "opengraphbot": {
   "token": "OpenGraph.io",
   "confidence": "high",
@@ -2219,6 +2459,11 @@
  },
  "orlo-link-preview": {
   "token": "Orlo-LinkPreview",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "oseox": {
+  "token": "Oseox",
   "confidence": "high",
   "source": "ua"
  },
@@ -2249,6 +2494,16 @@
  },
  "paesslermonitoring": {
   "token": "PRTGCloudBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "pagefreezer-website-archiving-2": {
+  "token": "PageFreezer",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "panachebot": {
+  "token": "PanacheBot",
   "confidence": "high",
   "source": "ua"
  },
@@ -2290,13 +2545,22 @@
   "confidence": "high",
   "source": "ua"
  },
- "perplexity-user-4": {
-  "token": "Perplexity-User",
+ "performlinecrawler": {
+  "token": "PerformLineCrawler",
   "confidence": "high",
-  "source": "https://docs.perplexity.ai/guides/bots"
+  "source": "ua"
  },
  "petalbot": {
   "token": "PetalBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "picqer-woocommerce-api-client-2": {
+  "excluded": true,
+  "source": "auto-excluded: no robots.txt user-agent token"
+ },
+ "ping-admin": {
+  "token": "PingAdmin",
   "confidence": "high",
   "source": "ua"
  },
@@ -2328,6 +2592,16 @@
   ],
   "confidence": "high",
   "source": "https://help.pinterest.com/en/business/article/pinterestbot"
+ },
+ "platebreaker": {
+  "token": "Platebreaker",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "playpatrol": {
+  "token": "Playpatrol",
+  "confidence": "high",
+  "source": "ua"
  },
  "pocketcasts-feed-parser": {
   "token": "PocketCasts",
@@ -2410,6 +2684,11 @@
   "confidence": "high",
   "source": "https://help.pulsetic.com/article/198-pulsetic-user-agent"
  },
+ "pureconsentbot": {
+  "token": "PureConsentBot",
+  "confidence": "high",
+  "source": "ua"
+ },
  "pwabuilder": {
   "token": "PWABuilderHttpAgent",
   "confidence": "high",
@@ -2419,6 +2698,11 @@
   "token": "QATechBot",
   "confidence": "high",
   "source": "https://qa.tech"
+ },
+ "qcbot-3": {
+  "token": "qcbot",
+  "confidence": "high",
+  "source": "ua"
  },
  "qualifiedbot": {
   "token": "QualifiedBot",
@@ -2475,8 +2759,18 @@
   "confidence": "medium",
   "source": "ua"
  },
+ "rdtvlokipbot": {
+  "token": "RDTvlokipBot",
+  "confidence": "high",
+  "source": "ua"
+ },
  "readable": {
   "token": "Readable",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "reconwavebot-2": {
+  "token": "ReconWaveBot",
   "confidence": "high",
   "source": "ua"
  },
@@ -2488,13 +2782,13 @@
   "confidence": "medium",
   "source": "ua"
  },
- "redactus-proxy-service": {
-  "token": "Redactus",
-  "confidence": "high",
-  "source": "https://bot.redactus.co.uk/proxy"
- },
  "redactus-web-classifier": {
   "token": "RedactusWebClassifier",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "redirect-pizza-destination-monitor": {
+  "token": "redirect.pizza",
   "confidence": "high",
   "source": "ua"
  },
@@ -2525,11 +2819,6 @@
  },
  "rigor": {
   "token": "Rigor",
-  "confidence": "high",
-  "source": "ua"
- },
- "robinbot": {
-  "token": "Robinbot",
   "confidence": "high",
   "source": "ua"
  },
@@ -2577,11 +2866,6 @@
   "confidence": "medium",
   "source": "https://knownagents.com/agents/sansec-security-monitor"
  },
- "scavobot": {
-  "token": "ScavoBot",
-  "confidence": "high",
-  "source": "ua"
- },
  "scour-rss-bot": {
   "token": "ScourRSSBot",
   "aliases": [
@@ -2591,6 +2875,11 @@
   ],
   "confidence": "high",
   "source": "https://scour.ing/bot"
+ },
+ "screpy": {
+  "token": "screpy",
+  "confidence": "high",
+  "source": "ua"
  },
  "se-ranking-bot": {
   "token": "SEBot-WA",
@@ -2612,6 +2901,16 @@
  },
  "seekport": {
   "token": "SeekportBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "selectika-ai": {
+  "token": "SelectikaScraper",
+  "confidence": "high",
+  "source": "https://selectika.com/bot/"
+ },
+ "semonto-3": {
+  "token": "Semonto",
   "confidence": "high",
   "source": "ua"
  },
@@ -2658,9 +2957,24 @@
   "confidence": "high",
   "source": "ua"
  },
+ "sendcloud-2": {
+  "token": "Sendcloud",
+  "confidence": "high",
+  "source": "ua"
+ },
  "sendgrid": {
   "token": "SendGrid",
   "confidence": "medium",
+  "source": "ua"
+ },
+ "sentibot": {
+  "token": "SentiBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "sentinelbot": {
+  "token": "SentinelBot",
+  "confidence": "high",
   "source": "ua"
  },
  "sentry": {
@@ -2751,10 +3065,15 @@
   "confidence": "high",
   "source": "ua"
  },
- "silvestro": {
-  "token": "Silvestro",
+ "simpay": {
+  "token": "SimPay-IPN",
   "confidence": "high",
-  "source": "https://silverstream.ai"
+  "source": "ua"
+ },
+ "sirdatabot": {
+  "token": "SirdataBot",
+  "confidence": "high",
+  "source": "ua"
  },
  "sistrix-optimizer": {
   "token": "SISTRIX",
@@ -2776,6 +3095,16 @@
  },
  "sitecheck-sitecrawl": {
   "token": "SiteCheck-sitecrawl",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "sitecockpit-monitoring": {
+  "token": "SiteCockpit",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "siteguru": {
+  "token": "SiteGuruCrawler",
   "confidence": "high",
   "source": "ua"
  },
@@ -2833,11 +3162,6 @@
   "confidence": "high",
   "source": "ua"
  },
- "slopsearch": {
-  "token": "slopsearch",
-  "confidence": "high",
-  "source": "ua"
- },
  "smarsh": {
   "token": "SmarshBot",
   "confidence": "high",
@@ -2872,8 +3196,18 @@
   "confidence": "low",
   "source": "https://radar.cloudflare.com/bots/directory/sora-caisse-pos"
  },
+ "sourcedash": {
+  "token": "sourcedash",
+  "confidence": "high",
+  "source": "ua"
+ },
  "spark-shipping": {
   "token": "SparkShipping",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "spark-uptime": {
+  "token": "SparkUptime",
   "confidence": "high",
   "source": "ua"
  },
@@ -2897,7 +3231,7 @@
   "confidence": "medium",
   "source": "https://knownagents.com/agents/splunk-synthetics"
  },
- "spyglasses-bot": {
+ "spyglasses": {
   "token": "SpyglassesBot",
   "confidence": "high",
   "source": "ua"
@@ -2959,6 +3293,10 @@
   "confidence": "high",
   "source": "https://docs.stripe.com/stripebot-crawler"
  },
+ "strivve-automation": {
+  "excluded": true,
+  "source": "auto-excluded: no robots.txt user-agent token"
+ },
  "sucuri": {
   "token": "Sucuri",
   "confidence": "high",
@@ -2975,6 +3313,11 @@
  },
  "swifteq-link-checker": {
   "token": "SwifteqLinkChecker",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "synapsmedia-healthcheck": {
+  "token": "SynapsMedia",
   "confidence": "high",
   "source": "ua"
  },
@@ -3006,14 +3349,6 @@
   "confidence": "high",
   "source": "https://github.com/CeramicTeam/CeramicTerracotta"
  },
- "theskinnyai": {
-  "token": "TheSkinnyAI-Crawler",
-  "aliases": [
-   "TheSkinnyCrawler"
-  ],
-  "confidence": "high",
-  "source": "https://theskinnyai.com/bot-docs/"
- },
  "thousand-eyes": {
   "token": "TE/1.0",
   "confidence": "high",
@@ -3026,6 +3361,16 @@
  },
  "trendictionbot": {
   "token": "trendictionbot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "trustedsite": {
+  "token": "TrustedSite",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "trustlink-verificationagent": {
+  "token": "TrustLink-VerificationAgent",
   "confidence": "high",
   "source": "ua"
  },
@@ -3073,11 +3418,6 @@
   "confidence": "high",
   "source": "https://darkvisitors.com/agents/updown-io-daemon"
  },
- "upstash-qstash": {
-  "token": "Upstash-QStash",
-  "confidence": "high",
-  "source": "ua"
- },
  "uptime": {
   "token": "Uptime",
   "confidence": "medium",
@@ -3116,15 +3456,29 @@
   "confidence": "high",
   "source": "https://knownagents.com/agents/uptrends"
  },
+ "urlertbot": {
+  "token": "URLertBot",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "usercentricsbot": {
+  "token": "Usercentrics",
+  "confidence": "high",
+  "source": "ua"
+ },
+ "ut-dorkbot": {
+  "token": "UT-Dorkbot",
+  "confidence": "high",
+  "source": "https://security.utexas.edu/dorkbot"
+ },
+ "varsuite-core": {
+  "excluded": true,
+  "source": "auto-excluded: no robots.txt user-agent token"
+ },
  "vaultpress": {
   "token": "VaultPress",
   "confidence": "high",
   "source": "ua"
- },
- "ventus-agent": {
-  "token": "Ventus",
-  "confidence": "high",
-  "source": "https://dev.ventus.ai/bot"
  },
  "videootvbot": {
   "token": "videootvBot",
@@ -3161,15 +3515,10 @@
   "confidence": "high",
   "source": "ua"
  },
- "wave-streaming-platform": {
-  "token": "WaveBot",
+ "watchful-1": {
+  "token": "Watchfulli",
   "confidence": "high",
-  "source": "https://wave.online"
- },
- "wave-streaming-platform-2": {
-  "token": "WaveBot",
-  "confidence": "high",
-  "source": "https://wave.online"
+  "source": "https://watchful.net/bot-info/"
  },
  "wayflyer": {
   "token": "Wayflyer",
@@ -3210,6 +3559,11 @@
   "confidence": "high",
   "source": "https://docs.wtotem.com/en/wtotembot"
  },
+ "whitehat": {
+  "token": "WHITEHAT",
+  "confidence": "high",
+  "source": "ua"
+ },
  "wikimedia-citoid": {
   "token": "Citoid",
   "confidence": "high",
@@ -3219,6 +3573,11 @@
   "token": "ZoteroTranslationServer",
   "confidence": "high",
   "source": "https://radar.cloudflare.com/bots/directory/wikimedia-zotero"
+ },
+ "windowsforum-ai": {
+  "token": "WindowsForum-AI",
+  "confidence": "high",
+  "source": "ua"
  },
  "wkndhealthcheckbot": {
   "token": "wknd-bot",
@@ -3259,6 +3618,11 @@
   "token": "WovnCrawler",
   "confidence": "high",
   "source": "ua"
+ },
+ "wp-compress-saas-2": {
+  "token": "WP-Compress",
+  "confidence": "medium",
+  "source": "https://help.wpcompress.com/en-us/article/wp-compress-performance-official-bot-documentation-gkyi8e/"
  },
  "wp-time-capsule": {
   "token": "WPTimeCapsule",
@@ -3389,8 +3753,13 @@
   "confidence": "low",
   "source": "https://radar.cloudflare.com/bots/directory/zendesk-webhook"
  },
- "zipchatbot": {
-  "token": "ZipchatBot",
+ "zentria": {
+  "token": "Zentria",
+  "confidence": "medium",
+  "source": "https://www.profileo.com/en/zentria"
+ },
+ "zoombot": {
+  "token": "ZoomBot",
   "confidence": "high",
   "source": "ua"
  },

@@ -3,7 +3,7 @@
  * Plugin Name:       Coywolf SEO
  * Plugin URI:        https://coywolf.com/notes/coywolf-seo/
  * Description:       An SEO plugin that has exactly what you need, and nothing more.
- * Version:           1.0.129
+ * Version:           1.1.0
  * Requires at least: 7.0
  * Requires PHP:      7.4
  * Author:            Coywolf
@@ -83,7 +83,9 @@ require_once __DIR__ . '/includes/class-coywolf-seo-import-export.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-redirects.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-redirects-admin.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-redirects-import.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-headings.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-toc.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-toc-convert.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-mobile-image.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-duplicate.php';
 /* labs-strip:start — experimental Labs features (removed from the WordPress.org build) */

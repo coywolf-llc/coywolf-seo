@@ -42,6 +42,47 @@ final class Coywolf_SEO_Head {
 
 		add_action( 'template_redirect', array( $this, 'swap_canonical' ), 9 );
 		add_action( 'wp_head', array( $this, 'output_meta_description' ), 1 );
+
+		// Fall back to the SEO Description for the post excerpt when the post
+		// has none of its own. Runs before core's wp_trim_excerpt (priority
+		// 10): returning a non-empty excerpt here stops core generating one
+		// from the content, so a post with a manual SEO Description but no
+		// excerpt uses that description as its excerpt too.
+		add_filter( 'get_the_excerpt', array( $this, 'excerpt_from_description' ), 9, 2 );
+	}
+
+	/**
+	 * Use the per-post SEO Description as the excerpt when the post has no
+	 * manual excerpt of its own.
+	 *
+	 * The meta and Open Graph descriptions already resolve the SEO Description
+	 * override first (see {@see self::source_description()}); this mirrors that
+	 * on the excerpt side so the three stay consistent:
+	 *  - Excerpt set, no SEO Description  → excerpt is the excerpt + meta/OG.
+	 *  - Both set                         → excerpt is the excerpt; SEO Description is meta/OG.
+	 *  - No excerpt, SEO Description set   → SEO Description is the excerpt + meta/OG (this filter).
+	 *
+	 * Only the explicit SEO Description override feeds the excerpt — never the
+	 * AI-written summary — so turning on AI meta descriptions can't silently
+	 * rewrite excerpts across the site.
+	 *
+	 * @param string  $excerpt The post excerpt so far (raw post_excerpt at this priority).
+	 * @param WP_Post $post    The post the excerpt is for.
+	 * @return string
+	 */
+	public function excerpt_from_description( $excerpt, $post ) {
+		if ( ! $post instanceof WP_Post || ! in_array( $post->post_type, array( 'post', 'page' ), true ) ) {
+			return $excerpt;
+		}
+		// Respect a manual excerpt: only fill in when the post has none.
+		if ( '' !== trim( (string) $post->post_excerpt ) ) {
+			return $excerpt;
+		}
+		$description = (string) Coywolf_SEO_Options::post_meta( $post->ID )['description'];
+		if ( '' === trim( $description ) ) {
+			return $excerpt;
+		}
+		return $description;
 	}
 
 	/**

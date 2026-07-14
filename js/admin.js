@@ -949,4 +949,106 @@
 		} );
 		$stop.on( 'click', function () { running = false; post( { op: 'cancel' } ); buttons( false ); } );
 	} );
+	/* ------------------------------------------------------------------ *
+	 * Settings: "Replace Yoast tables of contents" operation. Runs in chunks
+	 * via admin-ajax; Preview is a dry run, Replace applies the changes.
+	 * ------------------------------------------------------------------ */
+	$( function () {
+		var $tool = $( '#coywolf-seo-toc-convert' );
+		if ( ! $tool.length ) {
+			return;
+		}
+		var $preview = $( '#coywolf-seo-toc-convert-preview' );
+		var $run = $( '#coywolf-seo-toc-convert-run' );
+		var $stop = $( '#coywolf-seo-toc-convert-stop' );
+		var $progress = $( '#coywolf-seo-toc-convert-progress' );
+		var $result = $( '#coywolf-seo-toc-convert-result' );
+		var $samples = $( '#coywolf-seo-toc-convert-samples' );
+		var running = false;
+
+		function post( data ) {
+			return $.post( config.ajaxUrl, $.extend( { action: 'coywolf_seo_toc_convert', _ajax_nonce: config.tocConvertNonce }, data ) );
+		}
+		function buttons( on ) {
+			// Keep keyboard focus on a control that stays operable when the one
+			// holding focus is disabled/hidden (mirrors the image-ID tool).
+			var active = document.activeElement;
+			var inTool = active && $.contains( $tool[ 0 ], active );
+			$preview.prop( 'disabled', on );
+			$run.prop( 'disabled', on );
+			$stop.toggleClass( 'hidden', ! on );
+			if ( ! inTool ) {
+				return;
+			}
+			if ( on && ( active === $preview[ 0 ] || active === $run[ 0 ] ) ) {
+				$stop.trigger( 'focus' );
+			} else if ( ! on && active === $stop[ 0 ] ) {
+				$preview.trigger( 'focus' );
+			}
+		}
+		function fill( tmpl, d ) {
+			return String( tmpl )
+				.replace( '%BLOCKS%', d.blocks_replaced )
+				.replace( '%POSTS%', d.posts_updated )
+				.replace( '%SCAN%', d.posts_scanned )
+				.replace( '%TOTAL%', d.total );
+		}
+		function renderSamples( d ) {
+			var list = ( d && d.samples && d.samples.length ) ? d.samples : [];
+			if ( ! list.length ) {
+				$samples.empty().addClass( 'hidden' );
+				return;
+			}
+			var $ul = $( '<ul class="coywolf-seo-idfix-sample-list" />' );
+			$.each( list, function ( i, s ) {
+				var $li = $( '<li />' );
+				var $link = s.edit ? $( '<a />' ).attr( 'href', s.edit ) : $( '<span />' );
+				$li.append( $link.text( s.title ) );
+				$ul.append( $li );
+			} );
+			$samples.empty().removeClass( 'hidden' )
+				.append( $( '<p class="description" />' ).text( config.i18n.tocConvertSamples || 'Sample conversions:' ) )
+				.append( $ul );
+		}
+		function render( d ) {
+			var pct = 'done' === d.status ? 100 : ( d.total > 0 ? Math.min( 100, Math.round( ( d.posts_scanned / d.total ) * 100 ) ) : 0 );
+			$progress.removeClass( 'hidden' ).attr( 'aria-valuenow', pct ).find( '.coywolf-seo-progress-bar' ).css( 'width', pct + '%' );
+			if ( 'done' === d.status ) {
+				$result.text( fill( d.dry_run ? ( config.i18n.tocConvertPreview || 'Preview: %BLOCKS% tables in %POSTS% posts would be replaced.' ) : ( config.i18n.tocConvertDone || 'Done: replaced %BLOCKS% tables across %POSTS% posts.' ), d ) );
+			} else {
+				$result.text( fill( config.i18n.tocConvertProgress || 'Scanning %SCAN% of %TOTAL% posts…', d ) );
+			}
+			renderSamples( d );
+		}
+		function failed() {
+			running = false;
+			buttons( false );
+			$result.text( config.i18n.tocConvertError || 'The run stopped unexpectedly — reload the page and try again.' );
+		}
+		function loop() {
+			post( { op: 'step' } ).done( function ( res ) {
+				if ( ! res || ! res.success ) { failed(); return; }
+				render( res.data );
+				if ( 'running' === res.data.status && running ) { loop(); } else { running = false; buttons( false ); }
+			} ).fail( failed );
+		}
+		function startRun( dry ) {
+			running = true;
+			buttons( true );
+			$result.text( '' );
+			$samples.empty().addClass( 'hidden' );
+			post( { op: 'start', dry_run: dry ? 1 : 0 } ).done( function ( res ) {
+				if ( ! res || ! res.success ) { failed(); return; }
+				render( res.data );
+				if ( 'running' === res.data.status ) { loop(); } else { running = false; buttons( false ); }
+			} ).fail( failed );
+		}
+		$preview.on( 'click', function () { startRun( true ); } );
+		$run.on( 'click', function () {
+			if ( window.confirm( config.i18n.tocConvertConfirm || 'Replace every Yoast SEO table of contents with the Coywolf SEO one? This edits post content.' ) ) {
+				startRun( false );
+			}
+		} );
+		$stop.on( 'click', function () { running = false; post( { op: 'cancel' } ); buttons( false ); } );
+	} );
 } )( jQuery );

@@ -205,7 +205,7 @@
 
 		return el(
 			PanelBody,
-			{ title: __( 'Image text', 'coywolf-seo' ), initialOpen: false },
+			{ title: __( 'Image text', 'coywolf-seo' ), initialOpen: true },
 			el( TextareaControl, {
 				label: __( 'Alternative text', 'coywolf-seo' ),
 				value: attributes.alt ? String( attributes.alt ) : '',

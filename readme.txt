@@ -4,7 +4,7 @@ Tags: seo, open graph, schema, sitemap, redirects
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.129
+Stable tag: 1.1.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -18,12 +18,13 @@ Features:
 
 * Site Details — one screen for your site's identity: the Site Name and Tagline (editable right there), whether titles append the site name (em dash separated), the default Open Graph image, whether the site represents an Organization (with a full Schema.org property picker whose inputs match each property — URL, email, date, image upload, structured address and contact point) or a Person, the homepage title and description, and schema type defaults for posts and pages.
 * Titles — clean titles composed from your settings. The site name is appended only where you turn it on. A force-rewrite option handles themes that build their own title markup.
-* Meta description — by default the homepage uses your description (default: the Tagline), posts and pages use their manual excerpt, and terms use their description; nothing is auto-generated unless you turn on AI meta descriptions (see AI enrichment). One checkbox excludes meta descriptions entirely.
+* Meta description — by default the homepage uses your description (default: the Tagline), posts and pages use the per-post SEO Description when you set one and otherwise their manual excerpt, and terms use their description; nothing is auto-generated unless you turn on AI meta descriptions (see AI enrichment). A per-post SEO Description also becomes the post's excerpt when it has none of its own, so the excerpt, meta description, and Open Graph description stay in step. One checkbox excludes meta descriptions entirely.
 * Robots meta — index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1 by default, each directive toggleable.
 * Canonical links — on the homepage, posts, pages, categories, and tags, with pagination handled and a per-post canonical override.
 * SEO section on posts and pages — an SEO panel in the block editor's document sidebar (and a classic-editor meta box) to override the schema page/article type, set Noindex/Nofollow, or replace the canonical link.
 * Duplicate Post — a Duplicate link under each post and page title (right next to Edit) copies it to a new draft: content, excerpt, categories and tags, featured image, page template, and custom fields included — your SEO settings among them. The draft belongs to whoever made it, WordPress assigns a fresh slug and date, and the original's old-URL redirect history stays where it belongs, so the copy never competes with the original.
-* Table of Contents block — builds its list when the page is served, not when the post is saved, so it can never go stale: headings get clean anchor links automatically (hand-set anchors are kept, duplicate headings de-duplicated), headings added by shortcodes and synced patterns are included, and every heading block gets its own "Exclude from table of contents" toggle. Pick which heading levels are listed (H2–H6), edit the title and its heading level, choose plain, bulleted, or hierarchical numbering (1, 1.1, 1.2…), make the table collapsible (works without JavaScript), and turn on smooth scrolling (reduced-motion preferences are respected), current-section highlighting while reading, and a scroll offset so sticky headers never cover a jumped-to heading. A minimum-headings threshold leaves the table off short posts, the markup is a semantic nav with properly nested lists, pages with the block declare the tableOfContents accessibility feature in their schema, and a Yoast table-of-contents block converts to this one in one click.
+* Table of Contents block — builds its list when the page is served, not when the post is saved, so it can never go stale: headings get clean anchor links automatically (hand-set anchors are kept, duplicate headings de-duplicated), headings added by shortcodes and synced patterns are included, and every heading block gets its own "Exclude from table of contents" toggle. Pick which heading levels are listed (H2–H6), edit the title and its heading level, choose plain, bulleted, or hierarchical numbering (1, 1.1, 1.2…), make the table collapsible (works without JavaScript), and turn on smooth scrolling (reduced-motion preferences are respected), current-section highlighting while reading, and a scroll offset so sticky headers never cover a jumped-to heading. A minimum-headings threshold leaves the table off short posts, the markup is a semantic nav with properly nested lists, pages with the block declare the tableOfContents accessibility feature in their schema, and a Yoast table-of-contents block converts to this one in one click — or replace every Yoast table of contents across your posts and pages in one operation from the Settings page (offered as a banner right after you activate the plugin), keeping each one's title, heading level, and heading-level range.
+* Heading anchors — every content heading gets a stable id at output time (a jump- prefixed slug, e.g. jump-best-watches), so any heading can be linked to directly and the Table of Contents always has an anchor to point at. Headings you gave your own HTML anchor keep it, duplicate headings are de-duplicated, and the whole thing is one checkbox in Settings (on by default).
 * Mobile alternative image — the core Image block gains an "Add mobile alternative" control: pick a phone-specific image (a different crop, dimensions, or content) and the plugin serves it on small screens through a picture element with a max-width: 768px media query, while larger screens keep the desktop image. Because it's a real media query (art direction) rather than a srcset swap, the mobile image is guaranteed below the breakpoint instead of left to the browser's candidate guesswork. The desktop image and its lightbox are untouched, and the breakpoint is filterable.
 * Schema markup — one JSON-LD graph per page: WebSite, your Organization (with every property you added) or Person as the publisher, the typed WebPage, the typed Article with its author, and CollectionPage on category and tag archives.
 * Authors — pick a user and the plugin imports their account details as Schema.org Person properties; add anything from the full Person catalog. Used as the author in Article markup.
@@ -169,6 +170,18 @@ Yes. Turning the Robots.txt Manager off — or deactivating the plugin — promp
 = Why doesn't the table of contents go out of date? =
 
 It's built when the page is served, not when you save, so headings added later (including by shortcodes and synced patterns) are always included. Each heading has an "Exclude from table of contents" toggle, and a minimum-headings threshold keeps the table off short posts.
+
+= Do all my headings get anchor links, even without a table of contents? =
+
+Yes — with the Heading anchors setting on (the default), every content heading gets a jump- prefixed id (for example jump-best-watches) when the page is served, so any heading can be linked to directly. Headings you gave your own HTML anchor keep exactly that anchor, and duplicate headings are de-duplicated. The Table of Contents uses these same anchors, so a table entry and the heading it points at always match.
+
+= I'm switching from Yoast — can I keep my tables of contents? =
+
+Yes. After you activate Coywolf SEO, a banner offers to replace every Yoast SEO table of contents across your posts and pages with the Coywolf one, and the same operation is at the bottom of the Settings page (Preview first — it edits post content). Each converted table keeps its title, its title's heading level, and the range of heading levels it lists; because the Coywolf table is dynamic, its list is then rebuilt from the live headings and never goes stale.
+
+= If I write an SEO Description but no excerpt, what happens to the excerpt? =
+
+The SEO Description is used as the excerpt too. A manual excerpt always wins; if you set an SEO Description but leave the excerpt blank, that description becomes the excerpt as well as the meta and Open Graph description, so all three stay consistent. Only a description you type in yourself does this — the AI-written description never rewrites your excerpts.
 
 = How is the mobile alternative image different from normal responsive images? =
 
