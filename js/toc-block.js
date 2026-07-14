@@ -72,13 +72,14 @@
 		return ( ' ' + ( className || '' ) + ' ' ).indexOf( ' ' + EXCLUDE_CLASS + ' ' ) !== -1;
 	}
 
-	// Display-only approximation of the server's slug (sanitize_title).
+	// Display-only approximation of the server's slug (jump- + sanitize_title).
 	function previewSlug( text ) {
-		return text
+		var base = text
 			.toLowerCase()
 			.replace( /[^\w\s-]+/g, '' )
 			.replace( /[\s_-]+/g, '-' )
 			.replace( /^-+|-+$/g, '' ) || 'section';
+		return 'jump-' + base;
 	}
 
 	function collectHeadings( blocks, out ) {
@@ -370,8 +371,34 @@
 				{
 					type: 'block',
 					blocks: [ 'yoast-seo/table-of-contents' ],
-					transform: function () {
-						return createBlock( BLOCK );
+					transform: function ( attributes ) {
+						// Carry the Yoast block's settings across so the converted
+						// table matches: its title text + heading level, and the
+						// "maximum heading level" as Coywolf's H2…max level set.
+						var attrs = attributes || {};
+						var mapped = {};
+
+						var titleLevel = parseInt( attrs.level, 10 );
+						mapped.titleLevel = ( titleLevel >= 2 && titleLevel <= 6 ) ? titleLevel : 2;
+
+						var max = parseInt( attrs.maxHeadingLevel, 10 );
+						if ( ! ( max >= 2 && max <= 6 ) ) {
+							max = 3;
+						}
+						var levels = [];
+						for ( var level = 2; level <= max; level++ ) {
+							levels.push( level );
+						}
+						mapped.levels = levels;
+
+						// Keep a genuinely custom title; leave a default one to the
+						// Coywolf block's own default.
+						var title = ( typeof attrs.title === 'string' ) ? attrs.title.trim() : '';
+						if ( title && title.toLowerCase() !== 'table of contents' ) {
+							mapped.title = title;
+						}
+
+						return createBlock( BLOCK, mapped );
 					}
 				}
 			]

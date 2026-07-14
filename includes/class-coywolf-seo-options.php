@@ -59,6 +59,10 @@ final class Coywolf_SEO_Options {
 			'robots_max_image'             => true,
 			'robots_max_snippet'           => true,
 			'robots_max_video'             => true,
+			// Give every content heading a `jump-`-prefixed id so it can be
+			// linked to directly (and so the Table of Contents can anchor to
+			// it). On by default; manually set HTML anchors are left as-is.
+			'heading_ids'                  => true,
 			// Table of Contents jump-link scroll offset (0 = off). Applied as
 			// scroll-margin-top on pages that use the TOC so a sticky header
 			// does not cover a jumped-to heading.
@@ -197,6 +201,7 @@ final class Coywolf_SEO_Options {
 			'cat_hide_prefix',
 			'force_rewrite_titles',
 			'exclude_meta_desc',
+			'heading_ids',
 			'robots_index',
 			'robots_follow',
 			'robots_max_image',

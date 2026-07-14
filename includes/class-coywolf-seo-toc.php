@@ -264,10 +264,12 @@ class Coywolf_SEO_TOC {
 	 * Find the headings in the HTML, inject ids (and the scroll offset)
 	 * where needed, and return the items in document order.
 	 *
-	 * The regex pairing an opening h-tag with its matching close is the
-	 * reliable way to do this on arbitrary HTML: headings cannot nest, and
-	 * quoted attribute values are skipped so a ">" inside one cannot end
-	 * the tag early.
+	 * Delegates to {@see Coywolf_SEO_Headings::inject()} so the table's jump
+	 * links and the headings' ids are minted by the exact same slug logic and
+	 * always agree. The site-wide heading-id pass runs first (priority 30), so
+	 * most ids are already present here; this fills in any the TOC wants that
+	 * are still missing (e.g. when the site-wide pass is turned off) and adds
+	 * the scroll offset to the listed headings.
 	 *
 	 * @param string $content       Post HTML (placeholders already removed). Passed by reference: ids are injected.
 	 * @param array  $wanted_levels Heading levels any block on the page wants.
@@ -275,118 +277,7 @@ class Coywolf_SEO_TOC {
 	 * @return array Items: level (int), id (string), text (string).
 	 */
 	private function collect_headings( &$content, $wanted_levels, $scroll_offset ) {
-		$pattern = '/<h([1-6])((?:[^>"\']|"[^"]*"|\'[^\']*\')*)>(.*?)<\/h\1\s*>/is';
-		if ( ! preg_match_all( $pattern, $content, $matches, PREG_OFFSET_CAPTURE | PREG_SET_ORDER ) ) {
-			return array();
-		}
-
-		// Existing ids anywhere in the document; generated slugs must not
-		// collide with them.
-		$taken = array();
-		if ( preg_match_all( '/\sid\s*=\s*("([^"]*)"|\'([^\']*)\'|([^\s>"\'=`]+))/i', $content, $id_matches ) ) {
-			foreach ( $id_matches[2] as $i => $double_quoted ) {
-				if ( '' !== $double_quoted ) {
-					$existing_id = $double_quoted;
-				} elseif ( '' !== $id_matches[3][ $i ] ) {
-					$existing_id = $id_matches[3][ $i ];
-				} else {
-					$existing_id = $id_matches[4][ $i ];
-				}
-				if ( '' !== $existing_id ) {
-					$taken[ $existing_id ] = true;
-				}
-			}
-		}
-
-		$items  = array();
-		$offset = 0; // Cumulative length drift from injected attributes.
-
-		foreach ( $matches as $match ) {
-			$level = (int) $match[1][0];
-			$attrs = $match[2][0];
-			$inner = $match[3][0];
-
-			if ( ! in_array( $level, $wanted_levels, true ) ) {
-				continue;
-			}
-
-			// The per-heading opt-out toggle adds this class.
-			if ( preg_match( '/\sclass\s*=\s*("[^"]*"|\'[^\']*\')/i', $attrs, $class_match )
-				&& false !== strpos( $class_match[1], self::EXCLUDE_CLASS ) ) {
-				continue;
-			}
-
-			$text = trim( wp_strip_all_tags( $inner ) );
-			if ( '' === $text ) {
-				continue;
-			}
-
-			$id = '';
-			if ( preg_match( '/\sid\s*=\s*("([^"]*)"|\'([^\']*)\'|([^\s>"\'=`]+))/i', $attrs, $id_match ) ) {
-				if ( '' !== $id_match[2] ) {
-					$id = $id_match[2];
-				} elseif ( isset( $id_match[3] ) && '' !== $id_match[3] ) {
-					$id = $id_match[3];
-				} elseif ( isset( $id_match[4] ) ) {
-					$id = $id_match[4];
-				}
-			}
-
-			$new_attrs = $attrs;
-			if ( '' === $id ) {
-				$id         = $this->unique_slug( $text, $taken );
-				$new_attrs .= ' id="' . esc_attr( $id ) . '"';
-			}
-			if ( $scroll_offset > 0 && false === stripos( $new_attrs, 'scroll-margin' ) ) {
-				if ( preg_match( '/\sstyle\s*=\s*("[^"]*"|\'[^\']*\')/i', $new_attrs, $style_match ) ) {
-					$quoted    = $style_match[1];
-					$style     = substr( $quoted, 1, -1 );
-					$new_attrs = str_replace(
-						$quoted,
-						$quoted[0] . rtrim( $style, '; ' ) . ';scroll-margin-top:' . $scroll_offset . 'px' . $quoted[0],
-						$new_attrs
-					);
-				} else {
-					$new_attrs .= ' style="scroll-margin-top:' . $scroll_offset . 'px"';
-				}
-			}
-
-			if ( $new_attrs !== $attrs ) {
-				$old_open = '<h' . $level . $attrs . '>';
-				$new_open = '<h' . $level . $new_attrs . '>';
-				$position = $match[0][1] + $offset;
-				$content  = substr_replace( $content, $new_open, $position, strlen( $old_open ) );
-				$offset  += strlen( $new_open ) - strlen( $old_open );
-			}
-
-			$items[] = array(
-				'level' => $level,
-				'id'    => $id,
-				'text'  => $text,
-			);
-		}
-
-		return $items;
-	}
-
-	/**
-	 * Slug for a heading's text, unique within the document.
-	 *
-	 * @param string $text  Heading text.
-	 * @param array  $taken Ids already used (by reference; the result is added).
-	 * @return string
-	 */
-	private function unique_slug( $text, &$taken ) {
-		$base = sanitize_title( $text );
-		if ( '' === $base ) {
-			$base = 'section';
-		}
-		$slug = $base;
-		for ( $i = 2; isset( $taken[ $slug ] ); $i++ ) {
-			$slug = $base . '-' . $i;
-		}
-		$taken[ $slug ] = true;
-		return $slug;
+		return Coywolf_SEO_Headings::inject( $content, $wanted_levels, self::EXCLUDE_CLASS, $scroll_offset );
 	}
 
 	/*

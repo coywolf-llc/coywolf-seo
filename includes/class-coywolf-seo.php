@@ -22,7 +22,7 @@ final class Coywolf_SEO {
 	 * Plugin version. Kept in sync with the main-file "Version:" header by the
 	 * release workflow (it bumps both).
 	 */
-	const VERSION = '1.0.129';
+	const VERSION = '1.1.0';
 
 	/**
 	 * Rewrite-rules version. Bumped whenever this plugin's rewrite rules change
@@ -158,11 +158,25 @@ final class Coywolf_SEO {
 	private $redirects;
 
 	/**
+	 * Automatic heading-anchor module.
+	 *
+	 * @var Coywolf_SEO_Headings
+	 */
+	private $headings;
+
+	/**
 	 * Table of Contents block module.
 	 *
 	 * @var Coywolf_SEO_TOC
 	 */
 	private $toc;
+
+	/**
+	 * Yoast → Coywolf Table of Contents converter.
+	 *
+	 * @var Coywolf_SEO_TOC_Convert
+	 */
+	private $toc_convert;
 
 	/**
 	 * Core Image block mobile-alternative module.
@@ -314,8 +328,14 @@ final class Coywolf_SEO {
 			$this->redirects->init();
 		}
 
+		$this->headings = new Coywolf_SEO_Headings();
+		$this->headings->init();
+
 		$this->toc = new Coywolf_SEO_TOC();
 		$this->toc->init();
+
+		$this->toc_convert = new Coywolf_SEO_TOC_Convert();
+		$this->toc_convert->init();
 
 		$this->mobile_image = new Coywolf_SEO_Mobile_Image();
 		$this->mobile_image->init();
@@ -455,6 +475,16 @@ final class Coywolf_SEO {
 	 */
 	public function ai() {
 		return $this->ai;
+	}
+
+	/**
+	 * Yoast → Coywolf Table of Contents converter accessor (the Settings page
+	 * shows how many posts still use a Yoast table of contents).
+	 *
+	 * @return Coywolf_SEO_TOC_Convert
+	 */
+	public function toc_convert() {
+		return $this->toc_convert;
 	}
 
 	/**

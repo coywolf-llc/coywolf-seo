@@ -605,6 +605,7 @@ final class Coywolf_SEO_Admin {
 				'bulkStatusNonce' => wp_create_nonce( 'coywolf_seo_bulk_status' ),
 				'bulkActionNonce' => wp_create_nonce( 'coywolf_seo_bulk_action' ),
 				'idFixNonce'      => wp_create_nonce( 'coywolf_seo_idfix' ),
+				'tocConvertNonce' => wp_create_nonce( 'coywolf_seo_toc_convert' ),
 				'i18n'            => array(
 					'selectImage'       => __( 'Select image', 'coywolf-seo' ),
 					'removeImage'       => __( 'Remove image', 'coywolf-seo' ),
@@ -649,6 +650,14 @@ final class Coywolf_SEO_Admin {
 					'idFixConfirm'      => __( 'Add missing Media Library IDs and convert Custom HTML image blocks to image blocks in your posts and pages? This edits post content. If you have not run Preview yet, cancel and preview first.', 'coywolf-seo' ),
 					'idFixError'        => __( 'The run stopped unexpectedly — reload the page and try again. Already-fixed posts are skipped, so it is safe to re-run.', 'coywolf-seo' ),
 					'idFixSamples'      => __( 'Sample fixes:', 'coywolf-seo' ),
+						'tocConvertProgress' => __( 'Scanning %SCAN% of %TOTAL% posts…', 'coywolf-seo' ),
+						/* translators: 1: tables of contents replaced, 2: posts changed. */
+						'tocConvertPreview'  => __( 'Preview: %BLOCKS% Yoast tables of contents in %POSTS% posts and pages would be replaced.', 'coywolf-seo' ),
+						/* translators: 1: tables of contents replaced, 2: posts changed. */
+						'tocConvertDone'     => __( 'Done: replaced %BLOCKS% Yoast tables of contents across %POSTS% posts and pages.', 'coywolf-seo' ),
+						'tocConvertConfirm'  => __( 'Replace every Yoast SEO table of contents with the Coywolf SEO one? This edits post content. If you have not run Preview yet, cancel and preview first.', 'coywolf-seo' ),
+						'tocConvertError'    => __( 'The run stopped unexpectedly — reload the page and try again. Already-replaced posts are skipped, so it is safe to re-run.', 'coywolf-seo' ),
+						'tocConvertSamples'  => __( 'Sample conversions:', 'coywolf-seo' ),
 				),
 				'robotsRestore'   => $this->robots_restore_config(),
 			)
@@ -797,7 +806,7 @@ final class Coywolf_SEO_Admin {
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized field-by-field in Coywolf_SEO_Options::sanitize().
 		$raw = isset( $_POST['coywolf_seo'] ) && is_array( $_POST['coywolf_seo'] ) ? wp_unslash( $_POST['coywolf_seo'] ) : array();
 
-		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'sitemap_exclude_posts', 'sitemap_exclude_pages', 'sitemap_exclude_categories', 'sitemap_exclude_users', 'news_enabled', 'news_include_posts', 'news_include_pages', 'llms_enabled', 'llms_md_endpoints', 'llms_entities', 'ai_descriptions', 'image_text_write_alt', 'image_text_write_title', 'image_text_write_caption', 'image_text_write_description', 'image_text_overwrite', 'feature_ai_off', 'feature_schema_off', 'feature_sitemaps_off', 'feature_links_off', 'feature_redirects_off', 'feature_robots_off' ) as $key ) {
+		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'heading_ids', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'sitemap_exclude_posts', 'sitemap_exclude_pages', 'sitemap_exclude_categories', 'sitemap_exclude_users', 'news_enabled', 'news_include_posts', 'news_include_pages', 'llms_enabled', 'llms_md_endpoints', 'llms_entities', 'ai_descriptions', 'image_text_write_alt', 'image_text_write_title', 'image_text_write_caption', 'image_text_write_description', 'image_text_overwrite', 'feature_ai_off', 'feature_schema_off', 'feature_sitemaps_off', 'feature_links_off', 'feature_redirects_off', 'feature_robots_off' ) as $key ) {
 			$raw[ $key ] = ! empty( $raw[ $key ] );
 		}
 		// Entity detection: its checkbox is disabled (so omitted from POST) when
@@ -1393,6 +1402,7 @@ final class Coywolf_SEO_Admin {
 				array( 'coywolf-seo-section-toggles', __( 'Turn off features', 'coywolf-seo' ), true ),
 				array( 'coywolf-seo-section-enrich', __( 'Enrich all content', 'coywolf-seo' ), Coywolf_SEO_Options::feature_enabled( 'ai' ) ),
 				array( 'coywolf-seo-section-imageids', __( 'Fix missing image IDs', 'coywolf-seo' ), true ),
+				array( 'coywolf-seo-section-toc-convert', __( 'Replace Yoast tables of contents', 'coywolf-seo' ), true ),
 			);
 			?>
 			<ul class="coywolf-seo-settings-toc">
@@ -1464,6 +1474,16 @@ final class Coywolf_SEO_Admin {
 								<option value="px" <?php selected( $o['scroll_margin_unit'], 'px' ); ?>><?php esc_html_e( 'px', 'coywolf-seo' ); ?></option>
 							</select>
 							<p class="description"><?php esc_html_e( 'Adds scroll-margin-top to anchor targets on pages that use a Table of Contents, so a fixed/sticky header does not cover a jumped-to heading. 0 turns it off; for example 4 rem renders [id] { scroll-margin-top: 4rem; }.', 'coywolf-seo' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Heading anchors', 'coywolf-seo' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="coywolf_seo[heading_ids]" value="1" <?php checked( $o['heading_ids'] ); ?> />
+								<?php esc_html_e( 'Add an id to every heading so it can be linked to directly', 'coywolf-seo' ); ?>
+							</label>
+							<p class="description"><?php esc_html_e( 'Gives each content heading a jump-prefixed anchor (for example jump-best-watches) at output time, so any heading can be linked to and the Table of Contents has an anchor to point at. Headings with your own HTML anchor keep it.', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
 				</table>
@@ -1964,6 +1984,47 @@ final class Coywolf_SEO_Admin {
 							<div class="coywolf-seo-progress hidden" id="coywolf-seo-idfix-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="coywolf-seo-progress-bar"></div></div>
 							<p class="description" id="coywolf-seo-idfix-result" role="status" aria-live="polite" aria-atomic="true"></p>
 							<div id="coywolf-seo-idfix-samples" class="coywolf-seo-idfix-samples hidden"></div>
+						</div>
+					</td>
+				</tr>
+				</tbody>
+			</table>
+			</div>
+
+			<div class="coywolf-seo-panel">
+			<h2 id="coywolf-seo-section-toc-convert"><?php esc_html_e( 'Replace Yoast tables of contents', 'coywolf-seo' ); ?></h2>
+			<table class="form-table" role="presentation">
+				<tbody>
+				<tr>
+					<td colspan="2">
+						<?php $coywolf_seo_toc_count = Coywolf_SEO::instance()->toc_convert()->candidate_count(); ?>
+						<p class="description">
+							<?php esc_html_e( 'If you switched from Yoast SEO, this finds every post and page that uses the Yoast SEO table of contents block and replaces it with the Coywolf SEO one, keeping the title, its heading level, and the range of heading levels the table lists. The Coywolf table is dynamic — it rebuilds from the page’s headings at view time — so the list never goes stale. It is safe to re-run, but it edits post content, so run Preview first.', 'coywolf-seo' ); ?>
+						</p>
+						<?php if ( $coywolf_seo_toc_count > 0 ) : ?>
+							<p class="description">
+								<strong>
+								<?php
+								printf(
+									/* translators: %d: number of posts and pages using a Yoast table of contents. */
+									esc_html( _n( '%d post or page currently uses a Yoast SEO table of contents.', '%d posts and pages currently use a Yoast SEO table of contents.', $coywolf_seo_toc_count, 'coywolf-seo' ) ),
+									(int) $coywolf_seo_toc_count
+								);
+								?>
+								</strong>
+							</p>
+						<?php else : ?>
+							<p class="description"><?php esc_html_e( 'No Yoast SEO tables of contents were found.', 'coywolf-seo' ); ?></p>
+						<?php endif; ?>
+						<div id="coywolf-seo-toc-convert">
+							<p>
+								<button type="button" class="button" id="coywolf-seo-toc-convert-preview"><?php esc_html_e( 'Preview', 'coywolf-seo' ); ?></button>
+								<button type="button" class="button button-primary" id="coywolf-seo-toc-convert-run"><?php esc_html_e( 'Replace tables of contents', 'coywolf-seo' ); ?></button>
+								<button type="button" class="button hidden" id="coywolf-seo-toc-convert-stop"><?php esc_html_e( 'Stop', 'coywolf-seo' ); ?></button>
+							</p>
+							<div class="coywolf-seo-progress hidden" id="coywolf-seo-toc-convert-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="coywolf-seo-progress-bar"></div></div>
+							<p class="description" id="coywolf-seo-toc-convert-result" role="status" aria-live="polite" aria-atomic="true"></p>
+							<div id="coywolf-seo-toc-convert-samples" class="coywolf-seo-idfix-samples hidden"></div>
 						</div>
 					</td>
 				</tr>
