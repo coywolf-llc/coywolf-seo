@@ -58,6 +58,14 @@ final class Coywolf_SEO_TOC_Convert {
 	const MARKER = 'wp:yoast-seo/table-of-contents';
 
 	/**
+	 * Short-lived cache of the candidate count. The count query is an
+	 * unindexable leading-wildcard scan, and the banner + Settings section read
+	 * it on ordinary admin page loads, so the result is cached to keep those
+	 * loads cheap; it is cleared whenever a conversion writes.
+	 */
+	const COUNT_TRANSIENT = 'coywolf_seo_toc_convert_count';
+
+	/**
 	 * Yoast's default title — when a block still carries it, we let Coywolf's
 	 * own translatable default stand instead of baking the English literal in.
 	 */
@@ -201,7 +209,10 @@ final class Coywolf_SEO_TOC_Convert {
 	 * @return array State.
 	 */
 	private function start( $dry_run ) {
-		$total = $this->candidate_count();
+		// Recount from scratch so the run total is accurate, not a cached value.
+		delete_transient( self::COUNT_TRANSIENT );
+		$this->candidate_cache = null;
+		$total                 = $this->candidate_count();
 		$state = array(
 			'status'          => $total > 0 ? 'running' : 'done',
 			'dry_run'         => (bool) $dry_run,
@@ -271,6 +282,11 @@ final class Coywolf_SEO_TOC_Convert {
 		if ( null !== $this->candidate_cache ) {
 			return $this->candidate_cache;
 		}
+		$cached = get_transient( self::COUNT_TRANSIENT );
+		if ( false !== $cached ) {
+			$this->candidate_cache = (int) $cached;
+			return $this->candidate_cache;
+		}
 		global $wpdb;
 		$like = '%' . $wpdb->esc_like( self::MARKER ) . '%';
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- maintenance scan, not cacheable.
@@ -281,6 +297,7 @@ final class Coywolf_SEO_TOC_Convert {
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		set_transient( self::COUNT_TRANSIENT, $this->candidate_cache, 5 * MINUTE_IN_SECONDS );
 		return $this->candidate_cache;
 	}
 
@@ -354,6 +371,9 @@ final class Coywolf_SEO_TOC_Convert {
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bulk content maintenance; post cache cleared immediately below.
 				$wpdb->update( $wpdb->posts, array( 'post_content' => $new ), array( 'ID' => $post_id ) );
 				clean_post_cache( $post_id );
+				// The candidate count just dropped — refresh it so the banner and
+				// Settings section stop offering posts already converted.
+				delete_transient( self::COUNT_TRANSIENT );
 			}
 		}
 		return $out;
@@ -409,14 +429,16 @@ final class Coywolf_SEO_TOC_Convert {
 		$attrs = isset( $block['attrs'] ) && is_array( $block['attrs'] ) ? $block['attrs'] : array();
 		$html  = isset( $block['innerHTML'] ) ? (string) $block['innerHTML'] : '';
 
-		// Title text + level: prefer the saved heading element.
+		// Title text + level from the saved heading element. Yoast renders the
+		// title heading ONLY when the title is non-empty, so no <h*> in the saved
+		// markup means the block shows no title at all — a state we carry across.
 		$title       = '';
-		$title_level = isset( $attrs['level'] ) ? (int) $attrs['level'] : 0;
+		$title_level = isset( $attrs['level'] ) ? (int) $attrs['level'] : 2;
 		if ( preg_match( '/<h([1-6])\b[^>]*>(.*?)<\/h\1\s*>/is', $html, $m ) ) {
 			$title_level = (int) $m[1];
 			$title       = trim( wp_strip_all_tags( $m[2] ) );
-		}
-		if ( '' === $title && isset( $attrs['title'] ) ) {
+		} elseif ( isset( $attrs['title'] ) ) {
+			// Older/deprecated blocks may keep the title in the block comment.
 			$title = trim( wp_strip_all_tags( (string) $attrs['title'] ) );
 		}
 		if ( $title_level < 2 || $title_level > 6 ) {
@@ -431,10 +453,18 @@ final class Coywolf_SEO_TOC_Convert {
 		$out = array(
 			'titleLevel' => $title_level,
 			'levels'     => $levels,
+			// Yoast's table has no list-style option: it renders a plain <ul>,
+			// so the browser's default bullets show. Coywolf defaults to no
+			// markers, which would drop them — pick "disc" (browser-default
+			// bullets) so the converted table keeps the same look.
+			'listStyle'  => 'disc',
 		);
-		// Only carry a genuinely custom title across; a default one is left to
-		// the Coywolf block's own (translatable) default.
-		if ( '' !== $title && 0 !== strcasecmp( $title, self::YOAST_DEFAULT_TITLE ) ) {
+		if ( '' === $title ) {
+			// The Yoast table shows no title — turn Coywolf's title off to match.
+			$out['showTitle'] = false;
+		} elseif ( 0 !== strcasecmp( $title, self::YOAST_DEFAULT_TITLE ) ) {
+			// Carry a genuinely custom title; a default one is left to the
+			// Coywolf block's own (translatable) default.
 			$out['title'] = $title;
 		}
 		return $out;

@@ -391,10 +391,18 @@
 						}
 						mapped.levels = levels;
 
-						// Keep a genuinely custom title; leave a default one to the
-						// Coywolf block's own default.
+						// Yoast's table has no list-style option — it renders a
+						// plain <ul> with the browser's default bullets. Coywolf
+						// defaults to no markers, so pick bullets to keep the look.
+						mapped.listStyle = 'disc';
+
+						// An empty title means the Yoast table shows no title — turn
+						// Coywolf's off to match; otherwise keep a genuinely custom
+						// title and leave a default one to the Coywolf default.
 						var title = ( typeof attrs.title === 'string' ) ? attrs.title.trim() : '';
-						if ( title && title.toLowerCase() !== 'table of contents' ) {
+						if ( ! title ) {
+							mapped.showTitle = false;
+						} else if ( title.toLowerCase() !== 'table of contents' ) {
 							mapped.title = title;
 						}
 
