@@ -4,7 +4,7 @@ Tags: seo, open graph, schema, sitemap, redirects
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.1.2
+Stable tag: 1.1.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -219,6 +219,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 8. The Import/Export screen, with controls to export and import plugin settings and author properties as JSON, and a separate section for exporting and importing Robots.txt rules.
 
 == Changelog ==
+
+= 1.1.3 =
+* Hide the Yoast-TOC banner as soon as a replacement clears the last table (#134).
 
 = 1.1.2 =
 * docs: describe the Yoast TOC replacement as a banner modal (#133).

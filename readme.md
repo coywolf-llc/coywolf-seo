@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.1.2
+- **Version:** 1.1.3
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -247,6 +247,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 ![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
 
 ## Changelog
+
+### 1.1.3
+- Hide the Yoast-TOC banner as soon as a replacement clears the last table (#134).
 
 ### 1.1.2
 - docs: describe the Yoast TOC replacement as a banner modal (#133).
