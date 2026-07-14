@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.1.0
+- **Version:** 1.1.1
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -247,6 +247,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 ![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
 
 ## Changelog
+
+### 1.1.1
+- Open the Yoast TOC replacement tool in a modal from the banner; remove the Settings section (#132).
 
 ### 1.0.129
 - Gate the WordPress.org SVN deploy behind a manual workflow (#130).
