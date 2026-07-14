@@ -1073,6 +1073,12 @@
 			$progress.removeClass( 'hidden' ).attr( 'aria-valuenow', pct ).find( '.coywolf-seo-progress-bar' ).css( 'width', pct + '%' );
 			if ( 'done' === d.status ) {
 				$result.text( fill( d.dry_run ? ( config.i18n.tocConvertPreview || 'Preview: %BLOCKS% tables in %POSTS% posts would be replaced.' ) : ( config.i18n.tocConvertDone || 'Done: replaced %BLOCKS% tables across %POSTS% posts.' ), d ) );
+					// A real run that cleared every Yoast table of contents makes the
+					// banner obsolete — drop it so it is gone once the modal is closed
+					// (no page reload needed). The modal stays open showing the result.
+					if ( ! d.dry_run && 0 === Number( d.remaining ) ) {
+						$( '#coywolf-seo-toc-convert-banner' ).remove();
+					}
 			} else {
 				$result.text( fill( config.i18n.tocConvertProgress || 'Scanning %SCAN% of %TOTAL% posts…', d ) );
 			}
