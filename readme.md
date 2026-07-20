@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.1.4
+- **Version:** 1.1.5
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -245,6 +245,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 ![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
 
 ## Changelog
+
+### 1.1.5
+- Keep headings printed by custom blocks out of the table of contents (#136).
 
 ### 1.1.4
 - Trim the Description to well under WordPress.org's 2,500-word limit (#135).
