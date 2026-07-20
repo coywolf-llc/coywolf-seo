@@ -26,6 +26,8 @@
 	var registerBlockType = wp.blocks.registerBlockType;
 	var createBlock = wp.blocks.createBlock;
 	var useSelect = wp.data.useSelect;
+	var useEffect = wp.element.useEffect;
+	var cfg = window.coywolf_seo_toc_cfg || {};
 
 	var blockEditor = wp.blockEditor;
 	var InspectorControls = blockEditor.InspectorControls;
@@ -99,6 +101,69 @@
 			}
 		} );
 		return out;
+	}
+
+
+	/* ------------------------------------------------------------------ *
+	 * Real-time heading anchors
+	 *
+	 * The server gives every heading a "jump-" id when the page is served, but
+	 * that is too late to link to while writing. This assigns the same id to
+	 * the heading block's own HTML anchor as soon as it has text, so the
+	 * editor's link tool can point at it straight away and the anchor is saved
+	 * with the post. An anchor that already exists — whether you typed it or a
+	 * previous pass set it — is never changed, so links already pointing at a
+	 * heading keep working even after its text is edited.
+	 * ------------------------------------------------------------------ */
+
+	// Every anchor already used in the document, so a duplicate heading title
+	// does not produce a duplicate id.
+	function collectAnchors( blocks, out, skipClientId ) {
+		blocks.forEach( function ( block ) {
+			if ( block.clientId !== skipClientId && block.attributes && block.attributes.anchor ) {
+				out[ block.attributes.anchor ] = true;
+			}
+			if ( block.innerBlocks && block.innerBlocks.length ) {
+				collectAnchors( block.innerBlocks, out, skipClientId );
+			}
+		} );
+		return out;
+	}
+
+	function uniqueAnchor( text, taken ) {
+		var base = previewSlug( text );
+		var slug = base;
+		for ( var i = 2; taken[ slug ]; i++ ) {
+			slug = base + '-' + i;
+		}
+		return slug;
+	}
+
+	// Renders nothing: it exists so the hooks below run only for heading
+	// blocks, keeping them out of the conditional path in the HOC.
+	function HeadingAnchor( props ) {
+		var attributes = props.attributes;
+		var setAttributes = props.setAttributes;
+		var clientId = props.clientId;
+		var blocks = useSelect( function ( select ) {
+			return select( 'core/block-editor' ).getBlocks();
+		}, [] );
+
+		useEffect( function () {
+			if ( false === cfg.headingIds ) {
+				return;
+			}
+			if ( attributes.anchor ) {
+				return;
+			}
+			var text = headingText( attributes.content );
+			if ( ! text ) {
+				return;
+			}
+			setAttributes( { anchor: uniqueAnchor( text, collectAnchors( blocks, {}, clientId ) ) } );
+		}, [ attributes.content, attributes.anchor, clientId ] );
+
+		return null;
 	}
 
 	/* ------------------------------------------------------------------ *
@@ -443,6 +508,7 @@
 				Fragment,
 				null,
 				el( BlockEdit, props ),
+				el( HeadingAnchor, props ),
 				el(
 					InspectorControls,
 					null,

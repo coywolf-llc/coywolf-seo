@@ -25,12 +25,15 @@
 	var useSelect = wp.data.useSelect;
 	var useDispatch = wp.data.useDispatch;
 	var useState = wp.element.useState;
+	var useRef = wp.element.useRef;
+	var useEffect = wp.element.useEffect;
 	var SelectControl = wp.components.SelectControl;
 	var ToggleControl = wp.components.ToggleControl;
 	var TextControl = wp.components.TextControl;
 	var TextareaControl = wp.components.TextareaControl;
 	var Button = wp.components.Button;
 
+	var MOVE_NOTICE_ID = 'coywolf-seo-moved-url';
 	var META_KEY = '_coywolf_seo';
 	var DEFAULTS = {
 		title: '',
@@ -66,6 +69,9 @@
 		// store a corrupted override.
 		var titleDraft = useState( null );
 		var descDraft = useState( null );
+		// Last excerpt this panel wrote, so a hand-written excerpt is never
+		// overwritten (see mirrorToExcerpt).
+		var autoExcerpt = useRef( null );
 
 		function reanalyze() {
 			var data = new window.FormData();
@@ -97,6 +103,127 @@
 			edit[ META_KEY ] = next;
 			editPost( { meta: edit } );
 		}
+
+		// A post with no excerpt of its own uses its SEO Description as the
+		// excerpt (the front end applies the same fallback). Mirror it into the
+		// Excerpt field as it is typed, so the value is real and visible here
+		// instead of only appearing once the page is served.
+		//
+		// Guards, in order of what they protect:
+		//  - only runs while the Description is edited, never on load, so
+		//    opening a post never marks it dirty on its own;
+		//  - only fills an excerpt that is blank, or one this panel wrote
+		//    itself (tracked below), so an excerpt you typed is never clobbered;
+		//  - keeps syncing while it owns the value, so the excerpt ends up as
+		//    the whole description rather than the first keystroke of it.
+		function mirrorToExcerpt( value ) {
+			var current = postExcerpt || '';
+			var ours = '' === current.trim()
+				|| ( null !== autoExcerpt.current && current === autoExcerpt.current );
+			if ( ! ours ) {
+				return;
+			}
+			autoExcerpt.current = value;
+			editPost( { excerpt: value } );
+		}
+
+		/* ------------------------------------------------------------------ *
+		 * Moved-URL prompt
+		 *
+		 * Changing a published post's slug leaves its old URL 404ing. The server
+		 * records the change and the post editor asks about it, but the block
+		 * editor saves over REST and never reloads, so that admin notice cannot
+		 * appear at the moment it happens. Watch for a finished (non-autosave)
+		 * save and ask right here instead — on the post being edited, which is
+		 * the only place the question belongs.
+		 * ------------------------------------------------------------------ */
+		var isSaving = useSelect( function ( select ) {
+			return select( 'core/editor' ).isSavingPost();
+		}, [] );
+		var isAutosave = useSelect( function ( select ) {
+			return select( 'core/editor' ).isAutosavingPost();
+		}, [] );
+		var wasSaving = useRef( false );
+
+		function moveRequest( op ) {
+			var data = new window.FormData();
+			data.append( 'action', 'coywolf_seo_move_decision' );
+			data.append( '_ajax_nonce', config.moveNonce );
+			data.append( 'post_id', config.postId );
+			data.append( 'op', op );
+			return window
+				.fetch( config.ajaxUrl, { method: 'POST', credentials: 'same-origin', body: data } )
+				.then( function ( r ) {
+					return r.json();
+				} );
+		}
+
+		function decideMove( op ) {
+			var notices = wp.data.dispatch( 'core/notices' );
+			moveRequest( op )
+				.then( function () {
+					notices.removeNotice( MOVE_NOTICE_ID );
+					if ( 'create' === op ) {
+						notices.createNotice(
+							'success',
+							config.i18n.moveCreated || 'Redirect created.',
+							{ type: 'snackbar', isDismissible: true }
+						);
+					}
+				} )
+				.catch( function () {} );
+		}
+
+		useEffect( function () {
+			if ( isSaving ) {
+				// Autosaves never change the slug; only track real saves.
+				if ( ! isAutosave ) {
+					wasSaving.current = true;
+				}
+				return;
+			}
+			if ( ! wasSaving.current ) {
+				return;
+			}
+			wasSaving.current = false;
+			if ( ! config.moveNonce || ! config.postId ) {
+				return;
+			}
+			moveRequest( 'get' )
+				.then( function ( json ) {
+					var d = json && json.data;
+					if ( ! d || ! d.pending ) {
+						return;
+					}
+					var notices = wp.data.dispatch( 'core/notices' );
+					notices.removeNotice( MOVE_NOTICE_ID );
+					notices.createNotice(
+						'warning',
+						( config.i18n.moveAsk || 'The URL changed from %1$s to %2$s. Redirect the old URL to the new one?' )
+							.replace( '%1$s', d.oldPath )
+							.replace( '%2$s', d.newPath ),
+						{
+							id: MOVE_NOTICE_ID,
+							isDismissible: true,
+							actions: [
+								{
+									label: config.i18n.moveCreate || 'Create 301 redirect',
+									onClick: function () {
+										decideMove( 'create' );
+									}
+								},
+								{
+									label: config.i18n.moveDismiss || 'No thanks',
+									onClick: function () {
+										decideMove( 'dismiss' );
+									}
+								}
+							]
+						}
+					);
+				} )
+				.catch( function () {} );
+		}, [ isSaving, isAutosave ] );
 
 		// The default Title is the post's own title; the default Description
 		// mirrors the front end — the AI-written summary when one exists, else
@@ -149,6 +276,7 @@
 					onChange: function ( v ) {
 						descDraft[ 1 ]( v );
 						update( 'description', v === defaultDescription ? '' : v );
+						mirrorToExcerpt( v );
 					},
 					onBlur: function () {
 						descDraft[ 1 ]( null );

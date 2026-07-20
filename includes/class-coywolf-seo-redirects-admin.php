@@ -46,30 +46,89 @@ final class Coywolf_SEO_Redirects_Admin {
 		add_action( 'admin_post_coywolf_seo_redirect_bulk', array( $this, 'handle_bulk' ) );
 		add_action( 'admin_notices', array( $this, 'maybe_show_deletion_notice' ) );
 		add_action( 'admin_notices', array( $this, 'maybe_show_move_notice' ) );
+		add_action( 'wp_ajax_coywolf_seo_move_decision', array( $this, 'ajax_move_decision' ) );
+	}
+
+	/**
+	 * The moved-page decision, for the block editor.
+	 *
+	 * The block editor saves over REST and never reloads, so the admin_notices
+	 * prompt above cannot appear at the moment a slug change happens. This backs
+	 * the editor-side prompt instead: `get` reports whether the post being edited
+	 * has a URL change awaiting a decision, `create` adds the 301 old→new and
+	 * resolves it, and `dismiss` drops it. Same capability as the rest of the
+	 * redirect screens.
+	 */
+	public function ajax_move_decision() {
+		check_ajax_referer( 'coywolf_seo_move_decision' );
+		if ( ! current_user_can( Coywolf_SEO_Admin::CAPABILITY ) ) {
+			wp_send_json_error( array(), 403 );
+		}
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce checked above.
+		$post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
+		$op      = isset( $_POST['op'] ) ? sanitize_key( wp_unslash( $_POST['op'] ) ) : 'get';
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		$move = $post_id ? $this->redirects->pending_move_for_post( $post_id ) : null;
+		if ( ! $move ) {
+			wp_send_json_success( array( 'pending' => false ) );
+		}
+
+		if ( 'create' === $op ) {
+			$result = $this->redirects->save_rule(
+				array(
+					'source' => $move->old_path,
+					'target' => $move->new_path,
+					'type'   => 301,
+				)
+			);
+			if ( is_wp_error( $result ) ) {
+				wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+			}
+			$this->redirects->delete_move( (int) $move->id );
+			wp_send_json_success( array( 'pending' => false ) );
+		}
+
+		if ( 'dismiss' === $op ) {
+			$this->redirects->delete_move( (int) $move->id );
+			wp_send_json_success( array( 'pending' => false ) );
+		}
+
+		wp_send_json_success(
+			array(
+				'pending' => true,
+				'oldPath' => (string) $move->old_path,
+				'newPath' => (string) $move->new_path,
+			)
+		);
 	}
 
 	/**
 	 * Prompt to create a redirect when a published post/page's URL has changed.
-	 * On the post editor it offers the decision for the post being edited; on the
-	 * Posts/Pages list it surfaces any recent moves still awaiting a redirect.
+	 *
+	 * The decision belongs to the post being edited, so it is offered on the post
+	 * editor only — never on the Posts/Pages list, where it would be asked about
+	 * a post you are not looking at. The block editor saves over REST without
+	 * reloading, so this covers the classic editor and a reloaded editor screen;
+	 * js/editor.js raises the same prompt in the block editor the moment a save
+	 * changes the URL. Anything still undecided waits on the Redirects page.
 	 */
 	public function maybe_show_move_notice() {
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
 		if ( ! $screen || ! current_user_can( Coywolf_SEO_Admin::CAPABILITY ) ) {
 			return;
 		}
+		if ( 'post' !== $screen->base ) {
+			return;
+		}
 
 		$rows      = array();
 		$return_to = isset( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
-		if ( 'post' === $screen->base ) {
-			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only screen detection on the post editor.
-			$post_id = isset( $_GET['post'] ) ? absint( $_GET['post'] ) : (int) get_the_ID();
-			$move    = $post_id ? $this->redirects->pending_move_for_post( $post_id ) : null;
-			if ( $move ) {
-				$rows[] = $move;
-			}
-		} elseif ( in_array( $screen->id, array( 'edit-post', 'edit-page' ), true ) ) {
-			$rows = array_slice( $this->redirects->pending_moves(), 0, 5 );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only screen detection on the post editor.
+		$post_id = isset( $_GET['post'] ) ? absint( $_GET['post'] ) : (int) get_the_ID();
+		$move    = $post_id ? $this->redirects->pending_move_for_post( $post_id ) : null;
+		if ( $move ) {
+			$rows[] = $move;
 		}
 
 		if ( empty( $rows ) ) {

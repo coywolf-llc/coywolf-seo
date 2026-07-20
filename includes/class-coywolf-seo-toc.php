@@ -118,6 +118,16 @@ class Coywolf_SEO_TOC {
 			true
 		);
 		wp_set_script_translations( 'coywolf-seo-toc-block', 'coywolf-seo' );
+		wp_localize_script(
+			'coywolf-seo-toc-block',
+			'coywolf_seo_toc_cfg',
+			array(
+				// The editor's real-time heading anchors follow the same
+				// setting as the site-wide pass: with it off, headings are
+				// left without an anchor here too.
+				'headingIds' => (bool) Coywolf_SEO_Options::get( 'heading_ids' ),
+			)
+		);
 
 		wp_register_style( 'coywolf-seo-toc-editor', COYWOLF_SEO_URL . 'css/toc-editor.css', array(), Coywolf_SEO::VERSION );
 		wp_register_style( 'coywolf-seo-toc', COYWOLF_SEO_URL . 'css/toc.css', array(), Coywolf_SEO::VERSION );

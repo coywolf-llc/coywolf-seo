@@ -290,21 +290,30 @@ final class Coywolf_SEO_Metabox {
 				'postId'             => ( $post instanceof WP_Post ) ? (int) $post->ID : 0,
 				'ajaxUrl'            => admin_url( 'admin-ajax.php' ),
 				'reanalyzeNonce'     => wp_create_nonce( 'coywolf_seo_reanalyze' ),
+				// Backs the moved-URL prompt: the block editor saves over REST
+				// without reloading, so the slug-change question is asked here
+				// rather than through admin_notices.
+				'moveNonce'          => wp_create_nonce( 'coywolf_seo_move_decision' ),
 				'i18n'               => array(
 					'panelTitle'      => __( 'SEO', 'coywolf-seo' ),
 					'title'           => __( 'Title', 'coywolf-seo' ),
 					'titleHelp'       => $this->title_help(),
 					'description'     => __( 'Description', 'coywolf-seo' ),
 					'descriptionHelp' => $this->description_help(),
-					'pageType'    => __( 'Schema page type', 'coywolf-seo' ),
-					'articleType' => __( 'Schema article type', 'coywolf-seo' ),
-					'robots'      => __( 'Robots', 'coywolf-seo' ),
-					'noindex'     => __( 'Noindex', 'coywolf-seo' ),
-					'nofollow'    => __( 'Nofollow', 'coywolf-seo' ),
-					'canonical'   => __( 'Canonical link', 'coywolf-seo' ),
-					'reanalyze'   => __( 'Re-analyze entities', 'coywolf-seo' ),
-					'analyzing'   => __( 'Analyzing…', 'coywolf-seo' ),
-					'requestFailed' => __( 'Request failed.', 'coywolf-seo' ),
+					'pageType'        => __( 'Schema page type', 'coywolf-seo' ),
+					'articleType'     => __( 'Schema article type', 'coywolf-seo' ),
+					'robots'          => __( 'Robots', 'coywolf-seo' ),
+					'noindex'         => __( 'Noindex', 'coywolf-seo' ),
+					'nofollow'        => __( 'Nofollow', 'coywolf-seo' ),
+					'canonical'       => __( 'Canonical link', 'coywolf-seo' ),
+					'reanalyze'       => __( 'Re-analyze entities', 'coywolf-seo' ),
+					'analyzing'       => __( 'Analyzing…', 'coywolf-seo' ),
+					'requestFailed'   => __( 'Request failed.', 'coywolf-seo' ),
+					/* translators: 1: the old URL path, 2: the new URL path. */
+					'moveAsk'         => __( 'The URL changed from %1$s to %2$s. Redirect the old URL to the new one?', 'coywolf-seo' ),
+					'moveCreate'      => __( 'Create 301 redirect', 'coywolf-seo' ),
+					'moveDismiss'     => __( 'No thanks', 'coywolf-seo' ),
+					'moveCreated'     => __( 'Redirect created — the old URL now points at the new one.', 'coywolf-seo' ),
 				),
 			)
 		);
@@ -352,7 +361,7 @@ final class Coywolf_SEO_Metabox {
 					<p class="description"><?php echo esc_html( $this->title_help() ); ?></p>
 				</td>
 			</tr>
-			<?php if ( ! Coywolf_SEO_Options::get( 'exclude_meta_desc' ) ) : ?>
+				<?php if ( ! Coywolf_SEO_Options::get( 'exclude_meta_desc' ) ) : ?>
 			<tr>
 				<th scope="row"><label for="coywolf-seo-description"><?php esc_html_e( 'Description', 'coywolf-seo' ); ?></label></th>
 				<td>
