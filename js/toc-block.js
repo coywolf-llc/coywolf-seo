@@ -27,6 +27,7 @@
 	var createBlock = wp.blocks.createBlock;
 	var useSelect = wp.data.useSelect;
 	var useEffect = wp.element.useEffect;
+	var useRef = wp.element.useRef;
 	var cfg = window.coywolf_seo_toc_cfg || {};
 
 	var blockEditor = wp.blockEditor;
@@ -148,19 +149,59 @@
 		var blocks = useSelect( function ( select ) {
 			return select( 'core/block-editor' ).getBlocks();
 		}, [] );
+		// The last anchor this component generated. It is what tells an anchor
+		// we own (and should keep in step with the heading) apart from one the
+		// author typed, which must never be touched.
+		var lastAuto = useRef( null );
+
+		// Freeze the anchor once the post has actually been saved: from then on
+		// the id is published and something may link to it, so later edits to
+		// the heading text must not move it. Reloading the editor has the same
+		// effect, since lastAuto starts out empty.
+		var isSaving = useSelect( function ( select ) {
+			var editor = select( 'core/editor' );
+			return !! ( editor && editor.isSavingPost && editor.isSavingPost() );
+		}, [] );
+		var isAutosave = useSelect( function ( select ) {
+			var editor = select( 'core/editor' );
+			return !! ( editor && editor.isAutosavingPost && editor.isAutosavingPost() );
+		}, [] );
+		var wasSaving = useRef( false );
+		useEffect( function () {
+			if ( isSaving ) {
+				if ( ! isAutosave ) {
+					wasSaving.current = true;
+				}
+				return;
+			}
+			if ( wasSaving.current ) {
+				wasSaving.current = false;
+				lastAuto.current = null;
+			}
+		}, [ isSaving, isAutosave ] );
 
 		useEffect( function () {
 			if ( false === cfg.headingIds ) {
-				return;
-			}
-			if ( attributes.anchor ) {
 				return;
 			}
 			var text = headingText( attributes.content );
 			if ( ! text ) {
 				return;
 			}
-			setAttributes( { anchor: uniqueAnchor( text, collectAnchors( blocks, {}, clientId ) ) } );
+			var current = attributes.anchor || '';
+			// Manage an anchor only while it is empty or still exactly what we
+			// generated. Anything else is the author's and is left alone.
+			if ( '' !== current && current !== lastAuto.current ) {
+				return;
+			}
+			var next = uniqueAnchor( text, collectAnchors( blocks, {}, clientId ) );
+			if ( next === current ) {
+				return;
+			}
+			// Keeps following the heading as it is typed, so the anchor ends up
+			// as the whole title rather than its first keystroke.
+			lastAuto.current = next;
+			setAttributes( { anchor: next } );
 		}, [ attributes.content, attributes.anchor, clientId ] );
 
 		return null;
