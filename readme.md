@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.1.5
+- **Version:** 1.1.6
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -245,6 +245,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 ![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
 
 ## Changelog
+
+### 1.1.6
+- Editor-side heading anchors, Excerpt from the Description, and slug-change redirects on the post (#137).
 
 ### 1.1.5
 - Keep headings printed by custom blocks out of the table of contents (#136).
