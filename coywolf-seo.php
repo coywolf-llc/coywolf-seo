@@ -3,7 +3,7 @@
  * Plugin Name:       Coywolf SEO
  * Plugin URI:        https://coywolf.com/notes/coywolf-seo/
  * Description:       An SEO plugin that has exactly what you need, and nothing more.
- * Version:           1.1.6
+ * Version:           1.1.7
  * Requires at least: 7.0
  * Requires PHP:      7.4
  * Author:            Coywolf
