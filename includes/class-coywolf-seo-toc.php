@@ -49,6 +49,61 @@ class Coywolf_SEO_TOC {
 		// After do_blocks (9), shortcodes (11), and the other default
 		// filters: the placeholder is replaced in the final HTML.
 		add_filter( 'the_content', array( $this, 'filter_content' ), 32 );
+		// Headings a custom block prints from its own template are not headings
+		// the author wrote, so keep them out of the table. Marked here, while
+		// the block each heading came from is still known.
+		add_filter( 'render_block', array( $this, 'exclude_custom_block_headings' ), 10, 2 );
+	}
+
+	/**
+	 * Keep headings that a custom block renders from its own template out of
+	 * the table of contents.
+	 *
+	 * The table is built from the page's final HTML, so a heading a third-party
+	 * block prints from its own markup — a callout's title, say — looked exactly
+	 * like a heading the author wrote and got listed, even though the editor
+	 * preview (which reads the block list, and so only ever sees real heading
+	 * blocks) never showed it. This marks those headings with the very class the
+	 * per-heading "Exclude from table of contents" toggle uses, so the published
+	 * table matches the one the editor previews.
+	 *
+	 * Only blocks outside the `core/` namespace are considered, and a heading
+	 * carrying `wp-block-heading` is left alone: that class means it came from a
+	 * real heading block, so a heading the author nested inside a custom block
+	 * still counts (inner blocks render before their parent). Headings produced
+	 * by shortcodes never pass through here, so they keep being listed.
+	 *
+	 * @param string $block_content The block's rendered HTML.
+	 * @param array  $block         The parsed block.
+	 * @return string
+	 */
+	public function exclude_custom_block_headings( $block_content, $block ) {
+		$name = isset( $block['blockName'] ) ? (string) $block['blockName'] : '';
+		if ( '' === $name || 0 === strpos( $name, 'core/' ) ) {
+			return $block_content;
+		}
+		if ( ! is_string( $block_content ) || false === stripos( $block_content, '<h' ) ) {
+			return $block_content;
+		}
+		if ( ! class_exists( 'WP_HTML_Tag_Processor' ) ) {
+			return $block_content;
+		}
+
+		$tags    = new WP_HTML_Tag_Processor( $block_content );
+		$changed = false;
+		while ( $tags->next_tag() ) {
+			if ( ! preg_match( '/^H[1-6]$/', (string) $tags->get_tag() ) ) {
+				continue;
+			}
+			// A real heading block, or one already opted out — leave it as is.
+			if ( $tags->has_class( 'wp-block-heading' ) || $tags->has_class( self::EXCLUDE_CLASS ) ) {
+				continue;
+			}
+			$tags->add_class( self::EXCLUDE_CLASS );
+			$changed = true;
+		}
+
+		return $changed ? $tags->get_updated_html() : $block_content;
 	}
 
 	/**

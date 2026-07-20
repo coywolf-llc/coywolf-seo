@@ -169,7 +169,7 @@ Yes. Turning the Robots.txt Manager off — or deactivating the plugin — promp
 
 = Why doesn't the table of contents go out of date? =
 
-It's built when the page is served, not when you save, so headings added later (including by shortcodes and synced patterns) are always included. Each heading has an "Exclude from table of contents" toggle, and a minimum-headings threshold keeps the table off short posts.
+It's built when the page is served, not when you save, so headings added later (including by shortcodes and synced patterns) are always included. Each heading has an "Exclude from table of contents" toggle, and a minimum-headings threshold keeps the table off short posts. Headings that a custom block prints from its own template — a callout's title, say — are left out, so the published table matches the one the editor previews; a heading you nest inside a custom block still counts.
 
 = Do all my headings get anchor links, even without a table of contents? =
 
