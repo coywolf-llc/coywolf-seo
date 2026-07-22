@@ -810,6 +810,7 @@ final class Coywolf_SEO_AI {
 				'description' => $description,
 			)
 		);
+		$this->fill_empty_excerpt( $post_id, $description );
 		if ( wp_json_encode( $entities ) !== wp_json_encode( $previous ) || $description !== $previous_desc ) {
 			$this->purge_post_cache( $post_id );
 		}
@@ -1480,6 +1481,8 @@ final class Coywolf_SEO_AI {
 			)
 		);
 
+		$this->fill_empty_excerpt( $post_id, $description );
+
 		// The page was (re)cached before this background run finished:
 		// when the schema or description changed, purge it so the new
 		// output is served.
@@ -1487,6 +1490,36 @@ final class Coywolf_SEO_AI {
 			$this->purge_post_cache( $post_id );
 		}
 		return 'ok';
+	}
+
+	/**
+	 * When AI meta descriptions are on, use the just-written description as the
+	 * post's excerpt too — but only when the post has no excerpt of its own, so
+	 * a manual excerpt (or one filled on an earlier run) is never overwritten.
+	 *
+	 * The AI description already replaces the excerpt in the meta description,
+	 * Open Graph, and schema; this puts the same text in the Excerpt field so
+	 * the theme's own excerpt (archive teasers, feeds) matches, and so the value
+	 * is visible in the editor rather than only appearing at render. Written
+	 * directly, like the plugin's other background maintenance writes, so it
+	 * fires no save hooks and cannot re-queue this analysis.
+	 *
+	 * @param int    $post_id     Post ID.
+	 * @param string $description The generated meta description.
+	 */
+	private function fill_empty_excerpt( $post_id, $description ) {
+		$description = trim( (string) $description );
+		if ( '' === $description ) {
+			return;
+		}
+		$post = get_post( $post_id );
+		if ( ! $post || '' !== trim( (string) $post->post_excerpt ) ) {
+			return;
+		}
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- background maintenance write; post cache cleaned immediately below.
+		$wpdb->update( $wpdb->posts, array( 'post_excerpt' => $description ), array( 'ID' => (int) $post_id ) );
+		clean_post_cache( $post_id );
 	}
 
 	/**
