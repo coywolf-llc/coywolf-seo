@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.1.7
+- **Version:** 1.1.8
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -245,6 +245,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 ![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
 
 ## Changelog
+
+### 1.1.8
+- Fill an empty excerpt from the AI meta description on publish (#139).
 
 ### 1.1.7
 - Keep a heading's anchor in step with its text instead of freezing on the first keystroke (#138).

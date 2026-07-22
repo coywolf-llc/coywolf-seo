@@ -4,7 +4,7 @@ Tags: seo, open graph, schema, sitemap, redirects
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.1.7
+Stable tag: 1.1.8
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -219,6 +219,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 8. The Import/Export screen, with controls to export and import plugin settings and author properties as JSON, and a separate section for exporting and importing Robots.txt rules.
 
 == Changelog ==
+
+= 1.1.8 =
+* Fill an empty excerpt from the AI meta description on publish (#139).
 
 = 1.1.7 =
 * Keep a heading's anchor in step with its text instead of freezing on the first keystroke (#138).
