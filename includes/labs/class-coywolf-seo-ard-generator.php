@@ -183,7 +183,7 @@ final class Coywolf_SEO_ARD_Generator {
 				__( 'Open Knowledge Format bundle', 'coywolf-seo' ),
 				'text/markdown',
 				$this->labs_feature_url( 'coywolf_seo_okf', '/okf/' ),
-				__( 'A navigable Markdown knowledge graph of this site\'s public content (Open Knowledge Format v0.1). Start at the root index and follow the cross-links.', 'coywolf-seo' ),
+				__( 'A navigable Markdown knowledge graph of this site\'s public content (Open Knowledge Format v0.2). Start at the root index and follow the cross-links.', 'coywolf-seo' ),
 				array(
 					__( 'read this site\'s content as structured markdown', 'coywolf-seo' ),
 					__( 'find articles about a topic on this site', 'coywolf-seo' ),

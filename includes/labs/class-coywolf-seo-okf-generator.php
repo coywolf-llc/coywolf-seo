@@ -2,20 +2,32 @@
 /**
  * Open Knowledge Format (OKF) bundle generator — Labs feature.
  *
- * Builds an OKF v0.1 conformant bundle of UTF-8 Markdown files from the site's
+ * Builds an OKF v0.2 conformant bundle of UTF-8 Markdown files from the site's
  * public, published content under wp-content/uploads/coywolf-okf/. The bundle's
  * value is the cross-link graph between articles, topics, authors, and the
  * AI-enriched about/mentions entities — not a copy of the page text.
  *
- * OKF v0.1 conformance rules honored here:
+ * OKF v0.2 conformance rules honored here:
  *   - Every non-reserved .md carries parseable YAML frontmatter with a
  *     non-empty `type`.
  *   - `index.md` (directory listing) and `log.md` (change history) are
- *     reserved; only the bundle-root index.md carries frontmatter, and it
- *     declares okf_version: "0.1".
+ *     reserved; index files carry no frontmatter except the bundle-root
+ *     index.md, which declares okf_version: "0.2" and nothing else (§8).
+ *   - Provenance/trust live in frontmatter (§5): every concept records
+ *     `generated: { by, at? }` with a `coywolf-seo/<version>` actor (§7),
+ *     superseding the v0.1 `timestamp`; entity and author concepts carry the
+ *     `sources` family built from their external identifiers, superseding the
+ *     v0.1 body `# Citations` list.
  *   - Cross-links are absolute URLs to the served bundle root (the site's
  *     preference over the spec's suggested bundle-relative links), e.g.
  *     https://example.com/okf/articles/foo.md.
+ *
+ * Deliberately not emitted, because the bundle is machine-assembled from
+ * on-site content with no computed values and nothing to confirm it: `verified`
+ * (absence ⇒ the honest "unverified" trust tier, §5.3), `status`/`stale_after`
+ * (§5.4–5.5, no honest value), the per-source credibility signals (§5.1, would
+ * need network calls), and the entire Attested Computation concept type (§10,
+ * there are no computations here).
  *
  * No outbound calls: the bundle is built entirely from data already stored on
  * the site (posts, terms, users, and the persisted entity meta).
@@ -40,7 +52,7 @@ final class Coywolf_SEO_OKF_Generator extends Coywolf_SEO_Labs_Bundle_Generator 
 	/**
 	 * OKF specification version this generator targets.
 	 */
-	const OKF_VERSION = '0.1';
+	const OKF_VERSION = '0.2';
 
 	/**
 	 * Absolute URL of the served bundle root, without a trailing slash, used to
@@ -165,8 +177,11 @@ final class Coywolf_SEO_OKF_Generator extends Coywolf_SEO_Labs_Bundle_Generator 
 		}
 
 		return array(
-			'counts' => $counts,
-			'time'   => gmdate( 'c' ),
+			'counts'      => $counts,
+			'time'        => gmdate( 'c' ),
+			// Recorded so an upgrade can tell a bundle built by an older OKF
+			// version from a current one and re-emit it (see Coywolf_SEO_OKF).
+			'okf_version' => self::OKF_VERSION,
 		);
 	}
 
@@ -586,7 +601,13 @@ final class Coywolf_SEO_OKF_Generator extends Coywolf_SEO_Labs_Bundle_Generator 
 			'description' => $post['description'],
 			'resource'    => $post['resource'],
 			'tags'        => array_values( array_unique( $post['tags'] ) ),
-			'timestamp'   => $post['timestamp'],
+			// v0.2 (§5.2): `generated` supersedes the v0.1 `timestamp`. `at` is
+			// the post's last modified time — the "content's last meaningful
+			// change" the spec asks for — so unchanged posts stay byte-stable.
+			'generated'   => array(
+				'by' => $this->actor(),
+				'at' => $post['timestamp'],
+			),
 		);
 
 		$body = '# ' . $this->md_text( $post['title'] ) . "\n";
@@ -642,9 +663,13 @@ final class Coywolf_SEO_OKF_Generator extends Coywolf_SEO_Labs_Bundle_Generator 
 	 */
 	private function render_term( array $term, array $model ) {
 		$front = array(
-			'type'     => $term['type_label'],
-			'title'    => $term['name'],
-			'resource' => $term['resource'],
+			'type'      => $term['type_label'],
+			'title'     => $term['name'],
+			'resource'  => $term['resource'],
+			// No `at`: WordPress stores no term-modified time, and it is
+			// optional within `generated` (§5.2). Fabricating one would break
+			// byte-stability across no-change rebuilds.
+			'generated' => array( 'by' => $this->actor() ),
 		);
 		$body  = '# ' . $this->md_text( $term['name'] ) . "\n\n## Articles\n\n";
 		$body .= $this->post_links( $term['post_ids'], $model );
@@ -660,11 +685,15 @@ final class Coywolf_SEO_OKF_Generator extends Coywolf_SEO_Labs_Bundle_Generator 
 	 */
 	private function render_author( array $author, array $model ) {
 		$front = array(
-			'type'     => 'Author',
-			'title'    => $author['name'],
-			'resource' => $author['resource'],
+			'type'      => 'Author',
+			'title'     => $author['name'],
+			'resource'  => $author['resource'],
+			'generated' => array( 'by' => $this->actor() ),
+			// v0.2 (§5.1): the profile/identity links that v0.1 listed under a
+			// body `## Citations` heading are now the `sources` family.
+			'sources'   => $this->sources_from_urls( $author['same_as'] ),
 		);
-		$body  = '# ' . $this->md_text( $author['name'] ) . "\n\n## Articles\n\n";
+		$body = '# ' . $this->md_text( $author['name'] ) . "\n\n## Articles\n\n";
 
 		$post_ids = array();
 		foreach ( $model['posts'] as $post ) {
@@ -674,9 +703,6 @@ final class Coywolf_SEO_OKF_Generator extends Coywolf_SEO_Labs_Bundle_Generator 
 		}
 		$body .= $this->post_links( $post_ids, $model );
 
-		if ( ! empty( $author['same_as'] ) ) {
-			$body .= "\n## Citations\n\n" . $this->citation_lines( $author['same_as'] );
-		}
 		return $this->frontmatter( $front ) . "\n" . $body;
 	}
 
@@ -696,6 +722,11 @@ final class Coywolf_SEO_OKF_Generator extends Coywolf_SEO_Labs_Bundle_Generator 
 			'description' => $entity['description'],
 			// The primary stable external identifier (Wikidata QID URL).
 			'resource'    => isset( $entity['same_as'][0] ) ? $entity['same_as'][0] : '',
+			'generated'   => array( 'by' => $this->actor() ),
+			// v0.2 (§5.1): the stable external identifiers (Wikidata QID,
+			// Wikipedia) that v0.1 listed as body `## Citations` are the
+			// `sources` family now, with `resource` pointing at each one.
+			'sources'     => $this->sources_from_urls( $entity['same_as'] ),
 		);
 
 		$body = '# ' . $this->md_text( $entity['name'] ) . "\n";
@@ -708,7 +739,6 @@ final class Coywolf_SEO_OKF_Generator extends Coywolf_SEO_Labs_Bundle_Generator 
 		if ( ! empty( $entity['mention_post_ids'] ) ) {
 			$body .= "\n## Mentioned in\n\n" . $this->post_links( $entity['mention_post_ids'], $model );
 		}
-		$body .= "\n## Citations\n\n" . $this->citation_lines( $entity['same_as'] );
 
 		return $this->frontmatter( $front ) . "\n" . $body;
 	}
@@ -744,11 +774,12 @@ final class Coywolf_SEO_OKF_Generator extends Coywolf_SEO_Labs_Bundle_Generator 
 	 * @return string
 	 */
 	private function render_root_index( array $model, array $listings ) {
+		// §8: index files carry NO frontmatter, with the sole exception of the
+		// bundle-root index declaring okf_version. (v0.1 also emitted
+		// title/resource/timestamp here, which §11 makes non-conformant; the
+		// title still leads the body H1 and history lives in log.md.)
 		$front = array(
 			'okf_version' => self::OKF_VERSION,
-			'title'       => $model['site']['title'],
-			'resource'    => $model['site']['url'],
-			'timestamp'   => gmdate( 'c' ),
 		);
 
 		$body  = '# ' . $this->md_text( $model['site']['title'] ) . " — Knowledge Bundle\n\n";
@@ -850,13 +881,23 @@ final class Coywolf_SEO_OKF_Generator extends Coywolf_SEO_Labs_Bundle_Generator 
 	}
 
 	/**
-	 * Markdown bullet list of external citation links, labeled by source.
+	 * Build OKF v0.2 `sources` entries (§5.1) from a concept's external
+	 * identifier URLs (Wikidata QID, Wikipedia, other sameAs links). These
+	 * replace the v0.1 body `## Citations` list: provenance now lives in
+	 * frontmatter.
 	 *
-	 * @param string[] $urls Citation URLs.
-	 * @return string
+	 * Each entry carries the REQUIRED `resource`, a human-readable `title`, and
+	 * a stable `id` (so a body claim MAY footnote it, §5.1). The per-source
+	 * credibility signals (`author`, `usage_count`, `last_modified`) are left
+	 * off deliberately: they are unknowable for an external link without a
+	 * network call, and all are optional.
+	 *
+	 * @param string[] $urls Source URLs.
+	 * @return array[] List of { id, resource, title } maps in input order.
 	 */
-	private function citation_lines( array $urls ) {
-		$out = '';
+	private function sources_from_urls( array $urls ) {
+		$sources = array();
+		$used    = array();
 		foreach ( $urls as $url ) {
 			$url = esc_url_raw( (string) $url );
 			if ( '' === $url ) {
@@ -864,15 +905,43 @@ final class Coywolf_SEO_OKF_Generator extends Coywolf_SEO_Labs_Bundle_Generator 
 			}
 			if ( false !== strpos( $url, 'wikidata.org' ) ) {
 				$label = 'Wikidata';
+				$base  = 'wikidata';
 			} elseif ( false !== strpos( $url, 'wikipedia.org' ) ) {
 				$label = 'Wikipedia';
+				$base  = 'wikipedia';
 			} else {
 				$host  = wp_parse_url( $url, PHP_URL_HOST );
 				$label = $host ? $host : $url;
+				$base  = sanitize_title( $label );
+				if ( '' === $base ) {
+					$base = 'source';
+				}
 			}
-			$out .= '- [' . $this->md_text( $label ) . '](' . $url . ")\n";
+			// Stable, de-duplicated id within this concept (id, then id-2, …).
+			$id = $base;
+			for ( $i = 2; isset( $used[ $id ] ); $i++ ) {
+				$id = $base . '-' . $i;
+			}
+			$used[ $id ] = true;
+			$sources[]   = array(
+				'id'       => $id,
+				'resource' => $url,
+				'title'    => $label,
+			);
 		}
-		return '' !== $out ? $out : "_None._\n";
+		return $sources;
+	}
+
+	/**
+	 * The actor string for `generated.by` / `verified[].by` (§7). Coywolf SEO
+	 * is the tool that assembles every concept file, so it identifies with the
+	 * `<producer>/<version>` form — never `human:` (nothing here is
+	 * hand-authored) which would misreport the trust tier (§5.3).
+	 *
+	 * @return string e.g. "coywolf-seo/1.1.8".
+	 */
+	private function actor() {
+		return 'coywolf-seo/' . Coywolf_SEO::VERSION;
 	}
 
 	/**
@@ -905,8 +974,15 @@ final class Coywolf_SEO_OKF_Generator extends Coywolf_SEO_Labs_Bundle_Generator 
 	}
 
 	/**
-	 * Emit a YAML frontmatter block. String values are double-quoted and
-	 * escaped; empty values are omitted; array values become YAML sequences.
+	 * Emit a YAML frontmatter block. Values render by shape:
+	 *  - scalar        -> double-quoted string (empty values are omitted);
+	 *  - list of scalars -> block sequence of quoted strings (e.g. tags);
+	 *  - associative array -> a flow map, e.g. generated: { by: "…", at: "…" };
+	 *  - list of associative arrays -> block sequence of flow maps, e.g. the
+	 *    OKF v0.2 `sources` family (§5.1).
+	 * A map (or list entry) with no non-empty members is dropped, and a key
+	 * whose whole value is empty is omitted — matching how every empty scalar
+	 * has always been skipped.
 	 *
 	 * @param array $fields Ordered field => value.
 	 * @return string
@@ -915,20 +991,32 @@ final class Coywolf_SEO_OKF_Generator extends Coywolf_SEO_Labs_Bundle_Generator 
 		$lines = array( '---' );
 		foreach ( $fields as $key => $value ) {
 			if ( is_array( $value ) ) {
-				$value = array_values(
-					array_filter(
-						array_map( 'strval', $value ),
-						static function ( $v ) {
-							return '' !== trim( $v );
+				// An associative array is a single flow map (e.g. `generated`).
+				if ( $this->is_assoc_array( $value ) ) {
+					$flow = $this->yaml_flow_map( $value );
+					if ( '' !== $flow ) {
+						$lines[] = $key . ': ' . $flow;
+					}
+					continue;
+				}
+				// A list: of flow maps (e.g. `sources`) or of scalars (e.g. tags).
+				$items = array();
+				foreach ( $value as $item ) {
+					if ( is_array( $item ) ) {
+						$flow = $this->yaml_flow_map( $item );
+						if ( '' !== $flow ) {
+							$items[] = $flow;
 						}
-					)
-				);
-				if ( empty( $value ) ) {
+					} elseif ( '' !== trim( (string) $item ) ) {
+						$items[] = $this->yaml_scalar( (string) $item );
+					}
+				}
+				if ( empty( $items ) ) {
 					continue;
 				}
 				$lines[] = $key . ':';
-				foreach ( $value as $item ) {
-					$lines[] = '  - ' . $this->yaml_scalar( $item );
+				foreach ( $items as $item ) {
+					$lines[] = '  - ' . $item;
 				}
 				continue;
 			}
@@ -939,6 +1027,38 @@ final class Coywolf_SEO_OKF_Generator extends Coywolf_SEO_Labs_Bundle_Generator 
 		}
 		$lines[] = '---';
 		return implode( "\n", $lines ) . "\n";
+	}
+
+	/**
+	 * Whether an array is associative (a map) rather than a zero-indexed list.
+	 *
+	 * @param array $value Array to test.
+	 * @return bool
+	 */
+	private function is_assoc_array( array $value ) {
+		if ( array() === $value ) {
+			return false;
+		}
+		return array_keys( $value ) !== range( 0, count( $value ) - 1 );
+	}
+
+	/**
+	 * Render an associative array as a single-line YAML flow map. Members with
+	 * an empty value are dropped; an all-empty map yields '' (so the caller can
+	 * omit the key entirely).
+	 *
+	 * @param array $map key => scalar value.
+	 * @return string '{ k: "v", … }', or '' when nothing to emit.
+	 */
+	private function yaml_flow_map( array $map ) {
+		$parts = array();
+		foreach ( $map as $k => $v ) {
+			if ( '' === trim( (string) $v ) ) {
+				continue;
+			}
+			$parts[] = $k . ': ' . $this->yaml_scalar( (string) $v );
+		}
+		return empty( $parts ) ? '' : '{ ' . implode( ', ', $parts ) . ' }';
 	}
 
 	/**
