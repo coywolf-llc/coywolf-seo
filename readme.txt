@@ -43,7 +43,7 @@ Features:
 * Robots.txt Manager — manage robots.txt as a table of named, plain-English rules with a guided editor and the bundled Cloudflare Bot Directory, every rule conflict-checked and testable through a PHP port of Google's open-source Robots.txt matcher (the RFC 9309 reference Googlebot uses). Serve robots.txt virtually or write a real file.
 * Import/Export — download the plugin settings, author properties, and redirect rules as JSON and import them on another site. API keys are never exported.
 <!-- labs-strip:start -->
-* Labs > Open Knowledge Format (OKF) export (experimental, off by default) — generate an OKF v0.1 bundle of your public content as a navigable graph of Markdown concepts cross-linked to the Wikidata-grounded entities each page is about, downloadable as a .zip or served live, with optional advertising to AI agents. GitHub distribution only.
+* Labs > Open Knowledge Format (OKF) export (experimental, off by default) — generate an OKF v0.2 bundle of your public content as a navigable graph of Markdown concepts cross-linked to the Wikidata-grounded entities each page is about, downloadable as a .zip or served live, with optional advertising to AI agents. GitHub distribution only.
 * Labs > EntityMap (experimental, off by default) — publish a spec-conformant EntityMap v1.0 file set indexing the Wikidata-grounded entities your pages are about or mention, each with publisher-attributed evidence passages, served from your domain root with optional advertising. GitHub distribution only.
 <!-- labs-strip:end -->
 

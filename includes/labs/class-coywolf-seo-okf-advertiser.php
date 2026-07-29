@@ -2,7 +2,7 @@
 /**
  * OKF bundle discovery / advertising — Labs (OKF sub-feature).
  *
- * OKF v0.1 defines NO discovery mechanism: there is no well-known path and no
+ * OKF v0.2 defines NO discovery mechanism: there is no well-known path and no
  * consumer that probes for a bundle. So this is *advertising*, not a protocol —
  * it points agents and crawlers at the bundle from the places they already look
  * (llms.txt, a single <head> link) and keeps the bundle path unblocked in
@@ -92,7 +92,7 @@ final class Coywolf_SEO_OKF_Advertiser extends Coywolf_SEO_Labs_Bundle_Advertise
 	 * core Coywolf_SEO_Llms_Txt owns it and integrates the OKF reference.
 	 */
 	public function add_rewrite_rules() {
-		// PROPOSED CONVENTION, NOT a standard: OKF v0.1 defines no well-known
+		// PROPOSED CONVENTION, NOT a standard: OKF v0.2 defines no well-known
 		// location. This is a convenience alias that 302s to the canonical
 		// bundle root; consumers must not rely on it existing.
 		add_rewrite_rule( '^\.well-known/okf/?$', 'index.php?' . self::WELLKNOWN_VAR . '=1', 'top' );
@@ -140,7 +140,7 @@ final class Coywolf_SEO_OKF_Advertiser extends Coywolf_SEO_Labs_Bundle_Advertise
 	 * @return string
 	 */
 	public function llms_reference_line() {
-		return 'OKF bundle](' . $this->bundle_root_url() . '): Structured Markdown knowledge graph of this site\'s public content (Open Knowledge Format v0.1). Start at the root index and follow the cross-links.';
+		return 'OKF bundle](' . $this->bundle_root_url() . '): Structured Markdown knowledge graph of this site\'s public content (Open Knowledge Format v' . Coywolf_SEO_OKF_Generator::OKF_VERSION . '). Start at the root index and follow the cross-links.';
 	}
 
 	// ---------------------------------------------------------------------

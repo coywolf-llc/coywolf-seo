@@ -2,7 +2,7 @@
 /**
  * Open Knowledge Format (OKF) export — a self-contained Labs feature.
  *
- * Generates an OKF v0.1 bundle of public content (a navigable Markdown graph of
+ * Generates an OKF v0.2 bundle of public content (a navigable Markdown graph of
  * articles, topics, authors, and the AI-enriched entities pages are about or
  * mention), serves it live at a /okf/ read endpoint, and advertises it. Disabled
  * by default — nothing is generated, written, or served until the site owner
@@ -81,6 +81,32 @@ final class Coywolf_SEO_OKF extends Coywolf_SEO_Labs_Feature {
 	public function init() {
 		parent::init();
 		add_action( 'admin_post_coywolf_seo_okf_download_targz', array( $this, 'handle_download_targz' ) );
+		add_action( 'admin_init', array( $this, 'maybe_upgrade_rebuild' ) );
+	}
+
+	/**
+	 * Re-emit the bundle after a plugin update that bumps the OKF spec version.
+	 *
+	 * A bundle already on disk keeps serving the previous version's files until
+	 * content next changes or the admin rebuilds by hand — so a version bump
+	 * alone would leave live sites serving the old format. When the feature is
+	 * on, a bundle exists, and the recorded build predates the current
+	 * OKF_VERSION (a pre-recording build has no version key at all), schedule
+	 * the same debounced background rebuild the content-change path uses. Once
+	 * it runs, the stored summary carries the new version and this stops firing.
+	 */
+	public function maybe_upgrade_rebuild() {
+		if ( ! $this->is_enabled() || ! $this->generator->bundle_exists() ) {
+			return;
+		}
+		$build = $this->last_build();
+		$built = ( is_array( $build ) && isset( $build['okf_version'] ) ) ? (string) $build['okf_version'] : '';
+		if ( Coywolf_SEO_OKF_Generator::OKF_VERSION === $built ) {
+			return;
+		}
+		if ( ! wp_next_scheduled( self::CRON_HOOK ) ) {
+			wp_schedule_single_event( time() + MINUTE_IN_SECONDS, self::CRON_HOOK );
+		}
 	}
 
 	// ---------------------------------------------------------------------
@@ -294,7 +320,13 @@ final class Coywolf_SEO_OKF extends Coywolf_SEO_Labs_Feature {
 		<div class="coywolf-seo-labs-feature coywolf-seo-panel">
 			<h2><?php echo esc_html( $this->title() ); ?></h2>
 			<p class="description">
-				<?php esc_html_e( 'Generates an Open Knowledge Format (OKF v0.1) bundle of your public content — a navigable graph of Markdown concepts for articles, topics, authors, and the AI-enriched entities your pages are about or mention. Built entirely from data already on your site; no external calls.', 'coywolf-seo' ); ?>
+				<?php
+				printf(
+					/* translators: %s: OKF spec version, e.g. 0.2 */
+					esc_html__( 'Generates an Open Knowledge Format (OKF v%s) bundle of your public content — a navigable graph of Markdown concepts for articles, topics, authors, and the AI-enriched entities your pages are about or mention. Built entirely from data already on your site; no external calls.', 'coywolf-seo' ),
+					esc_html( Coywolf_SEO_OKF_Generator::OKF_VERSION )
+				);
+				?>
 			</p>
 
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
