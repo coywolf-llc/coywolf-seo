@@ -4,7 +4,7 @@
 
 An SEO plugin that has exactly what you need, and nothing more.
 
-- **Version:** 1.1.9
+- **Version:** 1.1.10
 - **Requires WordPress:** 7.0+
 - **Requires PHP:** 7.4+
 - **License:** GPL-2.0-or-later
@@ -246,6 +246,9 @@ No. Settings, author properties, and redirect rules export as JSON; API keys are
 ![Coywolf SEO — Import/Export screen](.wordpress-org/screenshot-8.png)
 
 ## Changelog
+
+### 1.1.10
+- Add accessible breadcrumb navigation (#141).
 
 ### 1.1.9
 - Update the OKF Labs export to Google's OKF v0.2 spec (#140).
