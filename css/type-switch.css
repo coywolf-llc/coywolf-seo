@@ -1,0 +1,98 @@
+/**
+ * Coywolf SEO — Post ↔ Page type switcher.
+ *
+ * The modal base (.coywolf-seo-modal*) is repeated from css/admin.css so the
+ * dialog is styled on the classic editor (post.php), where admin.css is not
+ * enqueued; the rules match, so loading both on edit.php is harmless.
+ */
+
+.coywolf-seo-modal {
+	position: fixed;
+	inset: 0;
+	background: rgba( 0, 0, 0, 0.5 );
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 100000;
+}
+
+.coywolf-seo-modal-box {
+	background: #fff;
+	border-radius: 4px;
+	padding: 20px 24px;
+	max-width: 520px;
+	width: calc( 100% - 40px );
+	box-shadow: 0 4px 24px rgba( 0, 0, 0, 0.2 );
+}
+
+.coywolf-seo-modal-box h2 {
+	margin-top: 0;
+}
+
+.coywolf-seo-modal-actions {
+	margin-bottom: 0;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 8px;
+}
+
+/* The helper column only exists so quick_edit_custom_box fires; hide it for
+   every user (default_hidden_columns misses anyone who has saved Screen Options
+   on these screens). Quick Edit output is unaffected by column visibility. */
+th.column-coywolf_seo_type,
+td.column-coywolf_seo_type {
+	display: none;
+}
+
+/* Switcher-specific bits. */
+.coywolf-seo-switch-fields {
+	margin: 12px 0;
+}
+
+.coywolf-seo-switch-fields label {
+	font-weight: 600;
+}
+
+.coywolf-seo-switch-fields select {
+	max-width: 100%;
+	margin-top: 4px;
+}
+
+.coywolf-seo-switch-error {
+	color: #b32d2e;
+	margin: 8px 0 0;
+}
+
+/* Quick Edit trigger, relocated beneath the Password field. */
+.coywolf-seo-switch-qe {
+	margin: 8px 0 0;
+	padding-top: 8px;
+}
+
+/* Classic editor Publish-box row. */
+.coywolf-seo-switch-submitbox .dashicons {
+	color: #82878c;
+	vertical-align: text-bottom;
+}
+
+/* Block editor Status & Visibility row. */
+.coywolf-seo-switch-editor {
+	width: 100%;
+}
+
+.coywolf-seo-switch-editor-current {
+	color: #757575;
+}
+
+.coywolf-seo-switch-editor-btn {
+	margin-left: 6px;
+}
+
+.coywolf-seo-switch-editor-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 12px;
+}
