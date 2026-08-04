@@ -1,0 +1,75 @@
+/**
+ * Coywolf SEO — breadcrumb navigation.
+ *
+ * Deliberately light: enough to lay the trail out inline and draw a separator,
+ * nothing that fights a theme. Every element carries a coywolf-seo-breadcrumbs*
+ * class you can override.
+ *
+ * The separator is a ::before pseudo-element. The base rule uses a plain
+ * `content` so the glyph always appears; an @supports override adds the
+ * generated-content alternative-text syntax ( content: "…" / "" ) on engines
+ * that support it, setting the accessible alt text to empty so screen readers
+ * skip the separator. The base rule is required: a lone `content: var(…) / ""`
+ * is invalid-at-computed-value on engines without the syntax (Safari < 17.4,
+ * Firefox < 128), which would drop the ::before box — and its spacing — and
+ * jam the crumbs together. Older engines show the glyph (and may read it); new
+ * ones hide it.
+ */
+
+.coywolf-seo-breadcrumbs {
+	--coywolf-seo-breadcrumb-sep: "/";
+	font-size: 0.875em;
+	line-height: 1.4;
+}
+
+.coywolf-seo-breadcrumbs__list {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.coywolf-seo-breadcrumbs__item {
+	display: inline-flex;
+	align-items: center;
+}
+
+.coywolf-seo-breadcrumbs__item:not(:first-child)::before {
+	content: var( --coywolf-seo-breadcrumb-sep, "/" ) / "";
+	padding: 0 0.5em;
+	opacity: 0.6;
+}
+
+/* The current crumb is plain text; a subtle weight distinguishes it. Override
+   or remove via the .coywolf-seo-breadcrumbs__current class. */
+.coywolf-seo-breadcrumbs__current {
+	font-weight: 600;
+}
+
+/* Separator presets — each sets the custom property the ::before reads. */
+.coywolf-seo-breadcrumbs--sep-slash {
+	--coywolf-seo-breadcrumb-sep: "/";
+}
+
+.coywolf-seo-breadcrumbs--sep-chevron {
+	--coywolf-seo-breadcrumb-sep: "\203A"; /* › */
+}
+
+.coywolf-seo-breadcrumbs--sep-guillemet {
+	--coywolf-seo-breadcrumb-sep: "\00BB"; /* » */
+}
+
+.coywolf-seo-breadcrumbs--sep-bullet {
+	--coywolf-seo-breadcrumb-sep: "\2022"; /* • */
+}
+
+.coywolf-seo-breadcrumbs--sep-arrow {
+	--coywolf-seo-breadcrumb-sep: "\2192"; /* → */
+}
+
+.coywolf-seo-breadcrumbs--sep-gt {
+	--coywolf-seo-breadcrumb-sep: ">";
+}

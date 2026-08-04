@@ -68,6 +68,16 @@ final class Coywolf_SEO_Options {
 			// does not cover a jumped-to heading.
 			'scroll_margin_top'            => 0,
 			'scroll_margin_unit'           => 'rem', // rem | px.
+			// Breadcrumbs (Site Details). Opt-in; off by default. When on, the
+			// template tag / block / shortcode output a trail and the Schema
+			// module adds a BreadcrumbList node.
+			'breadcrumbs_enabled'          => false,
+			'breadcrumbs_separator'        => 'slash', // slash|chevron|guillemet|bullet|arrow|gt.
+			'breadcrumbs_separator_custom' => '',       // Overrides the preset when non-empty.
+			'breadcrumbs_home_label'       => '',       // Empty => the Site Name.
+			'breadcrumbs_show_home'        => true,
+			'breadcrumbs_show_current'     => true,
+			'breadcrumbs_class'            => '',        // Extra CSS class(es) on the nav.
 			// IndexNow.
 			'indexnow_enabled'             => false,
 			'indexnow_key'                 => '',
@@ -202,6 +212,9 @@ final class Coywolf_SEO_Options {
 			'force_rewrite_titles',
 			'exclude_meta_desc',
 			'heading_ids',
+			'breadcrumbs_enabled',
+			'breadcrumbs_show_home',
+			'breadcrumbs_show_current',
 			'robots_index',
 			'robots_follow',
 			'robots_max_image',
@@ -257,6 +270,30 @@ final class Coywolf_SEO_Options {
 		}
 		if ( isset( $raw['scroll_margin_unit'] ) ) {
 			$out['scroll_margin_unit'] = in_array( $raw['scroll_margin_unit'], array( 'rem', 'px' ), true ) ? $raw['scroll_margin_unit'] : 'rem';
+		}
+
+		if ( isset( $raw['breadcrumbs_separator'] ) ) {
+			$breadcrumb_seps              = array( 'slash', 'chevron', 'guillemet', 'bullet', 'arrow', 'gt' );
+			$out['breadcrumbs_separator'] = in_array( $raw['breadcrumbs_separator'], $breadcrumb_seps, true ) ? $raw['breadcrumbs_separator'] : 'slash';
+		}
+		if ( isset( $raw['breadcrumbs_separator_custom'] ) ) {
+			// A short decorative string; strip tags/newlines and cap the length
+			// so it stays a separator, not a label.
+			$custom                              = sanitize_text_field( (string) $raw['breadcrumbs_separator_custom'] );
+			$out['breadcrumbs_separator_custom'] = function_exists( 'mb_substr' ) ? mb_substr( $custom, 0, 8 ) : substr( $custom, 0, 8 );
+		}
+		if ( isset( $raw['breadcrumbs_home_label'] ) ) {
+			$out['breadcrumbs_home_label'] = sanitize_text_field( (string) $raw['breadcrumbs_home_label'] );
+		}
+		if ( isset( $raw['breadcrumbs_class'] ) ) {
+			$classes = array();
+			foreach ( preg_split( '/\s+/', (string) $raw['breadcrumbs_class'], -1, PREG_SPLIT_NO_EMPTY ) as $class ) {
+				$class = sanitize_html_class( $class );
+				if ( '' !== $class ) {
+					$classes[] = $class;
+				}
+			}
+			$out['breadcrumbs_class'] = implode( ' ', $classes );
 		}
 
 		if ( isset( $raw['og_image_id'] ) ) {
@@ -694,13 +731,14 @@ final class Coywolf_SEO_Options {
 	 */
 	public static function post_meta( $post_id ) {
 		$defaults = array(
-			'title'        => '',
-			'description'  => '',
-			'page_type'    => '',
-			'article_type' => '',
-			'noindex'      => false,
-			'nofollow'     => false,
-			'canonical'    => '',
+			'title'            => '',
+			'description'      => '',
+			'page_type'        => '',
+			'article_type'     => '',
+			'noindex'          => false,
+			'nofollow'         => false,
+			'canonical'        => '',
+			'primary_category' => 0,
 		);
 		$meta     = get_post_meta( $post_id, '_coywolf_seo', true );
 		if ( ! is_array( $meta ) ) {

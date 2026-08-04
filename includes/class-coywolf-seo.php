@@ -179,6 +179,13 @@ final class Coywolf_SEO {
 	private $toc_convert;
 
 	/**
+	 * Breadcrumb navigation module (template tag, block, shortcode, schema).
+	 *
+	 * @var Coywolf_SEO_Breadcrumbs
+	 */
+	private $breadcrumbs;
+
+	/**
 	 * Core Image block mobile-alternative module.
 	 *
 	 * @var Coywolf_SEO_Mobile_Image
@@ -336,6 +343,9 @@ final class Coywolf_SEO {
 
 		$this->toc_convert = new Coywolf_SEO_TOC_Convert();
 		$this->toc_convert->init();
+
+		$this->breadcrumbs = new Coywolf_SEO_Breadcrumbs();
+		$this->breadcrumbs->init();
 
 		$this->mobile_image = new Coywolf_SEO_Mobile_Image();
 		$this->mobile_image->init();

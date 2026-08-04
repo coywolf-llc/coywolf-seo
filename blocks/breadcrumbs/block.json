@@ -1,0 +1,17 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "coywolf-seo/breadcrumbs",
+	"title": "Breadcrumbs",
+	"category": "design",
+	"description": "An accessible breadcrumb trail built from the page's category or parent structure, with matching BreadcrumbList schema.",
+	"keywords": [ "breadcrumb", "breadcrumbs", "navigation", "trail", "hierarchy" ],
+	"textdomain": "coywolf-seo",
+	"supports": {
+		"html": false,
+		"multiple": false,
+		"reusable": false
+	},
+	"editorScript": "coywolf-seo-breadcrumbs-block",
+	"style": "coywolf-seo-breadcrumbs"
+}

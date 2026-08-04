@@ -104,7 +104,7 @@ final class Coywolf_SEO_Schema {
 			return $this->singular_graph();
 		}
 
-		if ( is_category() || is_tag() ) {
+		if ( is_category() || is_tag() || is_tax() ) {
 			$term = get_queried_object();
 			$link = get_term_link( $term );
 			if ( is_wp_error( $link ) ) {
@@ -120,6 +120,16 @@ final class Coywolf_SEO_Schema {
 			$desc       = trim( wp_strip_all_tags( (string) term_description( $term ), true ) );
 			if ( '' !== $desc ) {
 				$collection['description'] = $desc;
+			}
+
+			// Breadcrumb trail for the term archive (Home › parent terms › term).
+			if ( class_exists( 'Coywolf_SEO_Breadcrumbs' ) && Coywolf_SEO_Breadcrumbs::is_enabled() ) {
+				$breadcrumb_id = $link . '#breadcrumb';
+				$breadcrumb    = Coywolf_SEO_Breadcrumbs::schema_node( Coywolf_SEO_Breadcrumbs::schema_trail(), $breadcrumb_id );
+				if ( $breadcrumb ) {
+					$collection['breadcrumb'] = array( '@id' => $breadcrumb_id );
+					return array_merge( array( $collection, $breadcrumb ), $this->common_nodes() );
+				}
 			}
 			return array_merge( array( $collection ), $this->common_nodes() );
 		}
@@ -184,7 +194,23 @@ final class Coywolf_SEO_Schema {
 			$webpage['accessibilityFeature'] = array( 'tableOfContents' );
 		}
 
+		// Breadcrumb trail as a BreadcrumbList, referenced from the page node.
+		// Built from the same logic as the visible breadcrumbs; schema_trail()
+		// always ends at the current page, even when the visible nav hides that
+		// last crumb, so search engines get the full path.
+		$breadcrumb = null;
+		if ( class_exists( 'Coywolf_SEO_Breadcrumbs' ) && Coywolf_SEO_Breadcrumbs::is_enabled() ) {
+			$breadcrumb_id = $url . '#breadcrumb';
+			$breadcrumb    = Coywolf_SEO_Breadcrumbs::schema_node( Coywolf_SEO_Breadcrumbs::schema_trail( $post->ID ), $breadcrumb_id );
+			if ( $breadcrumb ) {
+				$webpage['breadcrumb'] = array( '@id' => $breadcrumb_id );
+			}
+		}
+
 		$nodes = array( $webpage );
+		if ( $breadcrumb ) {
+			$nodes[] = $breadcrumb;
+		}
 
 		if ( 'none' !== $article_type && '' !== $article_type ) {
 			$article = array(
