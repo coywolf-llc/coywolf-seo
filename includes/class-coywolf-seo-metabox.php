@@ -44,34 +44,38 @@ final class Coywolf_SEO_Metabox {
 		$schema = array(
 			'type'                 => 'object',
 			'properties'           => array(
-				'title'        => array( 'type' => 'string' ),
-				'description'  => array( 'type' => 'string' ),
-				'page_type'    => array(
+				'title'            => array( 'type' => 'string' ),
+				'description'      => array( 'type' => 'string' ),
+				'page_type'        => array(
 					'type' => 'string',
 					'enum' => array_merge( array( '' ), $page_types ),
 				),
-				'article_type' => array(
+				'article_type'     => array(
 					'type' => 'string',
 					'enum' => array_merge( array( '', 'none' ), $article_types ),
 				),
-				'noindex'      => array( 'type' => 'boolean' ),
-				'nofollow'     => array( 'type' => 'boolean' ),
-				'canonical'    => array(
+				'noindex'          => array( 'type' => 'boolean' ),
+				'nofollow'         => array( 'type' => 'boolean' ),
+				'canonical'        => array(
 					'type'   => 'string',
 					'format' => 'uri',
 				),
+				// The category a post's breadcrumb trail is built from (0 = the
+				// first assigned category). Only meaningful for posts.
+				'primary_category' => array( 'type' => 'integer' ),
 			),
 			'additionalProperties' => false,
 		);
 
 		$default = array(
-			'title'        => '',
-			'description'  => '',
-			'page_type'    => '',
-			'article_type' => '',
-			'noindex'      => false,
-			'nofollow'     => false,
-			'canonical'    => '',
+			'title'            => '',
+			'description'      => '',
+			'page_type'        => '',
+			'article_type'     => '',
+			'noindex'          => false,
+			'nofollow'         => false,
+			'canonical'        => '',
+			'primary_category' => 0,
 		);
 
 		foreach ( $this->post_types as $type ) {
@@ -112,13 +116,14 @@ final class Coywolf_SEO_Metabox {
 		}
 
 		return array(
-			'title'        => isset( $value['title'] ) ? sanitize_text_field( (string) $value['title'] ) : '',
-			'description'  => isset( $value['description'] ) ? sanitize_textarea_field( (string) $value['description'] ) : '',
-			'page_type'    => $page_type,
-			'article_type' => $art_type,
-			'noindex'      => ! empty( $value['noindex'] ),
-			'nofollow'     => ! empty( $value['nofollow'] ),
-			'canonical'    => isset( $value['canonical'] ) ? esc_url_raw( (string) $value['canonical'] ) : '',
+			'title'            => isset( $value['title'] ) ? sanitize_text_field( (string) $value['title'] ) : '',
+			'description'      => isset( $value['description'] ) ? sanitize_textarea_field( (string) $value['description'] ) : '',
+			'page_type'        => $page_type,
+			'article_type'     => $art_type,
+			'noindex'          => ! empty( $value['noindex'] ),
+			'nofollow'         => ! empty( $value['nofollow'] ),
+			'canonical'        => isset( $value['canonical'] ) ? esc_url_raw( (string) $value['canonical'] ) : '',
+			'primary_category' => isset( $value['primary_category'] ) ? max( 0, (int) $value['primary_category'] ) : 0,
 		);
 	}
 
@@ -206,7 +211,7 @@ final class Coywolf_SEO_Metabox {
 		wp_enqueue_script(
 			'coywolf-seo-editor',
 			COYWOLF_SEO_URL . 'js/editor.js',
-			array( 'wp-plugins', 'wp-edit-post', 'wp-element', 'wp-components', 'wp-data' ),
+			array( 'wp-plugins', 'wp-edit-post', 'wp-element', 'wp-components', 'wp-data', 'wp-core-data' ),
 			Coywolf_SEO::VERSION,
 			true
 		);
@@ -295,25 +300,28 @@ final class Coywolf_SEO_Metabox {
 				// rather than through admin_notices.
 				'moveNonce'          => wp_create_nonce( 'coywolf_seo_move_decision' ),
 				'i18n'               => array(
-					'panelTitle'      => __( 'SEO', 'coywolf-seo' ),
-					'title'           => __( 'Title', 'coywolf-seo' ),
-					'titleHelp'       => $this->title_help(),
-					'description'     => __( 'Description', 'coywolf-seo' ),
-					'descriptionHelp' => $this->description_help(),
-					'pageType'        => __( 'Schema page type', 'coywolf-seo' ),
-					'articleType'     => __( 'Schema article type', 'coywolf-seo' ),
-					'robots'          => __( 'Robots', 'coywolf-seo' ),
-					'noindex'         => __( 'Noindex', 'coywolf-seo' ),
-					'nofollow'        => __( 'Nofollow', 'coywolf-seo' ),
-					'canonical'       => __( 'Canonical link', 'coywolf-seo' ),
-					'reanalyze'       => __( 'Re-analyze entities', 'coywolf-seo' ),
-					'analyzing'       => __( 'Analyzing…', 'coywolf-seo' ),
-					'requestFailed'   => __( 'Request failed.', 'coywolf-seo' ),
+					'panelTitle'           => __( 'SEO', 'coywolf-seo' ),
+					'title'                => __( 'Title', 'coywolf-seo' ),
+					'titleHelp'            => $this->title_help(),
+					'description'          => __( 'Description', 'coywolf-seo' ),
+					'descriptionHelp'      => $this->description_help(),
+					'pageType'             => __( 'Schema page type', 'coywolf-seo' ),
+					'articleType'          => __( 'Schema article type', 'coywolf-seo' ),
+					'primaryCategory'      => __( 'Primary category', 'coywolf-seo' ),
+					'primaryCategoryHelp'  => __( 'Which category this post’s breadcrumb trail is built from.', 'coywolf-seo' ),
+					'primaryCategoryFirst' => __( '— First category —', 'coywolf-seo' ),
+					'robots'               => __( 'Robots', 'coywolf-seo' ),
+					'noindex'              => __( 'Noindex', 'coywolf-seo' ),
+					'nofollow'             => __( 'Nofollow', 'coywolf-seo' ),
+					'canonical'            => __( 'Canonical link', 'coywolf-seo' ),
+					'reanalyze'            => __( 'Re-analyze entities', 'coywolf-seo' ),
+					'analyzing'            => __( 'Analyzing…', 'coywolf-seo' ),
+					'requestFailed'        => __( 'Request failed.', 'coywolf-seo' ),
 					/* translators: 1: the old URL path, 2: the new URL path. */
-					'moveAsk'         => __( 'The URL changed from %1$s to %2$s. Redirect the old URL to the new one?', 'coywolf-seo' ),
-					'moveCreate'      => __( 'Create 301 redirect', 'coywolf-seo' ),
-					'moveDismiss'     => __( 'No thanks', 'coywolf-seo' ),
-					'moveCreated'     => __( 'Redirect created — the old URL now points at the new one.', 'coywolf-seo' ),
+					'moveAsk'              => __( 'The URL changed from %1$s to %2$s. Redirect the old URL to the new one?', 'coywolf-seo' ),
+					'moveCreate'           => __( 'Create 301 redirect', 'coywolf-seo' ),
+					'moveDismiss'          => __( 'No thanks', 'coywolf-seo' ),
+					'moveCreated'          => __( 'Redirect created — the old URL now points at the new one.', 'coywolf-seo' ),
 				),
 			)
 		);
@@ -405,6 +413,26 @@ final class Coywolf_SEO_Metabox {
 					</select>
 				</td>
 			</tr>
+				<?php
+				// Primary category: which category a post's breadcrumb trail is
+				// built from. Only shown for posts that have more than one
+				// category (with one or none there is nothing to choose).
+				$assigned_cats = ( 'post' === $post->post_type ) ? get_the_category( $post->ID ) : array();
+				if ( count( $assigned_cats ) >= 2 ) :
+					?>
+				<tr>
+					<th scope="row"><label for="coywolf-seo-primary-cat"><?php esc_html_e( 'Primary category', 'coywolf-seo' ); ?></label></th>
+					<td>
+						<select id="coywolf-seo-primary-cat" name="coywolf_seo_meta[primary_category]">
+							<option value="0"><?php esc_html_e( '— First category —', 'coywolf-seo' ); ?></option>
+							<?php foreach ( $assigned_cats as $cat ) : ?>
+								<option value="<?php echo esc_attr( (string) $cat->term_id ); ?>" <?php selected( (int) $meta['primary_category'], (int) $cat->term_id ); ?>><?php echo esc_html( $cat->name ); ?></option>
+							<?php endforeach; ?>
+						</select>
+						<p class="description"><?php esc_html_e( 'Which category this post’s breadcrumb trail is built from.', 'coywolf-seo' ); ?></p>
+					</td>
+				</tr>
+				<?php endif; ?>
 			<tr>
 				<th scope="row"><?php esc_html_e( 'Robots', 'coywolf-seo' ); ?></th>
 				<td>
@@ -529,18 +557,27 @@ final class Coywolf_SEO_Metabox {
 			$canonical = '';
 		}
 
+		// Primary category: submitted only when the select is rendered (a post
+		// with 2+ categories). When absent, keep any stored value. A stale value
+		// (category since removed) self-heals — the breadcrumb builder validates
+		// it against the post's current categories at read time.
+		$primary_category = isset( $raw['primary_category'] )
+			? max( 0, (int) $raw['primary_category'] )
+			: (int) Coywolf_SEO_Options::post_meta( $post_id )['primary_category'];
+
 		$meta = array(
-			'title'        => $title,
-			'description'  => $description,
-			'page_type'    => $page_type,
-			'article_type' => $art_type,
-			'noindex'      => ! empty( $raw['noindex'] ),
-			'nofollow'     => ! empty( $raw['nofollow'] ),
-			'canonical'    => $canonical,
+			'title'            => $title,
+			'description'      => $description,
+			'page_type'        => $page_type,
+			'article_type'     => $art_type,
+			'noindex'          => ! empty( $raw['noindex'] ),
+			'nofollow'         => ! empty( $raw['nofollow'] ),
+			'canonical'        => $canonical,
+			'primary_category' => $primary_category,
 		);
 
 		// All defaults? Keep the database clean.
-		if ( '' === $meta['title'] && '' === $meta['description'] && '' === $meta['page_type'] && '' === $meta['article_type'] && ! $meta['noindex'] && ! $meta['nofollow'] && '' === $meta['canonical'] ) {
+		if ( '' === $meta['title'] && '' === $meta['description'] && '' === $meta['page_type'] && '' === $meta['article_type'] && ! $meta['noindex'] && ! $meta['nofollow'] && '' === $meta['canonical'] && 0 === $meta['primary_category'] ) {
 			delete_post_meta( $post_id, '_coywolf_seo' );
 			return;
 		}

@@ -42,7 +42,8 @@
 		article_type: '',
 		noindex: false,
 		nofollow: false,
-		canonical: ''
+		canonical: '',
+		primary_category: 0
 	};
 
 	function CoywolfSeoPanel() {
@@ -58,6 +59,24 @@
 		var postExcerpt = useSelect( function ( select ) {
 			return select( 'core/editor' ).getEditedPostAttribute( 'excerpt' );
 		}, [] ) || '';
+		// Post type + the post's assigned categories, resolved to names, for the
+		// breadcrumb "Primary category" control (posts with 2+ categories only).
+		var postType = useSelect( function ( select ) {
+			return select( 'core/editor' ).getCurrentPostType();
+		}, [] );
+		var catIds = useSelect( function ( select ) {
+			return select( 'core/editor' ).getEditedPostAttribute( 'categories' ) || [];
+		}, [] );
+		var catTerms = useSelect( function ( select ) {
+			if ( ! catIds || ! catIds.length ) {
+				return [];
+			}
+			return select( 'core' ).getEntityRecords( 'taxonomy', 'category', {
+				include: catIds,
+				per_page: -1,
+				_fields: 'id,name'
+			} ) || [];
+		}, [ catIds ] );
 		var editPost = useDispatch( 'core/editor' ).editPost;
 		var statusState = useState( config.entityStatus || '' );
 		var entityStatus = statusState[ 0 ];
@@ -234,6 +253,24 @@
 			? config.aiDescription
 			: postExcerpt;
 
+		// Breadcrumb "Primary category" options: the post's assigned categories,
+		// plus a "first category" default. Labels come from the resolved terms;
+		// while they load, the id stands in. Shown only for posts with 2+.
+		var nameById = {};
+		( catTerms || [] ).forEach( function ( t ) {
+			nameById[ t.id ] = t.name;
+		} );
+		var primaryOptions = [ { label: config.i18n.primaryCategoryFirst || '— First category —', value: '' } ];
+		( catIds || [] ).forEach( function ( id ) {
+			primaryOptions.push( { label: nameById[ id ] || ( '#' + id ), value: String( id ) } );
+		} );
+		// Only reflect a stored primary that is still an assigned category;
+		// otherwise fall back to "first category" (self-healing display).
+		var primaryValue = ( seo.primary_category && catIds.indexOf( seo.primary_category ) !== -1 )
+			? String( seo.primary_category )
+			: '';
+		var showPrimaryCategory = 'post' === postType && catIds && catIds.length >= 2;
+
 		return el(
 			PluginDocumentSettingPanel,
 			{
@@ -299,6 +336,18 @@
 					update( 'article_type', v );
 				}
 			} ),
+			// Breadcrumb primary category (posts with 2+ categories).
+			showPrimaryCategory
+				? el( SelectControl, {
+					label: config.i18n.primaryCategory || 'Primary category',
+					value: primaryValue,
+					options: primaryOptions,
+					help: config.i18n.primaryCategoryHelp || '',
+					onChange: function ( v ) {
+						update( 'primary_category', '' === v ? 0 : parseInt( v, 10 ) );
+					}
+				} )
+				: null,
 			el( 'p', { className: 'coywolf-seo-robots-label' }, config.i18n.robots || 'Robots' ),
 			el( ToggleControl, {
 				label: config.i18n.noindex || 'Noindex',

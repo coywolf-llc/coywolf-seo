@@ -758,13 +758,20 @@ final class Coywolf_SEO_Admin {
 					'page_article_type',
 					'cat_hide_prefix',
 					'org_rows',
+					'breadcrumbs_enabled',
+					'breadcrumbs_separator',
+					'breadcrumbs_separator_custom',
+					'breadcrumbs_home_label',
+					'breadcrumbs_show_home',
+					'breadcrumbs_show_current',
+					'breadcrumbs_class',
 				)
 			)
 		);
 
 		// Checkboxes are absent when unchecked: force their presence so
 		// sanitize() records the off state instead of skipping the key.
-		foreach ( array( 'append_site_name', 'cat_hide_prefix' ) as $key ) {
+		foreach ( array( 'append_site_name', 'cat_hide_prefix', 'breadcrumbs_enabled', 'breadcrumbs_show_home', 'breadcrumbs_show_current' ) as $key ) {
 			$raw[ $key ] = ! empty( $raw[ $key ] );
 		}
 		// The property repeater posts indexed rows. Only write when the
@@ -1287,6 +1294,75 @@ final class Coywolf_SEO_Admin {
 								<?php esc_html_e( 'Remove the category prefix (usually /category/) from category URLs', 'coywolf-seo' ); ?>
 							</label>
 							<p class="description"><?php esc_html_e( 'Old prefixed URLs are 301 redirected to the clean ones. Requires pretty permalinks. A category sharing a slug with a page will take precedence over that page.', 'coywolf-seo' ); ?></p>
+						</td>
+					</tr>
+				</table>
+
+				</div>
+
+				<div class="coywolf-seo-panel">
+				<h2><?php esc_html_e( 'Breadcrumbs', 'coywolf-seo' ); ?></h2>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Breadcrumb navigation', 'coywolf-seo' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" id="coywolf-seo-breadcrumbs-enabled" name="coywolf_seo[breadcrumbs_enabled]" value="1" <?php checked( $o['breadcrumbs_enabled'] ); ?> />
+								<?php esc_html_e( 'Enable accessible breadcrumb navigation', 'coywolf-seo' ); ?>
+							</label>
+							<p class="description">
+								<?php esc_html_e( 'Adds an accessible breadcrumb trail and its BreadcrumbList schema. Posts follow their category structure; pages follow their parent/child structure. Place it in a theme with the block “Breadcrumbs”, the shortcode [coywolf_seo_breadcrumbs], or, in a classic theme template, this PHP:', 'coywolf-seo' ); ?>
+							</p>
+							<p class="description"><code>&lt;?php if ( function_exists( 'coywolf_seo_breadcrumbs' ) ) coywolf_seo_breadcrumbs(); ?&gt;</code></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="coywolf-seo-breadcrumbs-separator"><?php esc_html_e( 'Separator', 'coywolf-seo' ); ?></label></th>
+						<td>
+							<select id="coywolf-seo-breadcrumbs-separator" name="coywolf_seo[breadcrumbs_separator]">
+								<option value="slash" <?php selected( $o['breadcrumbs_separator'], 'slash' ); ?>><?php esc_html_e( 'Slash ( / )', 'coywolf-seo' ); ?></option>
+								<option value="chevron" <?php selected( $o['breadcrumbs_separator'], 'chevron' ); ?>><?php esc_html_e( 'Chevron ( › )', 'coywolf-seo' ); ?></option>
+								<option value="guillemet" <?php selected( $o['breadcrumbs_separator'], 'guillemet' ); ?>><?php esc_html_e( 'Guillemet ( » )', 'coywolf-seo' ); ?></option>
+								<option value="bullet" <?php selected( $o['breadcrumbs_separator'], 'bullet' ); ?>><?php esc_html_e( 'Bullet ( • )', 'coywolf-seo' ); ?></option>
+								<option value="arrow" <?php selected( $o['breadcrumbs_separator'], 'arrow' ); ?>><?php esc_html_e( 'Arrow ( → )', 'coywolf-seo' ); ?></option>
+								<option value="gt" <?php selected( $o['breadcrumbs_separator'], 'gt' ); ?>><?php esc_html_e( 'Greater-than ( > )', 'coywolf-seo' ); ?></option>
+							</select>
+							<label for="coywolf-seo-breadcrumbs-separator-custom" class="screen-reader-text"><?php esc_html_e( 'Custom separator', 'coywolf-seo' ); ?></label>
+							<input type="text" id="coywolf-seo-breadcrumbs-separator-custom" name="coywolf_seo[breadcrumbs_separator_custom]" value="<?php echo esc_attr( $o['breadcrumbs_separator_custom'] ); ?>" class="small-text" maxlength="8" placeholder="<?php esc_attr_e( 'Custom', 'coywolf-seo' ); ?>" />
+							<p class="description"><?php esc_html_e( 'The separator drawn between crumbs. Enter a custom character to override the preset. Separators are decorative and hidden from screen readers.', 'coywolf-seo' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="coywolf-seo-breadcrumbs-home-label"><?php esc_html_e( 'Homepage name', 'coywolf-seo' ); ?></label></th>
+						<td>
+							<input type="text" class="regular-text" id="coywolf-seo-breadcrumbs-home-label" name="coywolf_seo[breadcrumbs_home_label]" value="<?php echo esc_attr( $o['breadcrumbs_home_label'] ); ?>" placeholder="<?php echo esc_attr( get_bloginfo( 'name' ) ); ?>" />
+							<p class="description"><?php esc_html_e( 'Label for the first (home) crumb. Defaults to the Site Name.', 'coywolf-seo' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Home crumb', 'coywolf-seo' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="coywolf_seo[breadcrumbs_show_home]" value="1" <?php checked( $o['breadcrumbs_show_home'] ); ?> />
+								<?php esc_html_e( 'Show the home link as the first crumb', 'coywolf-seo' ); ?>
+							</label>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Current page', 'coywolf-seo' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="coywolf_seo[breadcrumbs_show_current]" value="1" <?php checked( $o['breadcrumbs_show_current'] ); ?> />
+								<?php esc_html_e( 'Show the current page as the last crumb', 'coywolf-seo' ); ?>
+							</label>
+							<p class="description"><?php esc_html_e( 'The current page is shown as plain text (not a link) and marked with aria-current="page".', 'coywolf-seo' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="coywolf-seo-breadcrumbs-class"><?php esc_html_e( 'Extra CSS class', 'coywolf-seo' ); ?></label></th>
+						<td>
+							<input type="text" class="regular-text" id="coywolf-seo-breadcrumbs-class" name="coywolf_seo[breadcrumbs_class]" value="<?php echo esc_attr( $o['breadcrumbs_class'] ); ?>" />
+							<p class="description"><?php esc_html_e( 'Optional extra class(es) added to the breadcrumb nav for styling. The markup already carries coywolf-seo-breadcrumbs classes (__list, __item, __link, __current) you can target.', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
 				</table>

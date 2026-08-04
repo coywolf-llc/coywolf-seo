@@ -86,6 +86,8 @@ require_once __DIR__ . '/includes/class-coywolf-seo-redirects-import.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-headings.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-toc.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-toc-convert.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-breadcrumbs.php';
+require_once __DIR__ . '/includes/coywolf-seo-template-tags.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-mobile-image.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-duplicate.php';
 /* labs-strip:start — experimental Labs features (removed from the WordPress.org build) */
