@@ -813,7 +813,7 @@ final class Coywolf_SEO_Admin {
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized field-by-field in Coywolf_SEO_Options::sanitize().
 		$raw = isset( $_POST['coywolf_seo'] ) && is_array( $_POST['coywolf_seo'] ) ? wp_unslash( $_POST['coywolf_seo'] ) : array();
 
-		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'heading_ids', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'sitemap_exclude_posts', 'sitemap_exclude_pages', 'sitemap_exclude_categories', 'sitemap_exclude_users', 'news_enabled', 'news_include_posts', 'news_include_pages', 'llms_enabled', 'llms_md_endpoints', 'llms_entities', 'ai_descriptions', 'image_text_write_alt', 'image_text_write_title', 'image_text_write_caption', 'image_text_write_description', 'image_text_overwrite', 'feature_ai_off', 'feature_schema_off', 'feature_sitemaps_off', 'feature_links_off', 'feature_redirects_off', 'feature_robots_off' ) as $key ) {
+		foreach ( array( 'force_rewrite_titles', 'exclude_meta_desc', 'heading_ids', 'robots_index', 'robots_follow', 'robots_max_image', 'robots_max_snippet', 'robots_max_video', 'indexnow_enabled', 'sitemap_exclude_posts', 'sitemap_exclude_pages', 'sitemap_exclude_categories', 'sitemap_exclude_users', 'news_enabled', 'news_include_posts', 'news_include_pages', 'llms_enabled', 'llms_md_endpoints', 'llms_entities', 'ai_descriptions', 'image_text_write_alt', 'image_text_write_title', 'image_text_write_caption', 'image_text_write_description', 'image_text_overwrite', 'feature_ai_off', 'feature_schema_off', 'feature_sitemaps_off', 'feature_links_off', 'feature_redirects_off', 'feature_robots_off', 'feature_post_type_switch_off' ) as $key ) {
 			$raw[ $key ] = ! empty( $raw[ $key ] );
 		}
 		// Entity detection: its checkbox is disabled (so omitted from POST) when
@@ -1968,6 +1968,16 @@ final class Coywolf_SEO_Admin {
 								<?php esc_html_e( 'Turn off Redirects', 'coywolf-seo' ); ?>
 							</label>
 							<p class="description"><?php esc_html_e( 'Hides the Redirects page and stops serving redirects, letting another redirect plugin handle them. Your redirect rules are kept.', 'coywolf-seo' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Post type switching', 'coywolf-seo' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="coywolf_seo[feature_post_type_switch_off]" value="1" <?php checked( $o['feature_post_type_switch_off'] ); ?> />
+								<?php esc_html_e( 'Turn off Post type switching', 'coywolf-seo' ); ?>
+							</label>
+							<p class="description"><?php esc_html_e( 'Removes the “Change to Page/Post” options from the Posts and Pages lists (bulk and quick edit) and the editor. Nothing already converted is affected.', 'coywolf-seo' ); ?></p>
 						</td>
 					</tr>
 					<tr>

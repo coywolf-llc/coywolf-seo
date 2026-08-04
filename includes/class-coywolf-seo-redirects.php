@@ -56,6 +56,12 @@ final class Coywolf_SEO_Redirects {
 	const DB_VERSION = 3;
 
 	/**
+	 * How far the loop guard follows a redirect chain before giving up. A chain
+	 * this long is itself a problem, so exceeding it is treated as a loop.
+	 */
+	const MAX_REDIRECT_HOPS = 15;
+
+	/**
 	 * Old normalized permalinks captured before an update, keyed by post ID, so
 	 * a URL change can be detected on shutdown. Request-scoped.
 	 *
@@ -170,7 +176,6 @@ final class Coywolf_SEO_Redirects {
 				KEY enabled (enabled)
 			) $charset;"
 		);
-
 
 		dbDelta(
 			'CREATE TABLE ' . self::table( 'deleted' ) . " (
@@ -309,6 +314,12 @@ final class Coywolf_SEO_Redirects {
 		$target = $this->build_target( $rule, $request );
 		if ( '' === $target || $this->is_current_url( $target, $request ) ) {
 			return; // Never loop onto ourselves — don't count a hit for a redirect that wasn't served.
+		}
+		// Multi-hop loop guard: if the target eventually redirects back to this
+		// request (A→B→A, or a chain longer than MAX_REDIRECT_HOPS), stepping
+		// into it would loop the browser forever — serve the page instead.
+		if ( $this->target_loops( $target, $request ) ) {
+			return;
 		}
 
 		$this->record_hit( (int) $rule->id );
@@ -473,6 +484,93 @@ final class Coywolf_SEO_Redirects {
 		}
 		$normalized = self::normalize( $target );
 		return $normalized['path'] === $request['path'] && $normalized['query'] === $request['query'];
+	}
+
+	/**
+	 * Follow the redirect chain from a built target and report whether it loops
+	 * back to the current request (or runs longer than MAX_REDIRECT_HOPS). An
+	 * off-site target can never loop back here, so it terminates immediately.
+	 *
+	 * @param string $target  Built destination URL.
+	 * @param array  $request Normalized request.
+	 * @return bool
+	 */
+	private function target_loops( $target, array $request ) {
+		$host = strtolower( (string) wp_parse_url( $target, PHP_URL_HOST ) );
+		$site = strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) );
+		if ( '' !== $host && $host !== $site ) {
+			return false; // Leaves this site — cannot redirect back onto us.
+		}
+		$first = self::normalize( $target )['path'];
+		$next  = function ( $path ) {
+			return $this->next_target_path( $path );
+		};
+		return self::chain_loops( $first, $request['path'], $next, self::MAX_REDIRECT_HOPS );
+	}
+
+	/**
+	 * The same-site destination path a path redirects to through the enabled,
+	 * non-regex rules, or '' when it does not redirect on-site (no rule, an
+	 * off-site target, or a 410). Regex rules are not walked — the hop cap
+	 * bounds any loop they might form. Used only by the loop guards.
+	 *
+	 * @param string $path    Normalized path to resolve.
+	 * @param int    $exclude Rule ID to ignore (the rule being edited).
+	 * @return string Next same-site path, or ''.
+	 */
+	private function next_target_path( $path, $exclude = 0 ) {
+		global $wpdb;
+		$rules_table = self::table( 'rules' );
+		// Only follow query-agnostic rules: an exact-query rule fires for one
+		// specific query string, so it can't be walked on path alone without
+		// producing false-positive loops.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- purpose-built lookup table with its own index.
+		$rule = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT target, type FROM {$rules_table} WHERE enabled = 1 AND is_regex = 0 AND type <> 410 AND query_mode <> 'exact' AND id <> %d AND match_path = %s ORDER BY id ASC LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix.
+				(int) $exclude,
+				$path
+			)
+		);
+		if ( ! $rule || '' === (string) $rule->target ) {
+			return '';
+		}
+		$target      = (string) $rule->target;
+		$target_host = strtolower( (string) wp_parse_url( $target, PHP_URL_HOST ) );
+		$site_host   = strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) );
+		if ( '' !== $target_host && $target_host !== $site_host ) {
+			return ''; // Off-site — the chain leaves the site here.
+		}
+		return self::normalize( $target )['path'];
+	}
+
+	/**
+	 * Whether following redirect edges from $start returns to $origin, revisits
+	 * a path, or exceeds $max hops. Pure — the graph is supplied by $next, which
+	 * returns the next path for a given path (or '' to terminate) — so it is
+	 * unit-testable and shared by the save-time and serve-time loop guards.
+	 *
+	 * @param string   $start  First path in the chain (the target's path).
+	 * @param string   $origin The path a loop would close back onto (the source
+	 *                         at save time, the request at serve time).
+	 * @param callable $next   fn( string $path ): string — next path, or ''.
+	 * @param int      $max    Hop cap.
+	 * @return bool True when the chain loops or is too long.
+	 */
+	public static function chain_loops( $start, $origin, callable $next, $max ) {
+		$visited = array( (string) $origin => true );
+		$current = (string) $start;
+		for ( $i = 0; $i < (int) $max; $i++ ) {
+			if ( '' === $current ) {
+				return false; // Terminated cleanly — no loop.
+			}
+			if ( isset( $visited[ $current ] ) ) {
+				return true; // Came back to a path already seen — a loop.
+			}
+			$visited[ $current ] = true;
+			$current             = (string) call_user_func( $next, $current );
+		}
+		return true; // Chain longer than the hop cap — treat as a loop.
 	}
 
 	/**
@@ -682,6 +780,50 @@ final class Coywolf_SEO_Redirects {
 		$wpdb->delete( self::table( 'moves' ), array( 'id' => (int) $id ), array( '%d' ) );
 	}
 
+	/**
+	 * Delete a redirect rule by ID and flush the regex cache. Used when undoing
+	 * an automatically created redirect (e.g. a reverted post-type switch).
+	 *
+	 * @param int $id Rule ID.
+	 * @return int Rows deleted (0 or 1).
+	 */
+	public function delete_rule( $id ) {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- purpose-built table.
+		$deleted = (int) $wpdb->delete( self::table( 'rules' ), array( 'id' => (int) $id ), array( '%d' ) );
+		self::flush_regex_cache();
+		return $deleted;
+	}
+
+	/**
+	 * Delete every non-regex rule whose source path matches, and flush the regex
+	 * cache. Used to clear a redirect that would shadow a URL that has just
+	 * become live content (e.g. a stale auto-301 from an earlier type switch of
+	 * the same URL) — a served URL must never also redirect away.
+	 *
+	 * @param string $path Normalized source path.
+	 * @return int Rows deleted.
+	 */
+	public function delete_rules_by_source_path( $path ) {
+		global $wpdb;
+		$path = (string) $path;
+		if ( '' === $path ) {
+			return 0;
+		}
+		$rules_table = self::table( 'rules' );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- purpose-built table.
+		$deleted = (int) $wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$rules_table} WHERE is_regex = 0 AND match_path = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name built from $wpdb->prefix.
+				substr( $path, 0, 191 )
+			)
+		);
+		if ( $deleted > 0 ) {
+			self::flush_regex_cache();
+		}
+		return $deleted;
+	}
+
 
 	/**
 	 * Create or update a rule from sanitized input.
@@ -740,12 +882,27 @@ final class Coywolf_SEO_Redirects {
 			// onto the current request, so normalize()'s host-blind path/query
 			// comparison must not reject it.
 			if ( 410 !== $type ) {
-				$target_host = strtolower( (string) wp_parse_url( $target, PHP_URL_HOST ) );
-				$site_host   = strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) );
-				$same_site   = ( '' === $target_host || $target_host === $site_host );
+				$target_host       = strtolower( (string) wp_parse_url( $target, PHP_URL_HOST ) );
+				$site_host         = strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) );
+				$same_site         = ( '' === $target_host || $target_host === $site_host );
 				$target_normalized = self::normalize( $target );
 				if ( $same_site && $target_normalized['path'] === $normalized['path'] && $target_normalized['query'] === $normalized['query'] ) {
 					return new WP_Error( 'coywolf_seo_redirect_loop', __( 'The source and target are the same URL — that would redirect to itself.', 'coywolf-seo' ) );
+				}
+
+				// Multi-hop loop: following the target through the existing rules
+				// must not lead back to this source (A→B→A, or a longer cycle).
+				// The rule being edited is excluded so its own stale target isn't
+				// walked. Only checked for same-site targets — an off-site target
+				// leaves the chain.
+				if ( $same_site && '' !== $target_normalized['path'] ) {
+					$exclude = (int) $id;
+					$next    = function ( $path ) use ( $exclude ) {
+						return $this->next_target_path( $path, $exclude );
+					};
+					if ( self::chain_loops( $target_normalized['path'], $normalized['path'], $next, self::MAX_REDIRECT_HOPS ) ) {
+						return new WP_Error( 'coywolf_seo_redirect_loop', __( 'This redirect would create a loop — the target eventually redirects back to the source.', 'coywolf-seo' ) );
+					}
 				}
 			}
 		}

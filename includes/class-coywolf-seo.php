@@ -200,6 +200,13 @@ final class Coywolf_SEO {
 	private $duplicate = null;
 
 	/**
+	 * Post ↔ Page type switcher (admin only).
+	 *
+	 * @var Coywolf_SEO_Post_Type_Switch|null
+	 */
+	private $post_type_switch = null;
+
+	/**
 	 * Redirects admin screen (admin only).
 	 *
 	 * @var Coywolf_SEO_Redirects_Admin|null
@@ -410,6 +417,14 @@ final class Coywolf_SEO {
 
 			$this->redirects_import = new Coywolf_SEO_Redirects_Import( $this->redirects );
 			$this->redirects_import->init();
+
+			// Post ↔ Page switcher. Constructed with the Redirects engine (used
+			// for the automatic 301s); init() is gated so the feature can be
+			// turned off on the Settings page.
+			$this->post_type_switch = new Coywolf_SEO_Post_Type_Switch( $this->redirects );
+			if ( Coywolf_SEO_Options::feature_enabled( 'post_type_switch' ) ) {
+				$this->post_type_switch->init();
+			}
 		}
 	}
 

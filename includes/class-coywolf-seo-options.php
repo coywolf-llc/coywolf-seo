@@ -129,6 +129,7 @@ final class Coywolf_SEO_Options {
 			'feature_links_off'            => false,
 			'feature_redirects_off'        => false,
 			'feature_robots_off'           => false,
+			'feature_post_type_switch_off' => false,
 			// Link Manager settings (relocated from the standalone plugin).
 			'lm_speed'                     => 'default',
 			'lm_user_agent'                => '',
@@ -244,6 +245,7 @@ final class Coywolf_SEO_Options {
 			'feature_links_off',
 			'feature_redirects_off',
 			'feature_robots_off',
+			'feature_post_type_switch_off',
 		);
 		foreach ( $booleans as $key ) {
 			if ( array_key_exists( $key, $raw ) ) {

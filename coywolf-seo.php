@@ -90,6 +90,7 @@ require_once __DIR__ . '/includes/class-coywolf-seo-breadcrumbs.php';
 require_once __DIR__ . '/includes/coywolf-seo-template-tags.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-mobile-image.php';
 require_once __DIR__ . '/includes/class-coywolf-seo-duplicate.php';
+require_once __DIR__ . '/includes/class-coywolf-seo-post-type-switch.php';
 /* labs-strip:start — experimental Labs features (removed from the WordPress.org build) */
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-labs-feature.php';
 require_once __DIR__ . '/includes/labs/class-coywolf-seo-labs-bundle-generator.php';

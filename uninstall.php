@@ -24,6 +24,8 @@ delete_post_meta_by_key( '_coywolf_seo' );
 delete_post_meta_by_key( '_coywolf_seo_entities' );
 // Origin marker written by the Duplicate module on each duplicated post.
 delete_post_meta_by_key( '_coywolf_seo_duplicate_of' );
+// Undo snapshot written by the Post Type Switcher on each converted post.
+delete_post_meta_by_key( '_coywolf_seo_switch_undo' );
 
 // LLMs.txt: cached body, scheduled rebuild, and the per-post Markdown cache.
 delete_option( 'coywolf_seo_llms_cache' );
@@ -61,7 +63,7 @@ foreach ( array( 'anthropic', 'openai', 'google' ) as $coywolf_seo_ai_service ) 
 delete_option( 'coywolf_seo_image_text_batch' );
 wp_unschedule_hook( 'coywolf_seo_image_text_bulk' );
 delete_option( 'coywolf_seo_image_id_fix' );
-foreach ( array( 'coywolf_seo_redirects', 'coywolf_seo_404s', 'coywolf_seo_deleted' ) as $coywolf_seo_redirect_table ) {
+foreach ( array( 'coywolf_seo_redirects', 'coywolf_seo_404s', 'coywolf_seo_deleted', 'coywolf_seo_moves' ) as $coywolf_seo_redirect_table ) {
 	$coywolf_seo_table_name = $wpdb->prefix . $coywolf_seo_redirect_table;
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name built from $wpdb->prefix and a literal; %i needs WP 6.2+.
 	$wpdb->query( "DROP TABLE IF EXISTS `{$coywolf_seo_table_name}`" );
